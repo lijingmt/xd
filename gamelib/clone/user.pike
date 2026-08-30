@@ -1855,6 +1855,68 @@ int rollback_combine_item_transaction(mapping(string:mixed) state)
 			query_name());
 	return restored_ok;
 }
+/* 净化存量丹药/特效/家园buff名称里的坏UTF-8字节（旧存档迁移残留）：
+ * 非法序列替换为U+FFFD，避免严格客户端（RN）整体拒绝响应。 */
+string sanitize_effect_name(string s)
+{
+	int len;
+	int i;
+	int c;
+	int need;
+	string out_buf;
+	if(!s || !stringp(s))
+		return s;
+	len = sizeof(s);
+	for(i = 0; i < len; i++){
+		c = s[i];
+		if(c < 0x80)
+			continue;
+		break;
+	}
+	if(i == len)
+		return s;
+	out_buf = s[..i-1];
+	while(i < len){
+		c = s[i];
+		if(c < 0x80){
+			out_buf += s[i..i];
+			i += 1;
+			continue;
+		}
+		if((c & 0xE0) == 0xC0)
+			need = 1;
+		else if((c & 0xF0) == 0xE0)
+			need = 2;
+		else if((c & 0xF8) == 0xF0)
+			need = 3;
+		else{
+			out_buf += "\357\277\275";
+			i += 1;
+			continue;
+		}
+		if(i + need >= len){
+			out_buf += "\357\277\275";
+			i += 1;
+			continue;
+		}
+		int valid = 1;
+		for(int j = 1; j <= need; j++){
+			if((s[i+j] & 0xC0) != 0x80){
+				valid = 0;
+				break;
+			}
+		}
+		if(!valid){
+			out_buf += "\357\277\275";
+			i += 1;
+			continue;
+		}
+		out_buf += s[i..i+need];
+		i += need + 1;
+	}
+	return out_buf;
+}
+
 string query_danyao_effect()
 {
 	object me = this_object();
@@ -1869,7 +1931,7 @@ string query_danyao_effect()
 				int time_remain = me->query_buff(kind,2);
 				if(flag != 1)
 					s_rtn += "|";
-				s_rtn += yao_name+"("+time_remain+"m)";
+				s_rtn += sanitize_effect_name(yao_name)+"("+time_remain+"m)";
 			}
 		}
 	}
@@ -1893,7 +1955,7 @@ string query_teyao_effect()
 					int time_remain = me->query_buff(kind,2);
 					if(flag != 1)
 						s_rtn += "|";
-					s_rtn += yao_name+"("+time_remain+"m)";
+					s_rtn += sanitize_effect_name(yao_name)+"("+time_remain+"m)";
 				}
 			}
 		}
@@ -1919,7 +1981,7 @@ string query_homeBuff_effect()
 					int time_remain = me->query_buff(kind,2);
 					if(flag != 1)
 						s_rtn += "|";
-					s_rtn += buff_name+"("+time_remain+"m)";
+					s_rtn += sanitize_effect_name(buff_name)+"("+time_remain+"m)";
 				}
 			}
 		}

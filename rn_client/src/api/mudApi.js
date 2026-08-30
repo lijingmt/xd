@@ -62,29 +62,17 @@ export function buildTxdUrl(base, path, txd, extra) {
 }
 
 /** 请求超时（毫秒）：防网络抖动导致 UI 永久挂起。 */
-const REQUEST_TIMEOUT_MS = 15000;
 
 async function getJson(url, fetchImpl) {
   const doFetch = fetchImpl || fetch;
-  /* AbortController 15秒超时：不注入测试 fetch 时生效。 */
-  let signal;
-  let timer;
-  if (!fetchImpl && typeof AbortController !== 'undefined') {
-    const controller = new AbortController();
-    signal = controller.signal;
-    timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  }
+  /* 不带 AbortController signal：RN 的 fetch+signal 组合会让响应体
+   * 读取返回 undefined（真机/模拟器均复现）；超时交给系统默认。 */
   let response;
   try {
-    response = await doFetch(url, signal ? { signal } : undefined);
+    response = await doFetch(url);
   } catch (e) {
-    if (timer) clearTimeout(timer);
-    if (e && e.name === 'AbortError') {
-      throw new Error('请求超时，请检查网络连接');
-    }
     throw e;
   }
-  if (timer) clearTimeout(timer);
   let data = null;
   try {
     /* 先取文本再解析：RN对含非法UTF-8字节的响应response.json()会直接

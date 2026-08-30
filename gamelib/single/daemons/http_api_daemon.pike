@@ -1879,12 +1879,8 @@ string build_command_json_response_job(string response,string new_txd,
     void|int filter_mobile_donation)
 {
     array(mapping) lines = parse_mud_to_json(response, new_txd, auth_userid);
-    if(filter_mobile_donation){
-        int pre_count = sizeof(lines);
+    if(filter_mobile_donation)
         lines = filter_json_for_mobile_app(lines);
-        werror("[MobileFilter] cmd=%s user=%s lines %d->%d\n",
-            cmd, auth_userid, pre_count, sizeof(lines));
-    }
     string copy_data;
     string copy_type;
     if(search(response, "COPY_CODE:") != -1) {
@@ -1924,22 +1920,28 @@ string build_command_json_response_job(string response,string new_txd,
     }
     if(mappingp(refresh_snapshot) && sizeof(refresh_snapshot)>0)
         json_result->refresh = refresh_snapshot;
-    return Standards.JSON.encode(json_result);
+    /* 最终防线：编码后的整份JSON再净化一次，lines与refresh里的任何
+     * 非法UTF-8都不允许离开服务端（严格客户端会整体拒绝响应）。 */
+    return sanitize_utf8_response(Standards.JSON.encode(json_result));
 }
 
-void finish_handle_api_json(string response,
+void finish_handle_api_json(string rsp_raw,
     Protocols.HTTP.Server.Request req,string auth_userid,
     string auth_password,string cmd,void|int filter_mobile_donation)
 {
     string command_response;
+    string response;
     object response_player = get_player_from_connection(auth_userid);
     array(mapping) newbie_completions = ({});
     mapping refresh_snapshot = ([]);
     string stored_password;
     string new_txd;
 
-    command_response = sanitize_utf8_response(
-        String.trim_all_whites(response || ""));
+    /* 净化要作用于源头：下游JSON组装job、COPY_CODE扫描、错误检查
+     * 全部使用净化后的字符串，非法UTF-8不允许进入任何响应路径。 */
+    response = sanitize_utf8_response(rsp_raw || "");
+
+    command_response = String.trim_all_whites(response);
     // 调度/运行时异常不能伪装成普通MUD文字。返回HTTP错误后，选角页会
     // 保留已创建人物并允许重试，而不是带着半初始化界面进入游戏。
     if(has_prefix(command_response,"错误:") ||
@@ -3121,6 +3123,26 @@ private string sanitize_utf8_response(string data)
     string out_buf;
     if(!data || (len = sizeof(data)) == 0)
         return data;
+    /* 宽字符串：按字符处理。0x80-0xFF 的latin1残留字符（旧数据坏
+     * 字节在宽串里的形态）替换为U+FFFD；其余字符JSON编码合法。 */
+    int is_wide = 0;
+    foreach(values(data), int v){
+        if(v > 0xFF){
+            is_wide = 1;
+            break;
+        }
+    }
+    if(is_wide){
+        string wide_out = "";
+        for(int k = 0; k < len; k++){
+            int ch = data[k];
+            if(ch >= 0x80 && ch <= 0xFF)
+                wide_out += sprintf("%c", 0xfffd);
+            else
+                wide_out += data[k..k];
+        }
+        return wide_out;
+    }
     /* 快速路径：全ASCII直接放行。 */
     for(i = 0; i < len; i++){
         c = data[i];

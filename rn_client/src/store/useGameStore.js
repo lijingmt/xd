@@ -495,12 +495,10 @@ export const useGameStore = create((set, get) => ({
    *  挂机轮询(flushview)不走这里，保留增量追加。 */
   async command(cmd) {
     const { txd } = get();
-    console.log(`[DEBUG] command start: ${cmd} api=${api.getApiBase()}`);
     if (!txd || !cmd) return;
     set({ busy: true, error: '', lines: [] });
     try {
       const data = await api.sendCommand(txd, cmd, undefined, platformTag());
-      console.log(`[DEBUG] command ok: ${cmd} rawLines=${(data.lines || []).length}`);
       set({
         txd: data.txd || txd,
         busy: false,
@@ -510,7 +508,6 @@ export const useGameStore = create((set, get) => ({
           : get().inBattle,
       });
     } catch (e) {
-      console.log(`[DEBUG] command FAILED: ${cmd} -> ${e.message}`);
       set({ busy: false, error: e.message });
     }
   },
