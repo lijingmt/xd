@@ -2323,14 +2323,14 @@ mapping(string:mixed) retire_entire_account(string account_id,
 	}
 	key = account_character_lock->lock();
 	record = load_persisted_record_unlocked(account_id);
-	if(!record){
-		destruct(key);
-		return (["ok":0,"message":"账号档案不存在"]);
-	}
 	characters = ({});
-	foreach((array)record["characters"],mapping entry){
-		if(mappingp(entry) && stringp(entry["id"]))
-			characters += ({entry});
+	/* 老式/新注册账号可能只有默认人物、尚无账号索引记录：
+	 * 视为零子人物继续（默认人物档案仍会被归档）。 */
+	if(record && arrayp(record["characters"])){
+		foreach((array)record["characters"],mapping entry){
+			if(mappingp(entry) && stringp(entry["id"]))
+				characters += ({entry});
+		}
 	}
 	destruct(key);
 

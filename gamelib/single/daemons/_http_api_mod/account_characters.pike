@@ -777,9 +777,16 @@ void handle_api_account_delete_account(
 		send_json(req,(["error":"请完整输入账号ID进行二次确认"]),400);
 		return;
 	}
-	if(sizeof(request_id)!=64 ||
-	   sizeof(replace(request_id,
-		"0123456789abcdef"/"", ({})*16))!=0){
+	int receipt_valid = sizeof(request_id)==64;
+	if(receipt_valid)
+		for(int i=0;i<sizeof(request_id);i++){
+			int c = request_id[i];
+			if(!((c>='0'&&c<='9')||(c>='a'&&c<='f'))){
+				receipt_valid = 0;
+				break;
+			}
+		}
+	if(!receipt_valid){
 		send_json(req,(["error":"删除请求编号无效"]),400);
 		return;
 	}
@@ -793,10 +800,19 @@ void handle_api_account_delete_account(
 		send_account_auth_error(req,client_ip);
 		return;
 	}
-	retired = ACCOUNT_CHARACTERD->retire_entire_account(
-		account_id,request_id);
-	if(!(int)retired["ok"]){
-		send_json(req,(["error":(string)(retired["message"] ||
+	mixed retire_err = catch {
+		retired = ACCOUNT_CHARACTERD->retire_entire_account(
+			account_id,request_id);
+	};
+	if(retire_err){
+		werror("[DELETE_ACCOUNT] retire failed for %s: %s\n",
+			account_id,describe_error(retire_err));
+		send_json(req,(["error":"账号删除处理异常，账号保持不变"]),500);
+		return;
+	}
+	if(!mappingp(retired) || !(int)retired["ok"]){
+		send_json(req,(["error":(string)(
+			(mappingp(retired) && retired["message"]) ||
 			"账号删除失败")]),409);
 		return;
 	}

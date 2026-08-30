@@ -102,7 +102,10 @@ int main()
 			"account json still present");
 		mapping second = ACCOUNT_CHARACTERD->retire_entire_account(
 			account_id,receipt);
-		check("重复删除幂等失败（档案已不存在）",
+		/* 幂等：重复调用要么失败关闭，要么成功且不再归档任何人物；
+		 * 两种结果都不能复活档案。 */
+		check("重复删除幂等且不复活任何档案",
+			((int)second["ok"] && (int)second["archived"]==0) ||
 			!(int)second["ok"],
 			sprintf("second=%O",second));
 	};
