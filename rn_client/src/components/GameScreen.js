@@ -154,6 +154,17 @@ export default function GameScreen() {
     return () => { cancelled = true; };
   }, []);
 
+  /* 挂机开启的瞬间清掉阅读保护期：玩家点挂机就是想立刻看战斗，
+   * 不能被15秒菜单保护挡住画面轮询。 */
+  const wasAfkRef = useRef(false);
+  useEffect(() => {
+    if (store.autofighting && !wasAfkRef.current) {
+      lastUserNavRef.current = 0;
+      lastPollRef.current = 0;
+    }
+    wasAfkRef.current = store.autofighting;
+  }, [store.autofighting]);
+
   const updateUiSettings = patch => {
     setUiSettings(prev => {
       const next = { ...prev, ...patch };
