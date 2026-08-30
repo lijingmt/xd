@@ -259,6 +259,18 @@ private void show_cleanup_settings(object me,string notice)
 	else
 		out += "不限制等级差（"+vip_label(3)+"解锁）\n";
 
+	out += "\n套装回收（挂机中自动回收重复套装件，每组保留最好一件，绑定/任务/唯一等永不动）：\n";
+	{
+		object set_cmd = (object)(
+			ROOT+"/gamelib/cmds/set_equipment_cleanup.pike");
+		int set_on = objectp(set_cmd) &&
+			set_cmd->query_set_recycle_enabled(me);
+		out += set_on ?
+			"✓ [关闭套装回收:autofight set_recycle off]\n" :
+			"[开启套装回收:autofight set_recycle on]\n";
+		out += "[查看套装与手动清理:set_equipment_cleanup]\n";
+	}
+
 	out += "\n装备类别选项：\n";
 	out += (int)me["/plus/autofight_sell_weapon"] == 1 ?
 		"✓ [武器：出售:autofight selltype weapon 0]\n" :
