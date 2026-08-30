@@ -1034,6 +1034,52 @@ await check('panelCards 空槽且无候选的过滤掉，空数据安全', () =>
   assert.deepEqual(panelCards({}), []);
 });
 
+/* ---------- 纸娃娃装备面板模型 ---------- */
+const { panelModel } = await import('../src/api/equipmentApi.js');
+
+await check('panelModel 保留全部槽位（含空槽）并归一化物品', () => {
+  const model = panelModel({
+    slot_order: ['single_main_weapon', 'armor_head'],
+    slots: {
+      single_main_weapon: { label: '主手', icon: '剑',
+        image: '/images/equipment/fallback/weapon.png' },
+      armor_head: { label: '头部', icon: '冠',
+        image: '/images/equipment/fallback/head.png' },
+    },
+    equipped: {
+      single_main_weapon: { id: 'sword#0', name_cn: '天锋剑',
+        rare_level: 5, level_requirement: 69, image_url: '/i/sword.png',
+        action_label: '卸下', action_cmd: 'unwield sword 0' },
+    },
+    candidates: {
+      armor_head: [{ id: 'helm#1', name_cn: '玄铁冠',
+        rare_level: 4, level_requirement: 40,
+        action_label: '穿戴', action_cmd: 'wear helm 1' }],
+    },
+    player: { name: 'jinghaha', name_cn: '剑心',
+      level: 69, profession: '剑修' },
+  });
+  assert.equal(model.slots.length, 2, '空槽armor_head也保留');
+  assert.equal(model.player.name_cn, '剑心');
+  const weapon = model.slots.find(s => s.slot === 'single_main_weapon');
+  assert.equal(weapon.equipped.name, '天锋剑');
+  assert.equal(weapon.equipped.rareLevel, 5);
+  assert.equal(weapon.equipped.actionCmd, 'unwield sword 0');
+  assert.equal(weapon.candidates.length, 0);
+  const head = model.slots.find(s => s.slot === 'armor_head');
+  assert.equal(head.equipped, null, '空槽equipped为null');
+  assert.equal(head.candidates.length, 1);
+  assert.equal(head.candidates[0].name, '玄铁冠');
+  assert.equal(head.candidates[0].actionCmd, 'wear helm 1');
+});
+
+await check('panelModel 空数据安全返回空结构', () => {
+  const model = panelModel(null);
+  assert.equal(model.slots.length, 0);
+  assert.equal(model.player, null);
+  assert.deepEqual(model.slotOrder, []);
+});
+
 /* ---------- 网络超时与错误边界 ---------- */
 await check('getJson 15秒超时后抛出友好错误（AbortController）', async () => {
   api.setApiBase('http://mock:9');
@@ -1078,6 +1124,33 @@ await check('skillMeta 返回完整视觉参数', () => {
   assert.equal(fallback.icon, '✦');
   assert.ok(Object.keys(SKILL_TYPE_META).length >= 24,
     `应有24+种类型，实际${Object.keys(SKILL_TYPE_META).length}`);
+  for (const [typeId, m] of Object.entries(SKILL_TYPE_META)) {
+    assert.ok(m.variant && m.size >= 24,
+      `${typeId} 缺少动画变体或尺寸（variant=${m.variant}, size=${m.size}）`);
+  }
+  assert.equal(meta.variant, 'moon');
+  assert.equal(skillMeta('sword-qi').variant, 'wave');
+  assert.equal(skillMeta('dodge').variant, 'shift');
+});
+
+/* ---------- 技能动画目标定位 ---------- */
+const { skillAnimationTarget } = await import('../src/utils/battleFeedback.js');
+
+await check('skillAnimationTarget 判定敌我/房间目标', () => {
+  assert.equal(skillAnimationTarget('sword-qi', '你施展了【万剑归宗】'),
+    'enemy', '玩家施放攻击技→敌人侧');
+  assert.equal(skillAnimationTarget('sword-qi', '敌人对你施展了【裂空斩】'),
+    'player', '敌方施放且作用于你→玩家侧');
+  assert.equal(skillAnimationTarget('heal', '你施放了【回春术】'),
+    'player', '玩家自愈→玩家侧');
+  assert.equal(skillAnimationTarget('heal', '敌人施放了【回春术】'),
+    'enemy', '敌方自愈→敌人侧');
+  assert.equal(skillAnimationTarget('buff', '为你恢复了灵力'),
+    'player', '作用于你→玩家侧（丹药buff由调用处硬编码player）');
+  assert.equal(skillAnimationTarget('generic', '【战技显化】星辰坠落'),
+    'room', '战技显化→房间中央');
+  assert.equal(skillAnimationTarget('sword-qi', '你对敌人造成伤害'),
+    'enemy', '你对…不受affectsPlayer影响');
 });
 
 /* ---------- 网络状态检测 ---------- */

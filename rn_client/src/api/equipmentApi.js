@@ -24,6 +24,44 @@ export async function fetchEquipmentPanel(apiBase, txd, fetchImpl) {
     buildTxdUrl(apiBase, '/api/equipment_panel', txd), fetchImpl);
 }
 
+/**
+ * 纸娃娃布局模型：保留 slot_order 全部槽位（含空槽），
+ * 附完整候选列表与玩家信息，供 EquipmentPanel 人物换装视图使用。
+ */
+export function panelModel(panelData) {
+  const data = panelData || {};
+  const slots = data.slots || {};
+  const equipped = data.equipped || {};
+  const candidates = data.candidates || {};
+  const order = data.slot_order || Object.keys(slots);
+  const normalizeItem = (item, slot) => item ? ({
+    id: item.id || `${slot}-${item.name || ''}`,
+    name: item.name_cn || item.name || '',
+    slot,
+    itemType: item.item_type || '',
+    image: item.image_url || '',
+    imageFallback: item.image_fallback || '',
+    levelReq: item.level_requirement || 0,
+    rareLevel: item.rare_level || 0,
+    actionCmd: item.action_cmd || '',
+    actionLabel: item.action_label || '',
+  }) : null;
+  return {
+    player: data.player || null,
+    slotOrder: order,
+    slotMeta: slots,
+    slots: order.map(slot => ({
+      slot,
+      label: (slots[slot] || {}).label || slot,
+      icon: (slots[slot] || {}).icon || '装',
+      image: (slots[slot] || {}).image || '',
+      equipped: normalizeItem(equipped[slot], slot),
+      candidates: (candidates[slot] || []).map(
+        item => normalizeItem(item, slot)),
+    })),
+  };
+}
+
 /** 归一化槽位数据为渲染友好的卡片列表。 */
 export function panelCards(panelData) {
   const data = panelData || {};

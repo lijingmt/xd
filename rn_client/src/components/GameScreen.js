@@ -8,11 +8,11 @@ import {
 import {
   lineKey,
 } from '../utils/segments.js';
-import { parseBattleLines, extractSkillName } from '../utils/battleFeedback.js';
+import { parseBattleLines, extractSkillName, skillAnimationTarget } from '../utils/battleFeedback.js';
 import {
   createStatsTracker, applyEvents, formatStats,
 } from '../utils/battleStats.js';
-import { parseSkillType } from '../utils/skillTypes.js';
+import { parseSkillType, skillMeta } from '../utils/skillTypes.js';
 import { getImageBase } from '../api/mudApi.js';
 import { useGameStore, setRuntimePlatform } from '../store/useGameStore.js';
 import { PROFESSION_OPTIONS } from '../data/characterOptions.js';
@@ -373,23 +373,50 @@ export default function GameScreen() {
       prevLineCountRef.current, store.lines.length));
     prevLineCountRef.current = store.lines.length;
     const events = parseBattleLines(newLines);
-    if (!events.length) return;
     /* 累积战斗统计 */
     applyEvents(statsRef.current, events);
     const summary = formatStats(statsRef.current);
     if (summary) setStatsSummary(summary);
     if (!effectsRef.current) return;
-    const batch = events.slice(0, 6).map((event, index) => ({
-      ...event,
-      id: `float-${Date.now()}-${index}`,
-    }));
-    setFloaters(prev => [...prev, ...batch].slice(-8));
-    const timers = [setTimeout(() => {
-      setFloaters(prev => prev.filter(f =>
-        !batch.some(b => b.id === f.id)));
-    }, eventDuration(batch[0]))];
+    const timers = [];
+    if (events.length > 0) {
+      const batch = events.slice(0, 6).map((event, index) => ({
+        ...event,
+        id: `float-${Date.now()}-${index}`,
+      }));
+      setFloaters(prev => [...prev, ...batch].slice(-8));
+      timers.push(setTimeout(() => {
+        setFloaters(prev => prev.filter(f =>
+          !batch.some(b => b.id === f.id)));
+      }, eventDuration(batch[0])));
+    }
 
-    /* 技能施法动画：从新行提取技能名→类型→视觉特效 */
+    /* 技能动画队列：1200ms 内同类型+同名+同目标去重（与网页版一致）。 */
+    const pendingSkills = [];
+    const seenSkill = (type, name, target) => pendingSkills.some(s =>
+      s.type === type && s.name === name && s.target === target);
+
+    /* 闪避/格挡/中毒：玩家身上的状态特效（叠加浮动数字之外）。 */
+    const STATE_FX = { dodge: '闪避', block: '格挡', poison: '持续伤害' };
+    for (const event of events) {
+      if (STATE_FX[event.kind] &&
+        !seenSkill(event.kind, STATE_FX[event.kind], 'player')) {
+        pendingSkills.push({
+          id: `skill-${Date.now()}-st-${event.kind}-${Math.random()}`,
+          type: event.kind, name: STATE_FX[event.kind], target: 'player',
+        });
+      }
+      /* 暴击伤害：对目标追加强化爆炸特效。 */
+      if (event.kind === 'damage' && event.critical && event.value > 0 &&
+        !seenSkill('critical', '会心一击', event.target)) {
+        pendingSkills.push({
+          id: `skill-${Date.now()}-crit-${Math.random()}`,
+          type: 'critical', name: '会心一击', target: event.target,
+        });
+      }
+    }
+
+    /* 技能施法动画：从新行提取技能名→类型→目标位置→视觉特效 */
     for (const line of newLines.slice(0, 5)) {
       const text = ((line && line.segments) || [])
         .map(s => s.type === 'text'
@@ -398,16 +425,40 @@ export default function GameScreen() {
       const name = extractSkillName(text);
       if (name) {
         const type = parseSkillType(text) || parseSkillType(name) || 'generic';
-        const skillEffect = {
-          id: `skill-${Date.now()}-${Math.random()}`,
-          name, type,
-        };
-        setSkillEffects(prev => [...prev, skillEffect].slice(-3));
+        const target = skillAnimationTarget(type, text);
+        if (!seenSkill(type, name, target)) {
+          pendingSkills.push({
+            id: `skill-${Date.now()}-${Math.random()}`,
+            name, type, target,
+          });
+        }
+        break; /* 每帧最多一个施法特效 */
+      }
+    }
+
+    /* 丹药服用 → buff 光效（挂机自动嗑药也触发）。 */
+    for (const line of newLines.slice(0, 5)) {
+      const text = ((line && line.segments) || [])
+        .map(s => s.type === 'text'
+          ? ((s.parts) || []).map(p => p.content || '').join('')
+          : '').join('');
+      const eat = text.match(/你(?:食用|阅读)了([^。。\n]+?)(?:[。\n]|$)/);
+      if (eat && eat[1] && !seenSkill('buff', eat[1].trim(), 'player')) {
+        pendingSkills.push({
+          id: `skill-${Date.now()}-buff-${Math.random()}`,
+          type: 'buff', name: eat[1].trim(), target: 'player',
+        });
+        break;
+      }
+    }
+
+    if (pendingSkills.length > 0) {
+      setSkillEffects(prev => [...prev, ...pendingSkills].slice(-3));
+      for (const skill of pendingSkills) {
         timers.push(setTimeout(() => {
           setSkillEffects(prev =>
-            prev.filter(e => e.id !== skillEffect.id));
-        }, 2000));
-        break; /* 每帧最多一个技能特效 */
+            prev.filter(e => e.id !== skill.id));
+        }, skillMeta(skill.type).duration + 150));
       }
     }
     /* 卸载时清理所有定时器，防止setState on unmounted */
@@ -530,15 +581,19 @@ export default function GameScreen() {
       {/* ===== 顶栏：复刻 Vue game-header ===== */}
       <View style={styles.header}>
         <View style={styles.infoRow}>
-          {avatarUrl ? (
-            <SmartImage uri={avatarUrl} style={styles.headerAvatar} />
-          ) : (
-            <View style={styles.headerAvatarPlaceholder}>
-              <Text style={styles.headerAvatarText}>
-                {(status.name_cn || '仙')[0]}
-              </Text>
-            </View>
-          )}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => { lastUserNavRef.current = Date.now(); setEquipOpen(true); }}>
+            {avatarUrl ? (
+              <SmartImage uri={avatarUrl} style={styles.headerAvatar} />
+            ) : (
+              <View style={styles.headerAvatarPlaceholder}>
+                <Text style={styles.headerAvatarText}>
+                  {(status.name_cn || '仙')[0]}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
           {!!status.pet_assist && typeof status.pet_assist === 'object' && (
             <View style={styles.headerPetBadge}>
               <Text style={styles.headerPetIcon}>

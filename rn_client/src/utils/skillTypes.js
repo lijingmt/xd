@@ -1,33 +1,34 @@
 /**
  * 技能类型识别（Vue parseMartialArtsSkill 的原生移植）。
- * 纯函数：技能名 → 类型ID → {icon,color,glow,duration}。
+ * 纯函数：技能名 → 类型ID → {icon,color,glow,duration,variant,size}。
+ * variant 决定 SkillEffectOverlay 的动画变体（对应网页版 CSS keyframes）。
  */
 
 export const SKILL_TYPE_META = {
-  'sword-qi':   { icon: '⚔️', color: '#FFD700', glow: '#FFEC8B', duration: 1000 },
-  'palm':       { icon: '🖐️', color: '#FF6B4A', glow: '#FF8E6B', duration: 800 },
-  'finger':     { icon: '👆', color: '#DDA0DD', glow: '#E6B8E6', duration: 650 },
-  'fist':       { icon: '👊', color: '#4A9EFF', glow: '#7AB8FF', duration: 650 },
-  'lightness':  { icon: '💨', color: '#87CEEB', glow: '#B0E0F5', duration: 950 },
-  'inner-power':{ icon: '✨', color: '#FFD700', glow: '#FFF8DC', duration: 1100 },
-  'staff':      { icon: '🎋', color: '#8B4513', glow: '#C4956A', duration: 750 },
-  'saber':      { icon: '🗡️', color: '#C0C0C0', glow: '#E8E8E8', duration: 750 },
-  'critical':   { icon: '💥', color: '#FF0000', glow: '#FF6B6B', duration: 800 },
-  'dodge':      { icon: '💫', color: '#87CEEB', glow: '#B0E0F5', duration: 550 },
-  'block':      { icon: '🛡️', color: '#FFD700', glow: '#FFF8DC', duration: 650 },
-  'poison':     { icon: '☠️', color: '#32CD32', glow: '#7CFC7A', duration: 1300 },
-  'heal':       { icon: '🪷', color: '#98FB98', glow: '#C1FFC1', duration: 1200 },
-  'summon':     { icon: '🌀', color: '#4169E1', glow: '#7A9FE1', duration: 1350 },
-  'buff':       { icon: '🔆', color: '#FFD700', glow: '#FFF8DC', duration: 1100 },
-  'curse':      { icon: '🔮', color: '#9932CC', glow: '#C47BD1', duration: 1100 },
-  'lightning':  { icon: '⚡', color: '#FFFF00', glow: '#FFFACD', duration: 900 },
-  'fire':       { icon: '🔥', color: '#FF4500', glow: '#FF8C69', duration: 1000 },
-  'ice':        { icon: '❄️', color: '#00BFFF', glow: '#87CEEB', duration: 1100 },
-  'wind':       { icon: '🌪️', color: '#98D8E8', glow: '#C1E8F0', duration: 950 },
-  'spirit':     { icon: '☯️', color: '#DDA0DD', glow: '#E6B8E6', duration: 1100 },
-  'ancient':    { icon: '𖤓', color: '#FFD700', glow: '#E879F9', duration: 1800 },
-  'shentaigu':  { icon: '🌑', color: '#FF2D55', glow: '#7A0D1F', duration: 2400 },
-  'generic':    { icon: '✦', color: '#F0E6D2', glow: '#8A7A8A', duration: 900 },
+  'sword-qi':   { icon: '⚔️', color: '#FFD700', glow: '#FFEC8B', duration: 1000, variant: 'wave',   size: 56 },
+  'palm':       { icon: '🖐️', color: '#FF6B4A', glow: '#FF8E6B', duration: 800,  variant: 'ripple', size: 48 },
+  'finger':     { icon: '👆', color: '#DDA0DD', glow: '#E6B8E6', duration: 650,  variant: 'beam',   size: 40 },
+  'fist':       { icon: '👊', color: '#4A9EFF', glow: '#7AB8FF', duration: 650,  variant: 'impact', size: 52 },
+  'lightness':  { icon: '💨', color: '#87CEEB', glow: '#B0E0F5', duration: 950,  variant: 'rise',   size: 44 },
+  'inner-power':{ icon: '✨', color: '#FFD700', glow: '#FFF8DC', duration: 1100, variant: 'wave',   size: 64 },
+  'staff':      { icon: '🎋', color: '#8B4513', glow: '#C4956A', duration: 750,  variant: 'sweep',  size: 48 },
+  'saber':      { icon: '🗡️', color: '#C0C0C0', glow: '#E8E8E8', duration: 750,  variant: 'slash',  size: 56 },
+  'critical':   { icon: '💥', color: '#FF0000', glow: '#FF6B6B', duration: 800,  variant: 'burst',  size: 72 },
+  'dodge':      { icon: '💫', color: '#87CEEB', glow: '#B0E0F5', duration: 550,  variant: 'shift',  size: 40 },
+  'block':      { icon: '🛡️', color: '#FFD700', glow: '#FFF8DC', duration: 650,  variant: 'pulse',  size: 44 },
+  'poison':     { icon: '☠️', color: '#32CD32', glow: '#7CFC7A', duration: 1300, variant: 'ripple', size: 48 },
+  'heal':       { icon: '🪷', color: '#98FB98', glow: '#C1FFC1', duration: 1200, variant: 'rise',   size: 52 },
+  'summon':     { icon: '🌀', color: '#4169E1', glow: '#7A9FE1', duration: 1350, variant: 'orbit',  size: 56 },
+  'buff':       { icon: '🔆', color: '#FFD700', glow: '#FFF8DC', duration: 1100, variant: 'pulse',  size: 44 },
+  'curse':      { icon: '🔮', color: '#9932CC', glow: '#C47BD1', duration: 1100, variant: 'orbit',  size: 44 },
+  'lightning':  { icon: '⚡', color: '#FFFF00', glow: '#FFFACD', duration: 900,  variant: 'impact', size: 48 },
+  'fire':       { icon: '🔥', color: '#FF4500', glow: '#FF8C69', duration: 1000, variant: 'burst',  size: 52 },
+  'ice':        { icon: '❄️', color: '#00BFFF', glow: '#87CEEB', duration: 1100, variant: 'ripple', size: 46 },
+  'wind':       { icon: '🌪️', color: '#98D8E8', glow: '#C1E8F0', duration: 950,  variant: 'sweep',  size: 48 },
+  'spirit':     { icon: '☯️', color: '#DDA0DD', glow: '#E6B8E6', duration: 1100, variant: 'orbit',  size: 48 },
+  'ancient':    { icon: '𖤓', color: '#FFD700', glow: '#E879F9', duration: 1800, variant: 'burst',  size: 64 },
+  'shentaigu':  { icon: '🌑', color: '#FF2D55', glow: '#7A0D1F', duration: 2400, variant: 'moon',   size: 72 },
+  'generic':    { icon: '✦', color: '#F0E6D2', glow: '#8A7A8A', duration: 900,  variant: 'cast',   size: 40 },
 };
 
 /**

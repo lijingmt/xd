@@ -104,3 +104,20 @@ export function extractSkillName(text) {
   const cast = text.match(/施展了([^【「]{2,8})/);
   return cast ? cast[1].trim() : null;
 }
+
+/**
+ * 技能动画目标（Vue getSkillAnimationTarget 同一套规则）：
+ * 'player'（左侧）/ 'enemy'（右侧）/ 'room'（房间中央）。
+ */
+export function skillAnimationTarget(skillType, text) {
+  const value = String(text || '');
+  if (/【战技显化】|【灵宠显化】/.test(value)) return 'room';
+  const playerCast = /你(?:紧握.*?)?(?:施展|施放|使出|发动|祭起|召唤)/.test(value);
+  const affectsPlayer = /对你|为你恢复|你的这次攻击/.test(value);
+  const selfTypes = ['heal', 'summon', 'buff', 'inner-power',
+    'lightness', 'dodge', 'block'];
+  if (selfTypes.includes(skillType)) {
+    return playerCast || affectsPlayer ? 'player' : 'enemy';
+  }
+  return affectsPlayer && !value.includes('你对') ? 'player' : 'enemy';
+}
