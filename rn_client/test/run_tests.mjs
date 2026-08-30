@@ -1442,6 +1442,28 @@ await check('充值控制器：无iap模块时安全降级，购买流程参数�
   assert.equal((await legacy.fetchProducts()).length, 1);
 });
 
+/* ---------- 注册表单 ---------- */
+const { validateRegisterForm } = await import('../src/utils/registerForm.js');
+
+await check('注册表单校验：分区/账号/密码/确认全覆盖', () => {
+  assert.equal(validateRegisterForm({ partition: 'xd01', userid: 'abcd',
+    password: '1234', confirm: '1234' }), '');
+  assert.equal(validateRegisterForm(null), '请选择分区');
+  assert.equal(validateRegisterForm({ partition: '', userid: 'x' }),
+    '请选择分区');
+  assert.equal(validateRegisterForm({ partition: 'xd01', userid: 'abc',
+    password: '1234', confirm: '1234' }), '账号需4-12个字符');
+  assert.equal(validateRegisterForm({ partition: 'xd01',
+    userid: 'a'.repeat(13), password: '1234', confirm: '1234' }),
+    '账号需4-12个字符');
+  assert.equal(validateRegisterForm({ partition: 'xd01', userid: 'ab中c',
+    password: '1234', confirm: '1234' }), '账号只能用字母或数字');
+  assert.equal(validateRegisterForm({ partition: 'xd01', userid: 'abcd',
+    password: '123', confirm: '123' }), '密码至少4位');
+  assert.equal(validateRegisterForm({ partition: 'xd01', userid: 'abcd',
+    password: '1234', confirm: '4321' }), '两次输入的密码不一致');
+});
+
 console.log(`\n前端 TestUnit：通过 ${passed}，失败 ${failed}`);
 if (failed > 0) {
   console.log(failures.join('\n'));

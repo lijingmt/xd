@@ -4,7 +4,9 @@ import {
   ScrollView, ActivityIndicator,
 } from 'react-native';
 import { useGameStore } from '../store/useGameStore.js';
+import * as api from '../api/mudApi.js';
 import { WAN_API_BASE, LAN_API_BASE } from '../api/mudApi.js';
+import { validateRegisterForm } from '../utils/registerForm.js';
 
 export default function LoginScreen() {
   const {
@@ -13,6 +15,41 @@ export default function LoginScreen() {
   const [partition, setPartition] = useState('');
   const [userid, setUserid] = useState('');
   const [password, setPassword] = useState('');
+  const [mode, setMode] = useState('login'); /* login|register */
+  const [confirm, setConfirm] = useState('');
+  const [regBusy, setRegBusy] = useState(false);
+  const [regDone, setRegDone] = useState(false);
+
+  const register = async () => {
+    const problem = validateRegisterForm(
+      { partition, userid, password, confirm });
+    if (problem) {
+      useGameStore.setState({ error: problem });
+      return;
+    }
+    setRegBusy(true);
+    useGameStore.setState({ error: '' });
+    try {
+      const challenge = await api.fetchChallenge();
+      const result = await api.registerAccount(
+        `${partition}${userid.trim()}`, password, 'rnreg', challenge);
+      if (!result.ok) {
+        useGameStore.setState({
+          error: /已存在|重复/.test(result.text)
+            ? '该账号已被注册' : '注册失败，请稍后再试',
+        });
+      } else {
+        setRegDone(true);
+        useGameStore.setState({
+          error: '注册成功，请点击「进入仙道wapmud」登录',
+        });
+      }
+    } catch (e) {
+      useGameStore.setState({ error: `注册失败: ${e.message}` });
+    } finally {
+      setRegBusy(false);
+    }
+  };
 
   useEffect(() => {
     loadPartitions().then(list => {
@@ -101,6 +138,19 @@ export default function LoginScreen() {
           placeholder="输入密码"
           placeholderTextColor="#6a5a6a"
         />
+        {mode === 'register' && (
+          <>
+            <Text style={styles.label}>确认密码</Text>
+            <TextInput
+              style={styles.input}
+              value={confirm}
+              onChangeText={setConfirm}
+              secureTextEntry
+              placeholder="再输入一次密码"
+              placeholderTextColor="#6a5a6a"
+            />
+          </>
+        )}
 
         {!!error && (
           <View style={styles.errorPill}>
@@ -108,15 +158,41 @@ export default function LoginScreen() {
           </View>
         )}
 
+        {mode === 'login' ? (
+          <TouchableOpacity
+            style={[styles.loginButton,
+              (busy || !partition || !userid || !password) &&
+                styles.loginButtonDisabled]}
+            disabled={busy || !partition || !userid || !password}
+            onPress={() => login(partition, userid.trim(), password)}>
+            {busy
+              ? <ActivityIndicator color="#ffe3e8" size="small" />
+              : <Text style={styles.loginText}>进入仙道wapmud</Text>}
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.loginButton,
+              (regBusy || regDone) && styles.loginButtonDisabled]}
+            disabled={regBusy || regDone}
+            onPress={register}>
+            {regBusy
+              ? <ActivityIndicator color="#ffe3e8" size="small" />
+              : <Text style={styles.loginText}>
+                  {regDone ? '✓ 注册成功' : '注册账号'}
+                </Text>}
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
-          style={[styles.loginButton,
-            (busy || !partition || !userid || !password) &&
-              styles.loginButtonDisabled]}
-          disabled={busy || !partition || !userid || !password}
-          onPress={() => login(partition, userid.trim(), password)}>
-          {busy
-            ? <ActivityIndicator color="#ffe3e8" size="small" />
-            : <Text style={styles.loginText}>进入仙道wapmud</Text>}
+          style={styles.switchRow}
+          onPress={() => {
+            setMode(mode === 'login' ? 'register' : 'login');
+            setRegDone(false);
+            setConfirm('');
+            useGameStore.setState({ error: '' });
+          }}>
+          <Text style={styles.switchText}>
+            {mode === 'login' ? '没有账号？注册新账号 →' : '← 已有账号，直接登录'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -180,6 +256,10 @@ const styles = StyleSheet.create({
   partitionChipActive: { borderColor: '#d4af37', backgroundColor: '#2d2410' },
   partitionText: { color: '#a89aa8', fontSize: 14 },
   partitionTextActive: { color: '#ffd700' },
+  switchRow: {
+    alignItems: 'center', paddingVertical: 12, marginTop: 2,
+  },
+  switchText: { color: '#9ab8d8', fontSize: 13 },
   errorPill: {
     marginTop: 14, backgroundColor: '#3d1018', borderRadius: 10,
     borderWidth: 1, borderColor: '#ff4d6d', paddingHorizontal: 12,
