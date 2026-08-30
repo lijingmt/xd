@@ -15,7 +15,7 @@ import {
   responseHasBattleButton, buttonStyleFor, resolveImageUrl,
   buildInputCommand, colorHexForClass, lineKey, filterGarbageLines,
 } from '../src/utils/segments.js';
-import { useGameStore } from '../src/store/useGameStore.js';
+import { useGameStore, noteSuiyuChange } from '../src/store/useGameStore.js';
 
 let passed = 0;
 let failed = 0;
@@ -1080,6 +1080,51 @@ await check('panelModel 空数据安全返回空结构', () => {
   assert.deepEqual(model.slotOrder, []);
 });
 
+/* ---------- 装备属性对比 ---------- */
+const { attrRows, attrTotalDelta, ATTR_LABELS } =
+  await import('../src/api/equipmentApi.js');
+
+await check('attrRows 候选vs已穿戴逐属性差值', () => {
+  const rows = attrRows(
+    { attack: 120, defend: 40, str: 5 },
+    { attack: 100, defend: 55, hitte: 3 },
+  );
+  const byKey = Object.fromEntries(rows.map(r => [r.key, r]));
+  assert.equal(byKey.attack.delta, 20);
+  assert.equal(byKey.defend.delta, -15);
+  assert.equal(byKey.str.delta, 5);
+  assert.equal(byKey.hitte.delta, -3, '已穿戴有命中候选没有→负差');
+  assert.equal(byKey.attack.label, '攻击');
+  assert.equal(attrTotalDelta(rows), 20 - 15 + 5 - 3);
+  /* 空槽：delta = 候选值本身 */
+  const emptyRows = attrRows({ defend: 40 }, null);
+  assert.equal(emptyRows.length, 1);
+  assert.equal(emptyRows[0].delta, 40);
+  assert.deepEqual(attrRows({}, {}), []);
+  assert.deepEqual(attrRows(null, null), []);
+  assert.ok(ATTR_LABELS.defend === '防御');
+});
+
+await check('panelModel 透传 attrs 属性映射', () => {
+  const model = panelModel({
+    slot_order: ['single_main_weapon'],
+    slots: { single_main_weapon: { label: '主手', icon: '剑' } },
+    equipped: {
+      single_main_weapon: { id: 'sword#0', name_cn: '天锋剑',
+        attrs: { attack: 100, hitte: 2 }, action_cmd: 'unwield sword 0' },
+    },
+    candidates: {
+      single_main_weapon: [{ id: 'sword2#0', name_cn: '新剑',
+        attrs: { attack: 130 }, action_cmd: 'wield sword2 0' }],
+    },
+  });
+  const slot = model.slots[0];
+  assert.equal(slot.equipped.attrs.attack, 100);
+  assert.equal(slot.candidates[0].attrs.attack, 130);
+  const rows = attrRows(slot.candidates[0].attrs, slot.equipped.attrs);
+  assert.equal(attrTotalDelta(rows), 30 - 2);
+});
+
 /* ---------- 网络超时与错误边界 ---------- */
 await check('getJson 15秒超时后抛出友好错误（AbortController）', async () => {
   api.setApiBase('http://mock:9');
@@ -1151,6 +1196,113 @@ await check('skillAnimationTarget 判定敌我/房间目标', () => {
     'room', '战技显化→房间中央');
   assert.equal(skillAnimationTarget('sword-qi', '你对敌人造成伤害'),
     'enemy', '你对…不受affectsPlayer影响');
+});
+
+/* ---------- 碎玉消费记录 ---------- */
+const {
+  setStorageBackend: setSuiyuStorage, loadSuiyuLog, saveSuiyuLog,
+  clearSuiyuLog, suiyuChangeLabel, groupDigits, suiyuTime,
+} = await import('../src/utils/suiyuLog.js');
+
+const suiyuMem = new Map();
+setSuiyuStorage({
+  getItem: k => (suiyuMem.has(k) ? suiyuMem.get(k) : null),
+  setItem: (k, v) => { suiyuMem.set(k, v); },
+  removeItem: k => { suiyuMem.delete(k); },
+});
+
+await check('suiyuChangeLabel 从购买文案/命令/兜底提取项目名', () => {
+  const buyLine = textLine('你购买了九转还魂丹，消耗150碎玉。');
+  assert.equal(suiyuChangeLabel([buyLine], null), '九转还魂丹');
+  assert.equal(suiyuChangeLabel([textLine('随便一行')], null), '游戏内消费');
+  assert.equal(
+    suiyuChangeLabel([], { text: 'yushi_buy_teyao_confirm 1', t: Date.now() }),
+    '游戏内兑换');
+  assert.equal(
+    suiyuChangeLabel([], { text: 'yushi_buy_teyao_confirm 1', t: Date.now() - 60000 }),
+    '游戏内消费', '超过20秒的命令不算');
+});
+
+await check('groupDigits / suiyuTime 纯函数', () => {
+  assert.equal(groupDigits(0), '0');
+  assert.equal(groupDigits(999), '999');
+  assert.equal(groupDigits(1234567), '1,234,567');
+  assert.equal(groupDigits(-98765), '-98,765');
+  const text = suiyuTime(new Date(2026, 7, 30, 9, 5).getTime());
+  assert.equal(text, '08-30 09:05');
+});
+
+await check('碎玉流水本地存储往返与清空', async () => {
+  await saveSuiyuLog('xd01t', [
+    { t: 1, label: 'A', amount: 10, before: 100, after: 90 },
+  ]);
+  let log = await loadSuiyuLog('xd01t');
+  assert.equal(log.length, 1);
+  assert.equal(log[0].label, 'A');
+  assert.deepEqual(await loadSuiyuLog('nobody'), [], '无记录返回空');
+  await clearSuiyuLog('xd01t');
+  assert.deepEqual(await loadSuiyuLog('xd01t'), []);
+});
+
+await check('noteSuiyuChange：扣减入流水，增加/持平不入', () => {
+  useGameStore.setState({
+    userid: 'xd01t',
+    lines: [textLine('你购买了九转还魂丹，消耗150碎玉。')],
+    suiyuLog: [],
+  });
+  noteSuiyuChange({ account_suiyu: 1500 });
+  noteSuiyuChange({ account_suiyu: 1350 });
+  let log = useGameStore.getState().suiyuLog;
+  assert.equal(log.length, 1);
+  assert.equal(log[0].amount, 150);
+  assert.equal(log[0].before, 1500);
+  assert.equal(log[0].after, 1350);
+  assert.equal(log[0].label, '九转还魂丹');
+  noteSuiyuChange({ account_suiyu: 1400 });
+  noteSuiyuChange({ account_suiyu: 1400 });
+  assert.equal(useGameStore.getState().suiyuLog.length, 1,
+    '入账与持平不产生消费记录');
+  useGameStore.setState({ suiyuLog: [], lines: [] });
+});
+
+/* ---------- 已存账号一键登录 ---------- */
+const {
+  setStorageBackend: setSavedBackend, loadSavedAccounts,
+  addSavedAccount, removeSavedAccount,
+} = await import('../src/utils/savedAccounts.js');
+
+await check('已存账号：增删查、去重置顶、容量上限', async () => {
+  const savedMem = new Map();
+  setSavedBackend({
+    getItem: k => (savedMem.has(k) ? savedMem.get(k) : null),
+    setItem: (k, v) => { savedMem.set(k, v); },
+    removeItem: k => { savedMem.delete(k); },
+  });
+  assert.deepEqual(await loadSavedAccounts(), [], '初始为空');
+  await addSavedAccount({ userid: 'xd01aaa', password: 'p1',
+    partition: 'xd01', apiBase: 'https://x' });
+  await addSavedAccount({ userid: 'xd01bbb', password: 'p2',
+    partition: 'xd01', apiBase: 'https://x' });
+  let list = await loadSavedAccounts();
+  assert.equal(list.length, 2);
+  assert.equal(list[0].userid, 'xd01bbb', '最新在前');
+  await addSavedAccount({ userid: 'xd01aaa', password: 'p1new',
+    partition: 'xd01', apiBase: 'https://x' });
+  list = await loadSavedAccounts();
+  assert.equal(list.length, 2, '同账号去重');
+  assert.equal(list[0].userid, 'xd01aaa', '重复登录置顶');
+  assert.equal(list[0].password, 'p1new');
+  for (let i = 0; i < 10; i++) {
+    await addSavedAccount({ userid: `xd01u${i}`, password: 'p',
+      partition: 'xd01', apiBase: 'https://x' });
+  }
+  list = await loadSavedAccounts();
+  assert.equal(list.length, 8, '最多保留8个');
+  await addSavedAccount({ userid: '', password: 'p' });
+  assert.equal((await loadSavedAccounts()).length, 8, '非法条目不入库');
+  list = await removeSavedAccount('xd01u9');
+  assert.equal(list.length, 7);
+  assert.ok(!list.some(item => item.userid === 'xd01u9'));
 });
 
 /* ---------- 网络状态检测 ---------- */

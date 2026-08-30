@@ -3,7 +3,7 @@ import {
   View, Text, FlatList, TouchableOpacity, Modal,
   Image, ScrollView, StyleSheet, KeyboardAvoidingView, Platform,
   ActivityIndicator, AppState, RefreshControl, Pressable, Animated,
-  TextInput,
+  TextInput, Alert,
 } from 'react-native';
 import {
   lineKey,
@@ -13,6 +13,7 @@ import {
   createStatsTracker, applyEvents, formatStats,
 } from '../utils/battleStats.js';
 import { parseSkillType, skillMeta } from '../utils/skillTypes.js';
+import { groupDigits, suiyuTime, clearSuiyuLog } from '../utils/suiyuLog.js';
 import { getImageBase } from '../api/mudApi.js';
 import { useGameStore, setRuntimePlatform } from '../store/useGameStore.js';
 import { PROFESSION_OPTIONS } from '../data/characterOptions.js';
@@ -123,6 +124,140 @@ function MenuRow({ icon, label, onPress, danger }) {
   );
 }
 
+/* 头像脉冲：轻微缩放循环暗示可点击（点头像→换装面板）。 */
+function AvatarPressable({ onPress, children }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const anim = Animated.loop(Animated.sequence([
+      Animated.timing(scale, {
+        toValue: 1.07, duration: 520, useNativeDriver: true,
+      }),
+      Animated.timing(scale, {
+        toValue: 1, duration: 520, useNativeDriver: true,
+      }),
+      Animated.delay(1900),
+    ]));
+    anim.start();
+    return () => anim.stop();
+  }, [scale]);
+  return (
+    <Animated.View style={{
+      transform: [{ scale }],
+      shadowColor: '#d4af37', shadowOpacity: 0.5,
+      shadowRadius: 10, elevation: 6,
+    }}>
+      <TouchableOpacity activeOpacity={0.7} onPress={onPress}>
+        {children}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+/* 扣玉/入账浮动提示：−150 上浮消散 + 算式 1,500 − 150 = 1,350。 */
+function SuiyuDeltaFx({ fx }) {
+  const rise = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const gain = fx.delta > 0;
+  const color = gain ? '#5ad47a' : '#ff5a6a';
+  useEffect(() => {
+    Animated.parallel([
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 1, duration: 120, useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0, duration: 1600, useNativeDriver: true,
+        }),
+      ]),
+      Animated.timing(rise, {
+        toValue: gain ? -18 : -34, duration: 1600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <View style={styles.suiyuFxBox} pointerEvents="none">
+      <Animated.Text style={[styles.suiyuFxDelta,
+        { color, opacity, transform: [{ translateY: rise }] }]}>
+        {gain ? '+' : '−'}{groupDigits(Math.abs(fx.delta))}
+      </Animated.Text>
+      <Animated.Text style={[styles.suiyuFxEq, { opacity }]}>
+        {groupDigits(fx.from)} {gain ? '+' : '−'} {groupDigits(Math.abs(fx.delta))} = {groupDigits(fx.to)}
+      </Animated.Text>
+    </View>
+  );
+}
+
+/* 消费记录弹窗：本设备观察到的碎玉扣减流水（时间/项目/数额）。 */
+function SuivLogModal({ visible, onClose }) {
+  const suiyuLog = useGameStore(state => state.suiyuLog);
+  const userid = useGameStore(state => state.userid);
+  const entries = suiyuLog || [];
+  const clearLog = () => {
+    Alert.alert('清空消费记录', '确定删除本设备的所有消费记录吗？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '清空', style: 'destructive',
+        onPress: () => {
+          useGameStore.setState({ suiyuLog: [] });
+          clearSuiyuLog(userid);
+        },
+      },
+    ]);
+  };
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <View style={styles.suiyuLogScreen}>
+        <View style={styles.suiyuLogHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.suiyuLogEyebrow}>账号碎玉消费流水</Text>
+            <Text style={styles.suiyuLogTitle}>🧾 消费记录</Text>
+          </View>
+          <TouchableOpacity onPress={clearLog} style={styles.suiyuLogBtn}>
+            <Text style={styles.suiyuLogBtnText}>清空</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onClose} style={styles.suiyuLogBtnClose}>
+            <Text style={styles.suiyuLogBtnText}>✕ 返回</Text>
+          </TouchableOpacity>
+        </View>
+        <FlatList
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 14, gap: 8 }}
+          data={entries}
+          keyExtractor={item => `${item.t}-${item.amount}`}
+          ListEmptyComponent={
+            <Text style={styles.suiyuLogEmpty}>
+              还没有消费记录。{'\n'}购买道具、兑换服务扣碎玉时会自动记在这里。
+            </Text>
+          }
+          renderItem={({ item }) => (
+            <View style={styles.suiyuLogRow}>
+              <View style={styles.suiyuLogTimeCol}>
+                <Text style={styles.suiyuLogTime}>
+                  {suiyuTime(item.t)}
+                </Text>
+                <Text style={styles.suiyuLogBalance}>
+                  余额 {groupDigits(item.after)}
+                </Text>
+              </View>
+              <Text style={styles.suiyuLogLabel} numberOfLines={2}>
+                {item.label}
+              </Text>
+              <Text style={styles.suiyuLogAmount}>
+                −{groupDigits(item.amount)}
+              </Text>
+            </View>
+          )}
+        />
+        <Text style={styles.suiyuLogNote}>
+          仅记录本设备观察到的碎玉扣减；充值与其他设备的消费不一定在此列。
+        </Text>
+      </View>
+    </Modal>
+  );
+}
+
 /* 删除账号确认弹窗：输入账号ID+密码双确认，服务端归档全部人物。 */
 function DeleteAccountModal({ visible, onClose }) {
   const accountToken = useGameStore(state => state.accountToken);
@@ -224,11 +359,48 @@ export default function GameScreen() {
   const [equipOpen, setEquipOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [rechargeOpen, setRechargeOpen] = useState(false);
+  const [suiyuLogOpen, setSuiyuLogOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(DEFAULT_UI_SETTINGS);
   const [activeTab, setActiveTab] = useState('');
   const [floaters, setFloaters] = useState([]);
   const [skillEffects, setSkillEffects] = useState([]);
+  /* 扣玉动画：header 碎玉数字滚动 + −Y 浮动 + 算式提示。 */
+  const [suiyuFx, setSuiyuFx] = useState(null);
+  const [suiyuShown, setSuiyuShown] = useState(null);
+  const prevSuiyuRef = useRef(null);
+  const suiyuValue = store.status
+    && typeof store.status.account_suiyu === 'number'
+    ? store.status.account_suiyu : null;
+  useEffect(() => {
+    if (suiyuValue === null) return;
+    const prev = prevSuiyuRef.current;
+    prevSuiyuRef.current = suiyuValue;
+    if (prev === null || prev === suiyuValue) {
+      setSuiyuShown(suiyuValue);
+      return;
+    }
+    setSuiyuFx({ id: Date.now(), from: prev, to: suiyuValue,
+      delta: suiyuValue - prev });
+    /* 数字滚动：8 步缓动从旧值减到新值。 */
+    let step = 0;
+    const total = 8;
+    const timer = setInterval(() => {
+      step += 1;
+      const t = step / total;
+      const eased = 1 - Math.pow(1 - t, 2);
+      setSuiyuShown(Math.round(prev + (suiyuValue - prev) * eased));
+      if (step >= total) clearInterval(timer);
+    }, 70);
+    const clear = setTimeout(() => setSuiyuFx(null), 1900);
+    return () => { clearInterval(timer); clearTimeout(clear); };
+  }, [suiyuValue]);
+  /* 切换角色/退出登录：重置基线，不播跨角色动画。 */
+  useEffect(() => {
+    prevSuiyuRef.current = null;
+    setSuiyuShown(null);
+    setSuiyuFx(null);
+  }, [store.txd]);
   const [statsSummary, setStatsSummary] = useState(null);
   const statsRef = useRef(createStatsTracker());
   const lastPollRef = useRef(0);
@@ -533,8 +705,9 @@ export default function GameScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}>
 
-      {/* ===== 并行角色tab条：屏幕最顶部，账号有多角色即常驻 ===== */}
-      {((sessionEntries.length > 1) ||
+      {/* ===== 并行角色tab条：屏幕最顶部，账号中心模式即常驻 ===== */}
+      {((store.accountToken && sessionEntries.length > 0) ||
+        (sessionEntries.length > 1) ||
         ((store.accountCharacters || []).length > 1)) && (
         <View style={styles.tabStrip}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}
@@ -581,9 +754,11 @@ export default function GameScreen() {
       {/* ===== 顶栏：复刻 Vue game-header ===== */}
       <View style={styles.header}>
         <View style={styles.infoRow}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => { lastUserNavRef.current = Date.now(); setEquipOpen(true); }}>
+          <AvatarPressable
+            onPress={() => {
+              lastUserNavRef.current = Date.now();
+              setEquipOpen(true);
+            }}>
             {avatarUrl ? (
               <SmartImage uri={avatarUrl} style={styles.headerAvatar} />
             ) : (
@@ -593,7 +768,7 @@ export default function GameScreen() {
                 </Text>
               </View>
             )}
-          </TouchableOpacity>
+          </AvatarPressable>
           {!!status.pet_assist && typeof status.pet_assist === 'object' && (
             <View style={styles.headerPetBadge}>
               <Text style={styles.headerPetIcon}>
@@ -616,10 +791,31 @@ export default function GameScreen() {
               </View>
             )}
             {typeof status.account_suiyu === 'number' && (
-              <View style={styles.suiyuChip}>
-                <Text style={styles.suiyuText} numberOfLines={1}>
-                  💎{fmt(status.account_suiyu)}
-                </Text>
+              <View style={styles.suiyuChipWrap}>
+                {Platform.OS === 'ios' ? (
+                  <TouchableOpacity style={styles.suiyuChip}
+                    activeOpacity={0.6}
+                    onPress={() => {
+                      lastUserNavRef.current = Date.now();
+                      setRechargeOpen(true);
+                    }}>
+                    <Text style={styles.suiyuText} numberOfLines={1}>
+                      💎{fmt(typeof suiyuShown === 'number'
+                        ? suiyuShown : status.account_suiyu)}
+                      <Text style={styles.suiyuPlus}> ＋</Text>
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.suiyuChip}>
+                    <Text style={styles.suiyuText} numberOfLines={1}>
+                      💎{fmt(typeof suiyuShown === 'number'
+                        ? suiyuShown : status.account_suiyu)}
+                    </Text>
+                  </View>
+                )}
+                {!!suiyuFx && suiyuFx.delta !== 0 && (
+                  <SuiyuDeltaFx fx={suiyuFx} />
+                )}
               </View>
             )}
           </View>
@@ -866,6 +1062,12 @@ export default function GameScreen() {
         onClose={() => setRechargeOpen(false)}
       />
 
+      {/* ===== 消费记录 ===== */}
+      <SuivLogModal
+        visible={suiyuLogOpen}
+        onClose={() => setSuiyuLogOpen(false)}
+      />
+
       {/* ===== 删除账号确认（Apple 5.1.1(v)） ===== */}
       <DeleteAccountModal
         visible={deleteOpen}
@@ -927,6 +1129,19 @@ export default function GameScreen() {
               onPress={() => {
                 setMenuOpen(false);
                 send('invite');
+              }} />
+            {typeof status.account_suiyu === 'number' && (
+              <View style={styles.menuRow}>
+                <Text style={styles.menuRowIcon}>💎</Text>
+                <Text style={styles.menuRowLabel}>
+                  碎玉余额：{groupDigits(status.account_suiyu)}
+                </Text>
+              </View>
+            )}
+            <MenuRow icon="🧾" label="消费记录"
+              onPress={() => {
+                setMenuOpen(false);
+                setSuiyuLogOpen(true);
               }} />
             {Platform.OS === 'ios' && (
               <MenuRow icon="💎" label="碎玉充值（内购）"
@@ -1076,7 +1291,60 @@ const styles = StyleSheet.create({
     backgroundColor: '#10201a', borderWidth: 1, borderColor: '#3a7a5a',
     borderRadius: 5, paddingHorizontal: 6, paddingVertical: 1,
   },
+  suiyuChipWrap: { position: 'relative' },
+  suiyuFxBox: { position: 'absolute', top: 22, left: 0, zIndex: 60 },
+  suiyuFxDelta: {
+    fontSize: 15, fontWeight: '800',
+    textShadowColor: '#000', textShadowRadius: 3,
+  },
+  suiyuFxEq: {
+    fontSize: 10, color: '#c8b8a0', marginTop: 1,
+    backgroundColor: 'rgba(13,11,14,0.78)',
+    paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4,
+    overflow: 'hidden',
+  },
   suiyuText: { color: '#7ad0a0', fontSize: 11, fontWeight: '700' },
+  suiyuPlus: { color: '#d4af37', fontSize: 10, fontWeight: '800' },
+  suiyuLogScreen: { flex: 1, backgroundColor: '#0d0b0e', paddingTop: 54 },
+  suiyuLogHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 16, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: '#2e2430',
+    backgroundColor: '#14101a',
+  },
+  suiyuLogEyebrow: { color: '#8a7a8a', fontSize: 10 },
+  suiyuLogTitle: { color: '#f0e6d2', fontSize: 17, fontWeight: '700' },
+  suiyuLogBtn: {
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
+    borderWidth: 1, borderColor: '#5a3a46',
+  },
+  suiyuLogBtnClose: {
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
+    borderWidth: 1, borderColor: '#3a2f46',
+  },
+  suiyuLogBtnText: { color: '#c8a8b8', fontSize: 12 },
+  suiyuLogEmpty: {
+    color: '#6a5a6a', textAlign: 'center', paddingTop: 80,
+    fontSize: 13, lineHeight: 22,
+  },
+  suiyuLogRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#17131c', borderRadius: 10,
+    borderWidth: 1, borderColor: '#2c2338', padding: 10,
+  },
+  suiyuLogTimeCol: { width: 92 },
+  suiyuLogTime: { color: '#8a7a8a', fontSize: 11 },
+  suiyuLogBalance: { color: '#5a4a5a', fontSize: 10, marginTop: 2 },
+  suiyuLogLabel: {
+    color: '#e0d6c2', fontSize: 13, fontWeight: '600', flex: 1,
+  },
+  suiyuLogAmount: {
+    color: '#ff5a6a', fontSize: 14, fontWeight: '800',
+  },
+  suiyuLogNote: {
+    color: '#5a4a5a', fontSize: 10, textAlign: 'center',
+    paddingVertical: 8,
+  },
   afkButton: {
     paddingHorizontal: 11, minHeight: 30, borderRadius: 999,
     borderWidth: 1, borderColor: '#6a8a5a',

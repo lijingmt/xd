@@ -102,7 +102,48 @@ private mapping query_equipment_panel_item(object item,int count)
 		"action":action,
 		"action_label":equipped ? "卸下" : "穿戴",
 		"action_cmd":action+" "+item_name+" "+count,
+		"attrs":query_equipment_panel_attrs(item,item_type),
 	]);
+}
+
+/* 只读属性快照（与 auto_equip 评分同一批 getter），供客户端
+ * 做"候选装备 vs 已穿戴"的增减对比。只返回非零项。 */
+private mapping query_equipment_panel_attrs(object item,string item_type)
+{
+	mapping(string:int) attrs = ([]);
+	if(is_equipment_panel_weapon(item_type)){
+		if((int)item->query_attack_power()>0)
+			attrs["attack"]=(int)item->query_attack_power();
+		if((int)item->query_attack_power_limit()>0)
+			attrs["attack_limit"]=(int)item->query_attack_power_limit();
+		if((int)item->query_attack_add()>0)
+			attrs["attack_add"]=(int)item->query_attack_add();
+		if((int)item->query_hitte_add()>0)
+			attrs["hitte"]=(int)item->query_hitte_add();
+		if((int)item->query_doub_add()>0)
+			attrs["doub"]=(int)item->query_doub_add();
+	}
+	else{
+		if((int)item->query_equip_defend()>0)
+			attrs["defend"]=(int)item->query_equip_defend();
+		if((int)item->query_dodge_add()>0)
+			attrs["dodge"]=(int)item->query_dodge_add();
+		if((int)item->query_recive_add()>0)
+			attrs["recive"]=(int)item->query_recive_add();
+	}
+	if((int)item->query_str_add()>0)
+		attrs["str"]=(int)item->query_str_add();
+	if((int)item->query_dex_add()>0)
+		attrs["dex"]=(int)item->query_dex_add();
+	if((int)item->query_think_add()>0)
+		attrs["think"]=(int)item->query_think_add();
+	if((int)item->query_life_add()>0)
+		attrs["life"]=(int)item->query_life_add();
+	if((int)item->query_mofa_add()>0)
+		attrs["mofa"]=(int)item->query_mofa_add();
+	if((int)item->query_all_add()>0)
+		attrs["all"]=(int)item->query_all_add();
+	return attrs;
 }
 
 private mapping query_equipment_panel_state(object player)

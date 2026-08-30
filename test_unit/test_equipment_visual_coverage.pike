@@ -121,6 +121,15 @@ int main()
 		search(api,"\"image_url\":query_equipment_panel_image")!=-1 &&
 		search(api,"/images/equipment/fallback/")!=-1,
 		"图片路径校验、存在性探测或兜底字段缺失");
+	check("装备面板提供属性快照供客户端对比候选与已穿戴",
+		search(api,"\"attrs\":query_equipment_panel_attrs")!=-1 &&
+		search(api,"query_equipment_panel_attrs(object item")!=-1 &&
+		search(api,"query_attack_power()")!=-1 &&
+		search(api,"query_equip_defend()")!=-1 &&
+		search(api,"query_hitte_add()")!=-1 &&
+		search(api,"query_dodge_add()")!=-1 &&
+		search(api,"query_all_add()")!=-1,
+		"attrs字段或武器/防具属性getter缺失");
 	check("等级与稀缺度独立参与装备光效且头像按八档等级显示",
 		search(app,"equipmentRarityClass")!=-1 &&
 		search(app,"equipmentLevelClass")!=-1 &&

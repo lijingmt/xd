@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useGameStore } from '../store/useGameStore.js';
 import { getImageBase } from '../api/mudApi.js';
-import { fetchEquipmentPanel, panelModel } from '../api/equipmentApi.js';
+import { fetchEquipmentPanel, panelModel, attrRows, attrTotalDelta } from '../api/equipmentApi.js';
 import { SmartImage } from './GameSmartImage.js';
 
 const RARE_COLORS = {
@@ -15,6 +15,31 @@ const RARE_COLORS = {
 
 function rareColor(level) {
   return RARE_COLORS[level] || RARE_COLORS[0];
+}
+
+/** 候选 vs 已穿戴 的逐属性增减小条。 */
+function AttrDiffChips({ candidate, equipped }) {
+  const rows = attrRows(candidate && candidate.attrs, equipped && equipped.attrs);
+  if (rows.length === 0) return null;
+  return (
+    <View style={styles.diffRow}>
+      {rows.slice(0, 6).map(row => {
+        const up = row.delta > 0;
+        const flat = row.delta === 0;
+        return (
+          <View key={row.key} style={[styles.diffChip,
+            flat && styles.diffChipFlat,
+            !flat && (up ? styles.diffChipUp : styles.diffChipDown)]}>
+            <Text style={[styles.diffText,
+              { color: flat ? '#8a7a8a' : up ? '#5ad47a' : '#ff5a6a' }]}>
+              {row.label} {up ? '+' : flat ? '' : '−'}
+              {Math.abs(row.delta)}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
 }
 
 /** 人体剪影：头/躯干/双臂/双腿（对应网页版 equipment-human-silhouette）。 */
@@ -74,6 +99,7 @@ export default function EquipmentPanel({ visible, onClose }) {
   const [model, setModel] = useState(null);
   const [selected, setSelected] = useState('');
   const [busyCmd, setBusyCmd] = useState('');
+  const [smartBusy, setSmartBusy] = useState(false);
   const [error, setError] = useState('');
   const imageBase = getImageBase(apiBase);
 
@@ -106,6 +132,18 @@ export default function EquipmentPanel({ visible, onClose }) {
       setBusyCmd('');
       load();
     }, 700);
+  };
+
+  /* 一键智能穿装：补空位 + 换同槽更强的普通装备（服务端保护
+   * 强化/融合/宝石/稀有装备，评分严格更高才替换）。 */
+  const smartEquip = () => {
+    if (smartBusy) return;
+    setSmartBusy(true);
+    command('auto_equip smart');
+    setTimeout(() => {
+      setSmartBusy(false);
+      load();
+    }, 1100);
   };
 
   const player = (model && model.player) || {};
@@ -163,6 +201,17 @@ export default function EquipmentPanel({ visible, onClose }) {
         {model && (
           <ScrollView style={{ flex: 1 }}
             contentContainerStyle={{ padding: 12, paddingBottom: 40 }}>
+            {/* 一键智能穿装：补空位+换更强（服务端评分与保护） */}
+            <TouchableOpacity style={styles.smartBtn}
+              activeOpacity={0.7} onPress={smartEquip} disabled={smartBusy}>
+              <Text style={styles.smartBtnText}>
+                {smartBusy ? '⚡ 智能穿装中…' : '⚡ 一键智能穿装'}
+              </Text>
+              <Text style={styles.smartBtnHint}>
+                自动补空位 · 换更强普通装备（强化/稀有装备不动）
+              </Text>
+            </TouchableOpacity>
+
             {/* 当前选择详情：固定在网格上方，点选槽位立即可见操作 */}
             {selectedSlot && (
               <View style={styles.choicePanel}>
@@ -217,34 +266,63 @@ export default function EquipmentPanel({ visible, onClose }) {
                     {selectedSlot.candidates.length} 件
                   </Text>
                 </View>
-                {selectedSlot.candidates.map(item => (
-                  <View key={item.id} style={[
-                    styles.candidateCard,
-                    { borderColor: rareColor(item.rareLevel) },
-                  ]}>
-                    <SmartImage
-                      uri={item.image ? `${imageBase}${item.image}` : ''}
-                      style={styles.itemArt} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[
-                        styles.itemName,
-                        { color: rareColor(item.rareLevel) },
-                      ]} numberOfLines={1}>
-                        {item.name}
-                      </Text>
-                      <Text style={styles.itemMeta}>
-                        需求 Lv.{item.levelReq} · 品阶 {item.rareLevel}
-                      </Text>
+                {selectedSlot.candidates.map(item => {
+                  const rows = attrRows(item.attrs,
+                    selectedSlot.equipped && selectedSlot.equipped.attrs);
+                  const total = attrTotalDelta(rows);
+                  const badge = !selectedSlot.equipped ? null
+                    : total > 0 ? 'up' : total < 0 ? 'down' : 'flat';
+                  return (
+                    <View key={item.id} style={[
+                      styles.candidateCard,
+                      { borderColor: rareColor(item.rareLevel) },
+                    ]}>
+                      <View style={styles.candidateTopRow}>
+                        <SmartImage
+                          uri={item.image ? `${imageBase}${item.image}` : ''}
+                          style={styles.itemArt} />
+                        <View style={{ flex: 1 }}>
+                          <View style={styles.candidateNameRow}>
+                            <Text style={[
+                              styles.itemName,
+                              { color: rareColor(item.rareLevel) },
+                            ]} numberOfLines={1}>
+                              {item.name}
+                            </Text>
+                            {badge && (
+                              <View style={[
+                                styles.badge,
+                                badge === 'up' && styles.badgeUp,
+                                badge === 'down' && styles.badgeDown,
+                                badge === 'flat' && styles.badgeFlat,
+                              ]}>
+                                <Text style={[
+                                  styles.badgeText,
+                                  badge === 'up' && { color: '#5ad47a' },
+                                  badge === 'down' && { color: '#ff5a6a' },
+                                ]}>
+                                  {badge === 'up' ? '↑ 提升' : badge === 'down' ? '↓ 下降' : '持平'}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={styles.itemMeta}>
+                            需求 Lv.{item.levelReq} · 品阶 {item.rareLevel}
+                          </Text>
+                        </View>
+                        <TouchableOpacity style={styles.actionBtn}
+                          disabled={!!busyCmd}
+                          onPress={() => act(item)}>
+                          <Text style={styles.actionText}>
+                            {busyCmd === item.actionCmd ? '处理中' : '穿戴'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      <AttrDiffChips candidate={item}
+                        equipped={selectedSlot.equipped} />
                     </View>
-                    <TouchableOpacity style={styles.actionBtn}
-                      disabled={!!busyCmd}
-                      onPress={() => act(item)}>
-                      <Text style={styles.actionText}>
-                        {busyCmd === item.actionCmd ? '处理中' : '穿戴'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
+                  );
+                })}
                 {selectedSlot.candidates.length === 0 && (
                   <Text style={styles.candidateEmpty}>
                     背包中没有这个部位的备用装备
@@ -411,10 +489,40 @@ const styles = StyleSheet.create({
   candidateHeadingText: { color: '#a89aa8', fontSize: 12, fontWeight: '700' },
   candidateCount: { color: '#6a5a6a', fontSize: 10 },
   candidateCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: '#151219', borderRadius: 10,
-    borderWidth: 1, padding: 9,
+    borderWidth: 1, padding: 9, gap: 8,
   },
+  candidateTopRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+  },
+  candidateNameRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1,
+  },
+  badge: {
+    borderWidth: 1, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1,
+  },
+  badgeUp: { borderColor: '#2d5a3a', backgroundColor: '#10241a' },
+  badgeDown: { borderColor: '#5a2d3a', backgroundColor: '#241016' },
+  badgeFlat: { borderColor: '#3a2f46' },
+  badgeText: { fontSize: 10, fontWeight: '700', color: '#8a7a8a' },
+  diffRow: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 5,
+  },
+  diffChip: {
+    borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2,
+    borderWidth: 1,
+  },
+  diffChipUp: { borderColor: '#2d5a3a', backgroundColor: '#10241a' },
+  diffChipDown: { borderColor: '#5a2d3a', backgroundColor: '#241016' },
+  diffChipFlat: { borderColor: '#2c2338' },
+  diffText: { fontSize: 10, fontWeight: '600' },
+  smartBtn: {
+    borderRadius: 12, borderWidth: 1, borderColor: '#8a6d2f',
+    backgroundColor: '#231b10', alignItems: 'center',
+    paddingVertical: 10, marginBottom: 10, gap: 2,
+  },
+  smartBtnText: { color: '#ffd700', fontSize: 15, fontWeight: '800' },
+  smartBtnHint: { color: '#8a7a8a', fontSize: 10 },
   candidateEmpty: {
     color: '#6a5a6a', fontSize: 11, textAlign: 'center', paddingVertical: 8,
   },

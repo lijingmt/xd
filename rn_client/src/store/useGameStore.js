@@ -7,6 +7,10 @@ import {
   canOpenMoreSessions, pickDueBackgroundSessions,
   mergeSessionSnapshot, shouldRecoverSession, PARALLEL_CHARACTER_LIMIT,
 } from '../utils/parallelAfk.js';
+import {
+  loadSuiyuLog, saveSuiyuLog, suiyuChangeLabel,
+} from '../utils/suiyuLog.js';
+import { addSavedAccount } from '../utils/savedAccounts.js';
 
 const MAX_LINES = 400;
 const BACKGROUND_SESSION_LINES = 80;
@@ -21,6 +25,40 @@ export function setRuntimePlatform(value) {
 
 function platformTag() {
   return runtimePlatform;
+}
+
+/* 碎玉（账号级）变动追踪：prev 基线 + 最近命令，供扣玉动画与
+ * 消费记录标注。切账号/登出时重置。 */
+let suiyuPrev = null;
+let suiyuLastCmd = null;
+
+/** 新 status 到达时比较碎玉余额：减少→记一条消费流水。 */
+export function noteSuiyuChange(player) {
+  const value = player && player.account_suiyu;
+  if (typeof value !== 'number') return;
+  const prev = suiyuPrev;
+  suiyuPrev = value;
+  if (prev === null || value >= prev) return;
+  const store = useGameStore.getState();
+  const entry = {
+    t: Date.now(),
+    label: suiyuChangeLabel(store.lines, suiyuLastCmd),
+    amount: prev - value,
+    before: prev,
+    after: value,
+  };
+  const log = [entry, ...(store.suiyuLog || [])].slice(0, 100);
+  useGameStore.setState({ suiyuLog: log });
+  saveSuiyuLog(store.userid, log);
+}
+
+/** 登录/切账号时重置基线并载入本地流水。 */
+export function resetSuiyuTracking(userid) {
+  suiyuPrev = null;
+  suiyuLastCmd = null;
+  loadSuiyuLog(userid).then(log => {
+    useGameStore.setState({ suiyuLog: log || [] });
+  }).catch(() => {});
 }
 
 export const useGameStore = create((set, get) => ({
@@ -50,6 +88,8 @@ export const useGameStore = create((set, get) => ({
    * 顶层 lines/status；切走时快照回 sessions，切回时恢复。 */
   sessions: {},
   parallelLimit: PARALLEL_CHARACTER_LIMIT,
+  /* 账号级碎玉消费流水（本地记录，仅本设备观察到的扣减）。 */
+  suiyuLog: [],
 
   setApiBase(base) {
     api.setApiBase(base);
@@ -87,6 +127,7 @@ export const useGameStore = create((set, get) => ({
     if (!saved) return false;
     if (saved.apiBase) get().setApiBase(saved.apiBase);
     set({ accountToken: saved.token, userid: saved.userid });
+    resetSuiyuTracking(saved.userid);
     try {
       await get().refreshAccountCharacters();
       /* 恢复并行挂机会话：txd 长期有效，角色快照进入后台轮询补齐。 */
@@ -134,6 +175,11 @@ export const useGameStore = create((set, get) => ({
   async login(partition, userid, password) {
     set({ busy: true, error: '' });
     const fullUserid = `${partition}${userid}`;
+    /* 登录成功后记住账号，登录页一键登录。 */
+    const remember = () => addSavedAccount({
+      userid: fullUserid, password,
+      partition, apiBase: api.getApiBase(),
+    });
     try {
       /* 多角色账号中心：账号密码换取令牌+角色清单；失败则回退
          单人物直登（老账号/账号服务异常都不阻断进游）。 */
@@ -145,6 +191,8 @@ export const useGameStore = create((set, get) => ({
           userid: fullUserid,
           busy: false,
         });
+        resetSuiyuTracking(fullUserid);
+        remember();
         get().applyAccountData(account);
         get().applyAccountData(characters);
         if (account.token) {
@@ -163,6 +211,14 @@ export const useGameStore = create((set, get) => ({
           busy: false,
           lines: data.lines || [],
         });
+        resetSuiyuTracking(fullUserid);
+        remember();
+        /* 明示回退原因：否则"能玩但多开/角色列表消失"无从排查。 */
+        const reason = accountError && accountError.message
+          ? String(accountError.message) : '未知原因';
+        get().appendNotice(
+          `⚠ 账号中心登录失败（${reason}），已用单角色模式进入；` +
+          '多开/角色列表不可用。若已注册账号请用账号密码重新登录。');
         return true;
       }
     } catch (e) {
@@ -496,6 +552,7 @@ export const useGameStore = create((set, get) => ({
   async command(cmd) {
     const { txd } = get();
     if (!txd || !cmd) return;
+    suiyuLastCmd = { text: cmd, t: Date.now() };
     set({ busy: true, error: '', lines: [] });
     try {
       const data = await api.sendCommand(txd, cmd, undefined, platformTag());
@@ -517,6 +574,7 @@ export const useGameStore = create((set, get) => ({
     if (!txd) return;
     try {
       const status = await api.fetchStatus(txd);
+      noteSuiyuChange(status);
       set({
         status,
         txd: status.txd || txd,
@@ -608,6 +666,7 @@ export const useGameStore = create((set, get) => ({
         if (player.pet_assist !== null && typeof player.pet_assist !== 'object') {
           player.pet_assist = null;
         }
+        noteSuiyuChange(player);
         set({
           status: player,
           autofighting: !!player.autofight,
@@ -674,12 +733,13 @@ export const useGameStore = create((set, get) => ({
 
   logout() {
     clearSession().catch(() => {});
+    resetSuiyuTracking('');
     set({
       txd: '', userid: '', lines: [], status: null,
       battle: null, inBattle: false, autofighting: false, error: '',
       accountToken: '', accountId: '', accountCharacters: [],
       characterLimit: 0, currentCharacterId: '', recovering: false,
-      sessions: {},
+      sessions: {}, suiyuLog: [],
     });
   },
 }));

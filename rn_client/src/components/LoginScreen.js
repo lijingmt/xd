@@ -7,6 +7,9 @@ import { useGameStore } from '../store/useGameStore.js';
 import * as api from '../api/mudApi.js';
 import { WAN_API_BASE, LAN_API_BASE } from '../api/mudApi.js';
 import { validateRegisterForm } from '../utils/registerForm.js';
+import {
+  loadSavedAccounts, removeSavedAccount,
+} from '../utils/savedAccounts.js';
 
 export default function LoginScreen() {
   const {
@@ -19,6 +22,7 @@ export default function LoginScreen() {
   const [confirm, setConfirm] = useState('');
   const [regBusy, setRegBusy] = useState(false);
   const [regDone, setRegDone] = useState(false);
+  const [savedAccounts, setSavedAccounts] = useState([]);
 
   const register = async () => {
     const problem = validateRegisterForm(
@@ -62,7 +66,21 @@ export default function LoginScreen() {
       const open = (list || []).filter(p => p.login_open !== 0);
       if (open.length && !partition) setPartition(open[0].value);
     });
+    loadSavedAccounts().then(setSavedAccounts);
   }, []);
+
+  /* 一键登录：填充分区/账号/密码（含服务器）并直接提交。 */
+  const quickLogin = entry => {
+    if (busy || !entry) return;
+    if (entry.partition) setPartition(entry.partition);
+    setUserid(String(entry.userid || '').replace(
+      new RegExp(`^${entry.partition || ''}`), ''));
+    setPassword(entry.password || '');
+    if (entry.apiBase) setApiBase(entry.apiBase);
+    const part = entry.partition || partition;
+    login(part, String(entry.userid || '').replace(
+      new RegExp(`^${part}`), ''), entry.password || '');
+  };
 
   const openPartitions = (partitions || []).filter(p => p.login_open !== 0);
 
@@ -202,6 +220,43 @@ export default function LoginScreen() {
         </TouchableOpacity>
       </View>
 
+      {mode === 'login' && savedAccounts.length > 0 && (
+        <View style={styles.savedCard}>
+          <Text style={styles.savedTitle}>快速登录</Text>
+          {savedAccounts.map(entry => (
+            <View key={entry.userid} style={styles.savedRow}>
+              <TouchableOpacity style={styles.savedChip}
+                activeOpacity={0.7} disabled={busy}
+                onPress={() => quickLogin(entry)}>
+                <View style={styles.savedAvatar}>
+                  <Text style={styles.savedAvatarText}>
+                    {entry.userid.slice(-1)}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.savedName} numberOfLines={1}>
+                    {entry.userid}
+                  </Text>
+                  <Text style={styles.savedMeta} numberOfLines={1}>
+                    {entry.apiBase === LAN_API_BASE ? '局域网' : '官方服'} · 一键进入
+                  </Text>
+                </View>
+                <Text style={styles.savedGo}>→</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.savedRemove}
+                onPress={async () => {
+                  setSavedAccounts(await removeSavedAccount(entry.userid));
+                }}>
+                <Text style={styles.savedRemoveText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+          <Text style={styles.savedNote}>
+            账号密码只保存在本设备，✕ 可删除记录
+          </Text>
+        </View>
+      )}
+
       <Text style={styles.footer}>挂机在服务器持续运行 · 关闭客户端也不停</Text>
     </ScrollView>
   );
@@ -209,6 +264,34 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#0d0b0e' },
+  savedCard: {
+    marginTop: 14, backgroundColor: '#14101a', borderRadius: 14,
+    borderWidth: 1, borderColor: '#2e2430', padding: 12, gap: 8,
+  },
+  savedTitle: {
+    color: '#8a7a8a', fontSize: 11, fontWeight: '700',
+    letterSpacing: 1,
+  },
+  savedRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  savedChip: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#1a1522', borderRadius: 10,
+    borderWidth: 1, borderColor: '#3a2f46', padding: 9,
+  },
+  savedAvatar: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: '#231b10',
+    borderWidth: 1, borderColor: '#8a6d2f', alignItems: 'center',
+    justifyContent: 'center',
+  },
+  savedAvatarText: { color: '#d4af37', fontSize: 16, fontWeight: '700' },
+  savedName: { color: '#f0e6d2', fontSize: 13, fontWeight: '600' },
+  savedMeta: { color: '#6a5a6a', fontSize: 10, marginTop: 1 },
+  savedGo: { color: '#d4af37', fontSize: 16 },
+  savedRemove: {
+    width: 30, height: 30, alignItems: 'center', justifyContent: 'center',
+  },
+  savedRemoveText: { color: '#6a5a6a', fontSize: 14 },
+  savedNote: { color: '#5a4a5a', fontSize: 10, textAlign: 'center' },
   container: { padding: 22, paddingTop: 48, paddingBottom: 36 },
   brandGlow: {
     alignSelf: 'center', borderRadius: 26,
