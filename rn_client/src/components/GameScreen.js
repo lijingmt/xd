@@ -3,6 +3,7 @@ import {
   View, Text, FlatList, TouchableOpacity, Modal,
   Image, ScrollView, StyleSheet, KeyboardAvoidingView, Platform,
   ActivityIndicator, AppState, RefreshControl, Pressable, Animated,
+  TextInput,
 } from 'react-native';
 import {
   lineKey,

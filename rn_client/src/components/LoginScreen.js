@@ -41,8 +41,14 @@ export default function LoginScreen() {
       } else {
         setRegDone(true);
         useGameStore.setState({
-          error: '注册成功，请点击「进入仙道wapmud」登录',
+          error: '注册成功，直接点击「进入仙道wapmud」登录',
         });
+        /* 注册即转登录：账号密码已填好，一键进游。 */
+        setTimeout(() => {
+          setMode('login');
+          setRegDone(false);
+          setConfirm('');
+        }, 1200);
       }
     } catch (e) {
       useGameStore.setState({ error: `注册失败: ${e.message}` });
