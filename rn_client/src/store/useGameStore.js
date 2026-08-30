@@ -550,9 +550,14 @@ export const useGameStore = create((set, get) => ({
     set({ autofighting: !previous, afkBusy: true, error: '' });
     try {
       const data = await api.setAutofight(txd, 'toggle');
-      if (data && typeof data.autofight !== 'undefined') {
-        set({ autofighting: !!data.autofight });
-      }
+      const enabled = data && typeof data.autofight !== 'undefined'
+        ? !!data.autofight : !previous;
+      set({ autofighting: enabled });
+      /* 点按即有明确反馈：先给一句系统提示，首个挂机画面（≤3秒）
+       * 到达后自然接管整屏。 */
+      get().appendNotice(enabled
+        ? '◎ 挂机已开启，战斗画面马上就来…'
+        : '◎ 挂机已停止');
       /* 立即拉一帧挂机画面，让战斗输出马上出现在屏幕上。 */
       await get().pollGameView('ios');
     } catch (e) {
@@ -560,6 +565,19 @@ export const useGameStore = create((set, get) => ({
     } finally {
       set({ afkBusy: false });
     }
+  },
+
+  /** 追加一条本地系统提示行（不经过服务端）。 */
+  appendNotice(text) {
+    set(state => ({
+      lines: [...state.lines, {
+        type: 'line',
+        segments: [{
+          type: 'text',
+          parts: [{ type: 'text', content: String(text || '') }],
+        }],
+      }].slice(-MAX_LINES),
+    }));
   },
 
   /** 挂机画面轮询（txpike9 同款 flushview 命令通道，全量快照替换）。 */
