@@ -87,9 +87,27 @@ async function getJson(url, fetchImpl) {
   if (timer) clearTimeout(timer);
   let data = null;
   try {
-    data = await response.json();
+    /* 先取文本再解析：RN对含非法UTF-8字节的响应response.json()会直接
+     * 抛错（服务端个别旧数据字段可能带坏字节），text()按替换字符
+     * 宽容解码后JSON.parse，与网页/Node行为一致。 */
+    if (typeof response.text === 'function') {
+      const text = await response.text();
+      data = text ? JSON.parse(text) : null;
+    } else {
+      data = await response.json();
+    }
   } catch (e) {
-    data = null;
+    /* 解析失败不再静默吞掉（曾导致"200但0行"的空页难排查）：
+     * 向上抛出带上下文的异常，界面error栏立即可见。 */
+    if (!response.ok) {
+      const error = new Error(`HTTP ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
+    const error = new Error(
+      `响应解析失败(HTTP ${response.status}): ${e.message}`);
+    error.status = response.status;
+    throw error;
   }
   if (!response.ok || (data && data.error)) {
     const message = (data && data.error) || `HTTP ${response.status}`;

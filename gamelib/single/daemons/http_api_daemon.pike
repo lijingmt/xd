@@ -1879,8 +1879,12 @@ string build_command_json_response_job(string response,string new_txd,
     void|int filter_mobile_donation)
 {
     array(mapping) lines = parse_mud_to_json(response, new_txd, auth_userid);
-    if(filter_mobile_donation)
+    if(filter_mobile_donation){
+        int pre_count = sizeof(lines);
         lines = filter_json_for_mobile_app(lines);
+        werror("[MobileFilter] cmd=%s user=%s lines %d->%d\n",
+            cmd, auth_userid, pre_count, sizeof(lines));
+    }
     string copy_data;
     string copy_type;
     if(search(response, "COPY_CODE:") != -1) {
@@ -1934,7 +1938,8 @@ void finish_handle_api_json(string response,
     string stored_password;
     string new_txd;
 
-    command_response = String.trim_all_whites(response || "");
+    command_response = sanitize_utf8_response(
+        String.trim_all_whites(response || ""));
     // 调度/运行时异常不能伪装成普通MUD文字。返回HTTP错误后，选角页会
     // 保留已创建人物并允许重试，而不是带着半初始化界面进入游戏。
     if(has_prefix(command_response,"错误:") ||
@@ -3101,6 +3106,70 @@ mapping execute_autofight_api_action(object player,string action)
             "自动挂机已开启：智能寻路会选择练级区，并在空图时自动前往相邻地图" :
             "自动挂机已关闭",
     ]);
+}
+
+/* ===== 响应UTF-8净化 =====
+ * 个别旧存档字段可能携带非法UTF-8字节（旧编码迁移残留）。严格解析的
+ * 客户端（RN/Hermes）会因此整体拒绝JSON。出口处统一把非法序列替换为
+ * U+FFFD，保证任何角色数据都能安全下发。 */
+private string sanitize_utf8_response(string data)
+{
+    int len;
+    int i;
+    int c;
+    int need;
+    string out_buf;
+    if(!data || (len = sizeof(data)) == 0)
+        return data;
+    /* 快速路径：全ASCII直接放行。 */
+    for(i = 0; i < len; i++){
+        c = data[i];
+        if(c < 0x80)
+            continue;
+        break;
+    }
+    if(i == len)
+        return data;
+    out_buf = data[..i-1];
+    while(i < len){
+        c = data[i];
+        if(c < 0x80){
+            out_buf += data[i..i];
+            i += 1;
+            continue;
+        }
+        if((c & 0xE0) == 0xC0)
+            need = 1;
+        else if((c & 0xF0) == 0xE0)
+            need = 2;
+        else if((c & 0xF8) == 0xF0)
+            need = 3;
+        else{
+            out_buf += "\357\277\275";
+            i += 1;
+            continue;
+        }
+        if(i + need >= len){
+            out_buf += "\357\277\275";
+            i += 1;
+            continue;
+        }
+        int valid = 1;
+        for(int j = 1; j <= need; j++){
+            if((data[i+j] & 0xC0) != 0x80){
+                valid = 0;
+                break;
+            }
+        }
+        if(!valid){
+            out_buf += "\357\277\275";
+            i += 1;
+            continue;
+        }
+        out_buf += data[i..i+need];
+        i += need + 1;
+    }
+    return out_buf;
 }
 
 /* ===== iOS 内购验证（移植自txpike9，账号级共享充值钱包入账）===== */
