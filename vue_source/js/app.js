@@ -2228,7 +2228,7 @@ createApp({
 			const actionText = option === 'one'
 				? `支付${cost}碎玉增加1个人物栏位`
 				: `支付${cost}碎玉一次购买5个人物栏位`;
-			if (!window.confirm(`${actionText}？\n本次只扣账号共享充值余额，不会动人物背包玉石。`)) {
+			if (!window.confirm(`${actionText}？\n优先扣账号共享碎玉，不足部分自动用当前在线人物背包玉石补足。`)) {
 				return;
 			}
 			const requestKey = `${this.illusionRealmStatus.illusion_id || 'S1'}:${option}`;
@@ -2248,7 +2248,8 @@ createApp({
 					{
 						token: this.accountToken,
 						option,
-						request_id: this.illusionExpansionPendingRequest.requestId
+						request_id: this.illusionExpansionPendingRequest.requestId,
+						payer_character: this.currentCharacterId || ''
 					}
 				);
 				this.applyAccountData(data);
@@ -2334,7 +2335,8 @@ createApp({
 					{
 						token: this.accountToken,
 						profession_id: professionId,
-						request_id: this.professionExpansionPendingRequest.requestId
+						request_id: this.professionExpansionPendingRequest.requestId,
+						payer_character: this.currentCharacterId || ''
 					}
 				);
 				this.applyAccountData(data);

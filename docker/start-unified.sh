@@ -17,6 +17,10 @@ CLUSTER_STARTED=0
 SHUTTING_DOWN=0
 SUPERVISOR_HEALTH_FAILURES=0
 SUPERVISOR_ENABLED=0
+SUPERVISOR_CLUSTER_RESTARTS=0
+SUPERVISOR_LAST_RESTART_SECONDS=0
+STARTUP_EMERGENCY_LEGACY=0
+EMERGENCY_LAST_ATTEMPT=0
 MAP_WORKER_STARTUP_STABILIZATION_SECONDS=60
 
 export PATH="/usr/local/pike9/bin:${PATH}"
@@ -271,7 +275,8 @@ start_active_authority()
 			sleep "$drain_seconds"
 		fi
 	done
-	log "active worker startup failed; opening the persistent fallback circuit"
+	log "active worker startup failed; serving on emergency legacy main"
+	STARTUP_EMERGENCY_LEGACY=1
 	fallback_to_legacy active
 }
 
@@ -421,6 +426,45 @@ initialize_runtime()
 	fi
 }
 
+restart_worker_cluster()
+{
+	local traffic_mode="$1"
+	SUPERVISOR_CLUSTER_RESTARTS=$((SUPERVISOR_CLUSTER_RESTARTS + 1))
+	log "worker cluster unhealthy; restarting multi-worker topology (attempt $SUPERVISOR_CLUSTER_RESTARTS) instead of falling back to legacy"
+	if ! stop_cluster_safely "$traffic_mode"; then
+		log "cluster safe-stop incomplete; attempting topology start anyway"
+	fi
+	if start_cluster; then
+		write_runtime_mode "$traffic_mode"
+		log "multi-worker topology restarted; supervisor keeps watching"
+	else
+		log "cluster restart failed; supervisor will retry after backoff"
+	fi
+}
+
+# 启动期集群拉不起而应急跑单进程时，定期尝试恢复多worker拓扑：
+# 先停应急单进程释放端口，再整轮拉集群；失败则回到应急单进程。
+attempt_emergency_cluster_recovery()
+{
+	local traffic_mode="$1"
+	log "emergency legacy serving active; attempting multi-worker topology recovery"
+	stop_legacy_main || fail "legacy main could not stop during topology recovery"
+	if start_cluster && wait_for_http_health; then
+		STARTUP_EMERGENCY_LEGACY=0
+		write_runtime_mode active
+		if [[ -f "$FALLBACK_LATCH" ]]; then
+			mv -f "$FALLBACK_LATCH" \
+				"$MAP_WORKER_DIR/fallback-recovered.$(date -u +%Y%m%dT%H%M%SZ)" \
+				2>/dev/null || true
+		fi
+		log "multi-worker topology recovered from emergency legacy serving"
+		return 0
+	fi
+	log "topology recovery not healthy; returning to emergency legacy serving"
+	stop_cluster_safely "$traffic_mode" || true
+	start_legacy_main || fail "legacy main could not restart during topology recovery"
+}
+
 supervise_worker_cluster_once()
 {
 	local traffic_mode="$1"
@@ -437,8 +481,16 @@ supervise_worker_cluster_once()
 	SUPERVISOR_HEALTH_FAILURES=$((SUPERVISOR_HEALTH_FAILURES + 1))
 	log "worker health probe failed ($SUPERVISOR_HEALTH_FAILURES/3)"
 	if (( SUPERVISOR_HEALTH_FAILURES >= 3 )); then
-		fallback_to_legacy "$traffic_mode"
-		SUPERVISOR_ENABLED=0
+		# 多worker是正式拓扑：崩溃后直接重启集群，绝不降级单进程
+		# （降级后持久化的房间亲和仍指向死worker，每个动作吃满
+		# 控制超时，玩家体感每步卡约10秒）。60秒退避防崩溃循环。
+		if (( SUPERVISOR_LAST_RESTART_SECONDS > 0 &&
+		      SECONDS - SUPERVISOR_LAST_RESTART_SECONDS < 60 )); then
+			log "restart backoff active; waiting before next cluster restart"
+			return 0
+		fi
+		SUPERVISOR_LAST_RESTART_SECONDS=$SECONDS
+		restart_worker_cluster "$traffic_mode"
 		SUPERVISOR_HEALTH_FAILURES=0
 	fi
 }
@@ -451,6 +503,8 @@ run_supervisor()
 		SECONDS + MAP_WORKER_STARTUP_STABILIZATION_SECONDS))
 	SUPERVISOR_ENABLED="$enabled"
 	SUPERVISOR_HEALTH_FAILURES=0
+	SUPERVISOR_CLUSTER_RESTARTS=0
+	SUPERVISOR_LAST_RESTART_SECONDS=0
 	while true; do
 		sleep 5
 		if [[ -n "$TOMCAT_PID" ]] && ! kill -0 "$TOMCAT_PID" 2>/dev/null; then
@@ -459,10 +513,17 @@ run_supervisor()
 		if [[ -n "$LEGACY_PID" ]] && ! kill -0 "$LEGACY_PID" 2>/dev/null; then
 			fail "legacy main exited unexpectedly"
 		fi
-		[[ "$SUPERVISOR_ENABLED" == "1" &&
-		   "$CLUSTER_STARTED" == "1" ]] || continue
-		supervise_worker_cluster_once "$traffic_mode" \
-			"$startup_grace_deadline"
+		if [[ "$SUPERVISOR_ENABLED" == "1" &&
+		   "$CLUSTER_STARTED" == "1" ]]; then
+			supervise_worker_cluster_once "$traffic_mode" \
+				"$startup_grace_deadline"
+		elif [[ "$SUPERVISOR_ENABLED" == "1" &&
+		        "$STARTUP_EMERGENCY_LEGACY" == "1" &&
+		        -n "$LEGACY_PID" ]] &&
+		      (( SECONDS - EMERGENCY_LAST_ATTEMPT >= 120 )); then
+			EMERGENCY_LAST_ATTEMPT=$SECONDS
+			attempt_emergency_cluster_recovery "$traffic_mode"
+		fi
 	done
 }
 

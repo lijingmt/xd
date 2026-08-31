@@ -1,7 +1,8 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
 // 付费扩充同账号同时在线人数：当前容量30以内每格100碎玉，
-// 超过30每格1000碎玉。扣账号共享余额，失败全额回退。
+// 超过30每格1000碎玉。默认扣账号共享余额，不足部分自动用
+// 当前人物背包实体玉补足，失败全额回退。
 int main(string|zero arg)
 {
 	object me=this_player();
@@ -22,12 +23,17 @@ int main(string|zero arg)
 			account_id);
 		int cost=ACCOUNT_CHARACTERD->query_online_expansion_cost(current);
 		int total=ACCOUNT_CHARACTERD->query_character_limit();
+		int wallet=ACCOUNT_WALLETD->query_balance(me);
+		int physical=YUSHID->query_physical_all_num(me);
 		string s="【在线上限扩充】当前同时在线："+current+"人（上限"+
 			total+"）\n";
 		if(current>=total)
 			s+="已达账号人物总数上限，不能再扩充。\n";
 		else
-			s+="扩充1个在线位需要："+cost+"碎玉（账号共享余额）\n"+
+			s+="扩充1个在线位需要："+cost+"碎玉\n"+
+				"可用支付：账号共享余额"+wallet+
+				" + 当前人物背包玉折合"+physical+"\n"+
+				"（优先扣共享余额，不足自动用背包玉补足）\n"+
 				"[确认扩充:online_expand ok]\n";
 		s+="[返回游戏:look]\n";
 		write(s);
@@ -36,7 +42,7 @@ int main(string|zero arg)
 	request_id=String.string2hex(Crypto.SHA256()->update(
 		account_id+"|online|"+time()+"|"+random(1000000000))->digest());
 	result=ACCOUNT_CHARACTERD->purchase_online_capacity_expansion(
-		account_id,request_id);
+		account_id,request_id,me);
 	write((string)result["message"]+"\n[继续扩充:online_expand]|"+
 		"[返回游戏:look]\n");
 	return 1;

@@ -5744,12 +5744,13 @@ mapping(string:mixed) reconcile_account_character_expansions(
 }
 
 mapping(string:mixed) purchase_account_character_expansion(
-	string requested_id,string option,string request_id)
+	string requested_id,string option,string request_id,void|object payer)
 {
 	mapping status = query_public_status();
 	string account_id = ACCOUNT_CHARACTERD->
 		query_account_id_for_character(requested_id);
 	mapping account_data;
+	mapping(string:mixed) payment;
 	mapping debit;
 	mapping grant;
 	mapping expansion;
@@ -5757,6 +5758,7 @@ mapping(string:mixed) purchase_account_character_expansion(
 	string reason;
 	int cost;
 	int cleanup_ok;
+	int paid_physical;
 	if(!account_id || account_id=="" || !(int)status["ok"] ||
 	   !(int)status["entitlement_open"])
 		return (["ok":0,"message":"当前未开放幻境人物栏位扩充。"]) ;
@@ -5783,20 +5785,33 @@ mapping(string:mixed) purchase_account_character_expansion(
 	if(cost<=0 || cost>500 || cost%100!=0)
 		return (["ok":0,"message":"幻境栏位价格异常，本次未扣款。"]) ;
 	reason = account_expansion_reason((string)status["illusion_id"],option);
-	debit = ACCOUNT_WALLETD->debit_account_recharge_once(account_id,cost,
-		reason,request_id);
-	if(!(int)debit["ok"])
-		return (["ok":0,"message":(string)(debit["message"] ||
-			"账号共享充值余额扣款失败。")+
-			" 人物中心不会消费任何人物背包玉石。"]) ;
+	/* 默认扣账号共享碎玉；不足时用付款人物背包实体玉补足。 */
+	if(payer){
+		payment = YUSHID->pay_account_expansion(payer,account_id,cost,
+			reason,request_id);
+		if(!(int)payment["ok"])
+			return (["ok":0,"message":(string)payment["message"]]);
+		paid_physical = (int)payment["paid_physical"];
+	}
+	else{
+		debit = ACCOUNT_WALLETD->debit_account_recharge_once(account_id,cost,
+			reason,request_id);
+		if(!(int)debit["ok"])
+			return (["ok":0,"message":(string)(debit["message"] ||
+				"账号共享充值余额扣款失败。")+
+				" 可进入游戏用人物中心扩充，支持背包玉石补足。"]) ;
+	}
 	grant = ACCOUNT_CHARACTERD->grant_illusion_character_expansion(
 		account_id,(string)status["illusion_id"],option,request_id,cost);
 	if(!(int)grant["ok"] ||
 	   ((int)grant["already"] && !(int)grant["same_request"])){
 		int refunded = ACCOUNT_WALLETD->rollback_account_debit_recharge_once(
 			account_id,request_id,"illusion_account_expansion_failed");
+		if(paid_physical>0 && payer && !YUSHID->give_yushi(payer,
+			paid_physical))
+			refunded = 0;
 		return (["ok":0,"message":refunded ?
-			"栏位状态已变化，本次共享余额已原路退回。" :
+			"栏位状态已变化，本次扣款已原路退回。" :
 			"栏位写入及退款异常，请立即联系管理员。"]) ;
 	}
 	expansion = mappingp(grant["expansion"]) ?

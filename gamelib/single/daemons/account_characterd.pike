@@ -516,14 +516,16 @@ int query_account_online_capacity(string account_id)
 /** 付费扩充同账号同时在线人数：扣款成功后容量+1并原子落盘，
  失败全额回退。价格按扩容前容量分档（30以内100，以上1000碎玉）。 */
 mapping(string:mixed) purchase_online_capacity_expansion(
-	string account_id,string request_id)
+	string account_id,string request_id,void|object payer)
 {
 	mapping(string:mixed) record;
+	mapping(string:mixed) payment;
 	mapping debit;
 	object key;
 	int current;
 	int cost;
 	int saved;
+	int paid_physical;
 	if(!valid_userid(account_id) || !valid_sha256_hex(request_id))
 		return (["ok":0,"message":"在线扩容请求无效。"]);
 	key = account_character_lock->lock();
@@ -541,11 +543,21 @@ mapping(string:mixed) purchase_online_capacity_expansion(
 	}
 	cost = query_online_expansion_cost(current);
 	destruct(key);
-	debit = ACCOUNT_WALLETD->debit_account_recharge_once(account_id,cost,
-		"在线人物上限扩容",request_id);
-	if(!(int)debit["ok"])
-		return (["ok":0,"message":(string)(debit["message"] ||
-			"账号共享余额扣款失败。")]);
+	/* 默认扣账号共享碎玉；不足时用付款人物背包实体玉补足。 */
+	if(payer){
+		payment = YUSHID->pay_account_expansion(payer,account_id,cost,
+			"在线人物上限扩容",request_id);
+		if(!(int)payment["ok"])
+			return (["ok":0,"message":(string)payment["message"]]);
+		paid_physical = (int)payment["paid_physical"];
+	}
+	else{
+		debit = ACCOUNT_WALLETD->debit_account_recharge_once(account_id,
+			cost,"在线人物上限扩容",request_id);
+		if(!(int)debit["ok"])
+			return (["ok":0,"message":(string)(debit["message"] ||
+				"账号共享余额扣款失败。")]);
+	}
 	key = account_character_lock->lock();
 	record = load_persisted_record_unlocked(account_id,1);
 	current = record && (int)record["online_capacity"]>0 ?
@@ -554,6 +566,8 @@ mapping(string:mixed) purchase_online_capacity_expansion(
 		destruct(key);
 		ACCOUNT_WALLETD->forget_account_debit_recharge_once(
 			account_id,request_id);
+		if(paid_physical>0 && payer)
+			YUSHID->give_yushi(payer,paid_physical);
 		return (["ok":0,"already":1,
 			"message":"在线上限已满，本次扣款已撤销。"]);
 	}
@@ -564,9 +578,13 @@ mapping(string:mixed) purchase_online_capacity_expansion(
 	if(!saved){
 		ACCOUNT_WALLETD->forget_account_debit_recharge_once(
 			account_id,request_id);
+		if(paid_physical>0 && payer)
+			YUSHID->give_yushi(payer,paid_physical);
 		return (["ok":0,"message":"扩容保存失败，本次扣款已撤销。"]);
 	}
 	return (["ok":1,"capacity":current+1,"cost":cost,
+		"paid_wallet":payer?(int)payment["paid_wallet"]:cost,
+		"paid_physical":paid_physical,
 		"message":"在线人物上限已扩充到"+(current+1)+
 			"人（本次"+cost+"碎玉）。"]);
 }
@@ -1810,17 +1828,20 @@ private mapping(string:mixed) query_profession_slot_expansion_request(
 }
 
 mapping(string:mixed) purchase_profession_slot_expansion(
-	string requested_id,string profession_id,string request_id)
+	string requested_id,string profession_id,string request_id,
+	void|object payer)
 {
 	string account_id = query_account_id_for_character(requested_id);
 	mapping account_data;
 	mapping state;
+	mapping(string:mixed) payment;
 	mapping debit;
 	mapping grant;
 	mapping processed;
 	string reason;
 	int cost;
 	int cleanup_ok;
+	int paid_physical;
 	if(!valid_userid(account_id) ||
 	   query_profession_account_limit(profession_id)<=0 ||
 	   !valid_sha256_hex(request_id))
@@ -1848,19 +1869,32 @@ mapping(string:mixed) purchase_profession_slot_expansion(
 	if(cost<5000 || cost>40000 || cost%5000!=0)
 		return (["ok":0,"message":"职业人物上限价格异常，本次未扣费。"]) ;
 	reason = HIDDEN_PROFESSION_EXPANSION_REASON+profession_id;
-	debit = ACCOUNT_WALLETD->debit_account_recharge_once(account_id,cost,
-		reason,request_id);
-	if(!(int)debit["ok"])
-		return (["ok":0,"message":(string)(debit["message"] ||
-			"账号共享充值余额扣款失败。")]);
+	/* 默认扣账号共享碎玉；不足时用付款人物背包实体玉补足。 */
+	if(payer){
+		payment = YUSHID->pay_account_expansion(payer,account_id,cost,
+			reason,request_id);
+		if(!(int)payment["ok"])
+			return (["ok":0,"message":(string)payment["message"]]);
+		paid_physical = (int)payment["paid_physical"];
+	}
+	else{
+		debit = ACCOUNT_WALLETD->debit_account_recharge_once(account_id,cost,
+			reason,request_id);
+		if(!(int)debit["ok"])
+			return (["ok":0,"message":(string)(debit["message"] ||
+				"账号共享充值余额扣款失败。")]);
+	}
 	grant = grant_profession_slot_expansion(account_id,profession_id,
 		request_id,cost);
 	if(!(int)grant["ok"] ||
 	   ((int)grant["already"] && !(int)grant["same_request"])){
 		int refunded = ACCOUNT_WALLETD->rollback_account_debit_recharge_once(
 			account_id,request_id,"profession_slot_expansion_failed");
+		if(paid_physical>0 && payer && !YUSHID->give_yushi(payer,
+			paid_physical))
+			refunded = 0;
 		return (["ok":0,"message":refunded ?
-			"职业上限状态已经变化，本次共享余额已原路退回。" :
+			"职业上限状态已经变化，本次扣款已原路退回。" :
 			"职业上限写入及退款异常，请立即联系管理员。"]) ;
 	}
 	cleanup_ok = ACCOUNT_WALLETD->forget_account_debit_recharge_once(

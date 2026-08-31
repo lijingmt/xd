@@ -508,6 +508,82 @@ int pay_yushi(object player,int num)
 	return 1;
 }
 
+/* 账号级扩充类购买（在线上限/职业位/人物位）统一支付入口：
+ * 默认先扣账号共享碎玉，不足部分用付款人物背包里的实体玉补足。
+ * request_id 只作用于共享余额扣款，沿用原有幂等/回滚账本；
+ * 实体玉部分走 pay_yushi 的历史兑换算法。
+ * 返回 (["ok":1,"paid_wallet":n,"paid_physical":n]) 或
+ * (["ok":0,"message":...])，失败时绝无部分扣款。 */
+mapping(string:mixed) pay_account_expansion(object payer,string account_id,
+	int cost,string reason,string request_id)
+{
+	mapping debit;
+	int wallet;
+	int physical;
+	int wallet_use;
+	int extra;
+	if(!payer || !functionp(payer->query_name) || cost<0 ||
+	   !stringp(account_id) || account_id=="")
+		return (["ok":0,"message":"支付入口参数无效，本次未扣款。"]);
+	if(cost==0)
+		return (["ok":1,"paid_wallet":0,"paid_physical":0]);
+	wallet=(int)ACCOUNT_WALLETD->query_balance(payer);
+	physical=query_physical_all_num(payer);
+	if(wallet>=cost){
+		debit=ACCOUNT_WALLETD->debit_account_recharge_once(
+			account_id,cost,reason,request_id);
+		if(!(int)debit["ok"])
+			return (["ok":0,"message":(string)(debit["message"] ||
+				"账号共享余额扣款失败。")]);
+		return (["ok":1,"paid_wallet":cost,"paid_physical":0]);
+	}
+	if(wallet+physical<cost)
+		return (["ok":0,"message":sprintf(
+			"碎玉不足：账号共享余额%d，当前人物背包玉折合%d，共需%d。",
+			wallet,physical,cost)]);
+	wallet_use=wallet;
+	extra=cost-wallet;
+	if(wallet_use>0){
+		debit=ACCOUNT_WALLETD->debit_account_recharge_once(
+			account_id,wallet_use,reason,request_id);
+		if(!(int)debit["ok"])
+			return (["ok":0,"message":(string)(debit["message"] ||
+				"账号共享余额扣款失败。")]);
+	}
+	if(!pay_yushi(payer,extra)){
+		if(wallet_use>0 &&
+		   !ACCOUNT_WALLETD->rollback_account_debit_recharge_once(
+			account_id,request_id,reason+"_physical_failed"))
+			werror("[YUSHID] 扩充支付实体玉失败但余额回滚异常: %s %s\n",
+				account_id,reason);
+		return (["ok":0,"message":"背包玉石扣除失败，本次交易已全额回退。"]);
+	}
+	return (["ok":1,"paid_wallet":wallet_use,"paid_physical":extra]);
+}
+
+/* pay_account_expansion 的对应退款：共享余额按 request_id 原路回滚，
+ * 实体玉按折合碎玉数重新发放。返回 1 表示全部退回。 */
+int refund_account_expansion(object payer,string account_id,
+	int paid_wallet,int paid_physical,string reason,string request_id)
+{
+	int ok=1;
+	if(!payer)
+		return 0;
+	if(paid_wallet>0 &&
+	   !ACCOUNT_WALLETD->rollback_account_debit_recharge_once(
+		account_id,request_id,reason)){
+		ok=0;
+		werror("[YUSHID] 扩充退款余额回滚失败: %s %s\n",
+			account_id,reason);
+	}
+	if(paid_physical>0 && !give_yushi(payer,paid_physical)){
+		ok=0;
+		werror("[YUSHID] 扩充退款实体玉发放失败: %s %s %d\n",
+			(string)payer->query_name(),reason,paid_physical);
+	}
+	return ok;
+}
+
 // 需要跨多个存档提交的购买使用此入口。只有涉及共享充值钱包时才
 // 使用 request_id 幂等扣款；纯人物玉石仍走上面的历史兑换算法。
 int pay_yushi_once(object player,int num,string request_id)

@@ -95,6 +95,26 @@ private void revoke_account_session(string token)
 	destruct(key);
 }
 
+/* 扩充类购买的付款人物：必须在线且属于该账号，其背包实体玉
+ * 用于补足共享余额的差额。未传或不合法则退回纯余额扣款。 */
+private object resolve_expansion_payer(mapping params,string account_id)
+{
+	string payer_id;
+	object payer;
+	payer_id=lower_case(String.trim_all_whites(
+		(string)(params["payer_character"] || "")));
+	if(payer_id=="")
+		return 0;
+	payer=get_player_from_connection(payer_id,0);
+	if(!payer)
+		payer=find_player(payer_id);
+	if(!payer || !functionp(payer->query_account_owner))
+		return 0;
+	if((string)payer->query_account_owner()!=account_id)
+		return 0;
+	return payer;
+}
+
 void revoke_account_sessions_for(string account_id)
 {
 	object key;
@@ -156,7 +176,8 @@ void handle_api_account_profession_expand(
 	request_id = lower_case(String.trim_all_whites(
 		(string)(params["request_id"] || "")));
 	expansion = ACCOUNT_CHARACTERD->purchase_profession_slot_expansion(
-		account_id,profession_id,request_id);
+		account_id,profession_id,request_id,
+		resolve_expansion_payer(params,account_id));
 	if(!(int)expansion["ok"]){
 		send_json(req,(["error":expansion["message"] ||
 			"职业人物上限扩充失败"]),409);
@@ -445,7 +466,8 @@ void handle_api_account_illusion_expand(
 	request_id = lower_case(String.trim_all_whites(
 		(string)(params["request_id"] || "")));
 	expansion = SEASONALD->purchase_account_character_expansion(
-		account_id,option,request_id);
+		account_id,option,request_id,
+		resolve_expansion_payer(params,account_id));
 	if(!(int)expansion["ok"]){
 		send_json(req,(["error":expansion["message"] ||
 			"幻境人物栏位扩充失败"]),409);
