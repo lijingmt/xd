@@ -520,6 +520,27 @@ private void log_transfer(string account_id,string character_id,
 		" item="+item_id+" tx="+txid+" result="+result+"\n");
 }
 
+/* 待恢复事务判定"物品是否在角色仓库"：在线人物以内存态为准，
+ * 离线或本进程不可见时回退读存档文件。文件与内存间的落盘竞态
+ * 曾把个人→共享事务误判回滚，造成两端同ID后仓库被硬锁。 */
+private int personal_contains_prefer_online(string character_id,
+	string item_id)
+{
+	object online = find_player(character_id);
+	array items;
+	if(online && functionp(online->query_name)){
+		items = online->packaged_items;
+		if(arrayp(items)){
+			foreach(items,mixed entry){
+				if(personal_item_id(entry)==item_id)
+					return 1;
+			}
+			return 0;
+		}
+	}
+	return saved_personal_contains(character_id,item_id);
+}
+
 private int recover_pending_unlocked(mapping(string:mixed) record)
 {
 	array pending = record["pending"];
@@ -532,7 +553,8 @@ private int recover_pending_unlocked(mapping(string:mixed) record)
 		string item_id = (string)item["id"];
 		string character_id = (string)one["character_id"];
 		string direction = (string)one["direction"];
-		int in_personal = saved_personal_contains(character_id,item_id);
+		int in_personal = personal_contains_prefer_online(
+			character_id,item_id);
 		if(in_personal<0){
 			recovered += ({one});
 			continue;
@@ -638,8 +660,16 @@ private int ensure_personal_ids_unlocked(object player,
 			return 0;
 		item_id = personal_item_id(updated[i]);
 		if(item_id!=""){
-			if(used[item_id])
-				return 0;
+			if(used[item_id]){
+				/* 共享仓库是该ID的权威所有者（与登录对账
+				 * reconcile_player_login同一策略）：会话中途
+				 * 出现两端同ID时删除角色仓库影子并落盘，
+				 * 而不是硬锁仓库把玩家挡在门外。 */
+				updated = remove_array_index(updated,i);
+				i--;
+				changed = 1;
+				continue;
+			}
 			used[item_id] = 1;
 			continue;
 		}

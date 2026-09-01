@@ -158,6 +158,20 @@ int main()
 			!duplicate["ok"] && after_duplicate["used"]==1,
 			"幂等边界没有拒绝已完成的物品ID");
 
+		/* 会话中途两端同ID（批量重试/落盘竞态造成）：共享仓库是
+		 * 权威所有者，必须自愈删除角色仓库影子，而不是硬锁仓库。 */
+		root_player->packaged_items += ({({
+			"tongkuangshi","铜矿石","铜矿石",
+			"material/tongkuangshi",0,0,150,item_id,
+		})});
+		root_player->save_with_result();
+		mapping healed = ACCOUNT_STORAGED->query_storage(root_player);
+		check("会话中途两端同ID自动清理角色影子不再硬锁",
+			healed["ok"] && healed["used"]==1 &&
+			count_personal_id(root_player,item_id)==0,
+			sprintf("healed=%O personal=%d",healed,
+				count_personal_id(root_player,item_id)));
+
 		mapping interrupted_out = ACCOUNT_STORAGED->transfer_to_personal(
 			root_player,item_id,"after_personal_save");
 		ACCOUNT_STORAGED->drop_test_cache(account_id);
