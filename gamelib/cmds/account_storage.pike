@@ -130,7 +130,8 @@ int main(string|zero arg)
 		if(page>0)
 			s += "[上一页:account_storage put "+(page-1)+"] ";
 		if(page<max_page)
-			s += "[下一页:account_storage put "+(page+1)+"]";
+			s += "[下一页:account_storage put "+(page+1)+"] "+
+				"[尾页:account_storage put "+max_page+"]";
 		if(max_page>0)
 			s += "\n";
 		s += "[改为从共享仓库取回:account_storage take 0]\n\n";
@@ -189,7 +190,8 @@ int main(string|zero arg)
 		if(page>0)
 			s += "[上一页:account_storage take "+(page-1)+"] ";
 		if(page<max_page)
-			s += "[下一页:account_storage take "+(page+1)+"]";
+			s += "[下一页:account_storage take "+(page+1)+"] "+
+				"[尾页:account_storage take "+max_page+"]";
 		if(max_page>0)
 			s += "\n";
 		s += "[改为把角色物品放入共享:account_storage put 0]\n\n";

@@ -390,7 +390,26 @@ int main(string|zero arg)
 				if(need_money)
 					me->del_account(need_money);
 				// 新装备、材料与费用均已就绪，最后删除原装备。
+				// 原装备若正穿着，换装后自动穿回新装备（与登录矫正
+				// 替换同策略），否则玩家每次洗练都被脱装一次。
+				int was_equipped=(int)item->equiped;
+				string reforge_kind=functionp(item->query_item_kind) ?
+					(string)item->query_item_kind() : "";
+				if(was_equipped && functionp(me->remove_equipment))
+					catch{ me->remove_equipment(item); };
 				item->remove();
+				if(was_equipped && new_item){
+					int reforge_worn=0;
+					if(has_suffix(reforge_kind,"weapon"))
+						catch{ reforge_worn=(int)me->wield(new_item); };
+					else{
+						catch{ me->wear(new_item); };
+						reforge_worn=(int)new_item->equiped;
+					}
+					if(!reforge_worn)
+						tell_object(me,
+							"【洗炼】新装备未能自动穿回，请在背包手动装备。\n");
+				}
 			}
 			//s_log += "insert xd_consume (consume_time,user_id,user_name,area,type,cost,get_item,get_item_num,get_item_cn,cost_reb) values ('"+consume_time+"','"+me->query_name()+"','"+me->query_name_cn()+"','"+GAME_NAME_S+"','"+log_consume+"','"+cost_s+"','"+item_name+"|"+new_item_name+"',1,'"+item_name_cn+"',"+cost+");\n";
 			c_log = "["+MUD_TIMESD->get_mysql_timedesc()+"]-"+"["+GAME_NAME_S+"]["+ me->query_name()+"]["+log_consume+"]["+item_name+"]["+item_name_cn+"][1]["+cost+"]["+new_item_name+"]\n";

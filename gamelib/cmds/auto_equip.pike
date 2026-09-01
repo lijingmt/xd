@@ -216,14 +216,18 @@ int query_item_score(object item)
 	if(!item)
 		return -1;
 	item_type = item->query_item_type();
-	score = item->query_item_canLevel()*1000000;
+	// 权重再平衡：原canLevel×1000000碾压一切，导致一键穿装总选
+	// "当前等级的白板优良件"而放弃属性更好的低几级装备。等级降为
+	// 与稀有度同档的次级因子，实际属性权重×10，同等级比较时
+	// 属性/稀有度决定优劣。
+	score = item->query_item_canLevel()*100000;
 	score += item->query_item_rareLevel()*100000;
-	score += item->query_all_add()*10000;
-	score += item->query_str_add()*1000;
-	score += item->query_dex_add()*1000;
-	score += item->query_think_add()*1000;
-	score += item->query_life_add()*10;
-	score += item->query_mofa_add()*10;
+	score += item->query_all_add()*100000;
+	score += item->query_str_add()*10000;
+	score += item->query_dex_add()*10000;
+	score += item->query_think_add()*10000;
+	score += item->query_life_add()*100;
+	score += item->query_mofa_add()*100;
 
 	if(is_weapon_type(item_type)){
 		score += item->query_attack_power_limit()*100;
