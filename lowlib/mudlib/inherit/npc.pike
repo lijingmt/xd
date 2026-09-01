@@ -40,9 +40,16 @@ private int transition_query_life_percent()
 
 private int transition_scaled_life(int raw_life)
 {
+	int scaled;
 	if(raw_life<=0)
 		return raw_life;
-	return raw_life*transition_query_life_percent()/100;
+	scaled=raw_life*transition_query_life_percent()/100;
+	// 整数除法下任何正向过渡比例都不允许产生0血怪：0血怪因
+	// 伤害下限1永远到不了after_life<=0的死亡判定，还会卡死
+	// 逃跑条件（fight.pike要求敌血>0），表现为打不死也逃不掉。
+	if(scaled<1)
+		scaled=1;
+	return scaled;
 }
 
 inherit LOW_BASE;
