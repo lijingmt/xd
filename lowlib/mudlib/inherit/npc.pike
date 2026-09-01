@@ -38,12 +38,43 @@ private int transition_query_life_percent()
 	return transition_life_cache;
 }
 
-private int transition_scaled_life(int raw_life)
+/* 难度驱动的过渡系数：第一难度（基础）保持世代2%软强度，提升
+ * 难度后怪物恢复设计满血。低层文件不能include gamelib.h，按
+ * flushview.pike先例按需加载守护进程；任何异常回退全局系数。 */
+private int transition_life_percent_for_player(void|object player)
+{
+	mixed err;
+	object difficultyd;
+	int level;
+	if(!player || !functionp(player->query_name))
+		return 0;
+	err=catch{
+		difficultyd=(object)(ROOT+
+			"/gamelib/single/daemons/personal_difficultyd.pike");
+	};
+	if(err || !objectp(difficultyd) ||
+	   !functionp(difficultyd->query_current_level))
+		return 0;
+	err=catch{
+		level=(int)difficultyd->query_current_level(player);
+	};
+	if(err)
+		return 0;
+	if(level<=0)
+		return 2;
+	return 100;
+}
+
+private int transition_scaled_life(int raw_life,void|object for_player)
 {
 	int scaled;
+	int percent;
 	if(raw_life<=0)
 		return raw_life;
-	scaled=raw_life*transition_query_life_percent()/100;
+	percent=transition_life_percent_for_player(for_player);
+	if(percent<1 || percent>200)
+		percent=transition_query_life_percent();
+	scaled=raw_life*percent/100;
 	// 整数除法下任何正向过渡比例都不允许产生0血怪：0血怪因
 	// 伤害下限1永远到不了after_life<=0的死亡判定，还会卡死
 	// 逃跑条件（fight.pike要求敌血>0），表现为打不死也逃不掉。
@@ -703,7 +734,7 @@ void npc_level_define_dongtai(object player){
 		// Boss级首领是设计化的强度锚点（限时活动/团队挑战/剧情高潮），
 		// 不吃全局过渡缩放，保持原设计血量。
 		if(!_boss)
-			life=life_max=transition_scaled_life(life);
+			life=life_max=transition_scaled_life(life,player);
 	}
 }
 int is_npc(){

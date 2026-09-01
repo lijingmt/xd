@@ -128,6 +128,41 @@ void test_no_level_101_cliff()
 		destruct(npc);
 }
 
+void test_difficulty_driven_life_transition()
+{
+	object difficulty=(object)(ROOT+
+		"/gamelib/single/daemons/personal_difficultyd.pike");
+	object base_player = make_physical_test_player(
+		"__testunit_diff_base__","human","jianxian",1000);
+	object hard_player = make_physical_test_player(
+		"__testunit_diff_hard__","human","jianxian",1000);
+	object|zero base_npc=0;
+	object|zero hard_npc=0;
+	int valid;
+	difficulty->set_scope_for_test(base_player,"eternal");
+	difficulty->set_scope_for_test(hard_player,"eternal");
+	base_player["/plus/personal_difficulty/unlocked"]=1;
+	base_player["/plus/personal_difficulty/current"]=0;
+	hard_player["/plus/personal_difficulty/unlocked"]=1;
+	hard_player["/plus/personal_difficulty/current"]=1;
+	base_npc=make_dynamic_npc(120,0,0);
+	hard_npc=make_dynamic_npc(120,0,0);
+	base_npc->setup_npc_dongtai(base_player);
+	hard_npc->setup_npc_dongtai(hard_player);
+	valid=objectp(base_npc) && objectp(hard_npc) &&
+		base_npc->get_cur_life()>0 &&
+		hard_npc->get_cur_life()*2/100==
+			base_npc->get_cur_life();
+	check("难度驱动怪物生命：基础档2%其余难度100%",valid,
+		sprintf("base=%d hard=%d",
+			base_npc?base_npc->get_cur_life():-1,
+			hard_npc?hard_npc->get_cur_life():-1));
+	if(base_npc) destruct(base_npc);
+	if(hard_npc) destruct(hard_npc);
+	if(base_player) destruct(base_player);
+	if(hard_player) destruct(hard_player);
+}
+
 void test_life_scale_transition()
 {
 	object npc = make_dynamic_npc(100,0,0);
@@ -163,7 +198,17 @@ void test_life_scale_transition()
 
 void test_runtime_stats_and_boss_multipliers()
 {
-	object player = clone(GAMELIB_USER);
+	/* 难度驱动过渡：本测试的历史期望建立在满血(100%)基线上。
+	 * 纯内存测试人物必须显式声明永恒服作用域（set_scope_for_test，
+	 * 与test_autofight_system同款），否则难度写入被作用域解析忽略、
+	 * 停留在基础档2%；这里设1档难度匹配100%满血基线。 */
+	object difficulty=(object)(ROOT+
+		"/gamelib/single/daemons/personal_difficultyd.pike");
+	object player = make_physical_test_player(
+		"__testunit_diff_full__","human","jianxian",1000);
+	difficulty->set_scope_for_test(player,"eternal");
+	player["/plus/personal_difficulty/unlocked"]=1;
+	player["/plus/personal_difficulty/current"]=1;
 	object level_100 = make_dynamic_npc(100,0,0);
 	object level_101 = make_dynamic_npc(101,0,0);
 	object base_120 = make_dynamic_npc(120,0,0);
@@ -367,6 +412,7 @@ int main()
 	test_scale_boundaries();
 	test_no_level_101_cliff();
 	test_life_scale_transition();
+	test_difficulty_driven_life_transition();
 	test_runtime_stats_and_boss_multipliers();
 	test_all_professions_share_dynamic_physical_defense_rule();
 	test_fixed_boss_pvp_and_npc_combat_unchanged();
