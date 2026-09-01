@@ -536,24 +536,6 @@ mapping(string:mixed) claim_next_tier(object player)
 			"永久解锁【"+(string)progress["next_name"]+"】难度。"]);
 }
 
-private int is_safe_switch_room(object player)
-{
-	object room;
-	string path;
-	if(!player || !(room=environment(player)))
-		return 0;
-	path=(file_name(room)/"#")[0];
-	if(functionp(room->query_room_type) && room->query_room_type()=="city")
-		return 1;
-	return search(({
-		ROOT+"/gamelib/d/congxianzhen/congxianzhenguangchang",
-		ROOT+"/gamelib/d/jinaodao/yuhuacunguangchang",
-		ROOT+"/gamelib/d/jadhuanjingwaicheng/yuhuacunguangchang",
-		ROOT+"/gamelib/d/illusion_s1/moon_gate.pike",
-		ROOT+"/gamelib/d/illusion_s1/moon_gate",
-	}),path)!=-1;
-}
-
 mapping(string:mixed) switch_tier(object player,int target_level)
 {
 	int old_level;
@@ -578,8 +560,6 @@ mapping(string:mixed) switch_tier(object player,int target_level)
 	if(functionp(player->query_autofight) &&
 	   player->query_autofight()=="enable")
 		return (["ok":0,"message":"请先停止自动挂机再切换难度。"]);
-	if(!is_safe_switch_room(player))
-		return (["ok":0,"message":"只能在主城或幻境集结入口切换难度。"]);
 	root=difficulty_root_for(player);
 	last_switch=(int)player[root+"/last_switch"];
 	if(last_switch>0 && time()-last_switch<DIFFICULTY_SWITCH_COOLDOWN)

@@ -59,7 +59,7 @@ int main(string|zero arg)
 	out += "\n永久保留：全部装备、任务物品、技能书、玉石、宝箱、丹药、食物饮品，以及不可丢弃/交易/存储、唯一、特殊来源或玩家标记物品。\n";
 	out += "销毁后不能恢复，也不会获得金币。\n\n";
 	out += "[确认销毁:cleanup_non_equipment confirm]\n";
-	out += "[取消:inventory]|[挂机清理设置:autofight cleanup]\n";
+	out += "[一键摧毁低级书卷:book_cleanup]|[取消:inventory]|[挂机清理设置:autofight cleanup]\n";
 	write(out);
 	return 1;
 }

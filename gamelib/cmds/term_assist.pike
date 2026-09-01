@@ -6,6 +6,7 @@ int main(string|zero arg)
 	string s = "";
 	if(!arg){
 		s += "你要邀请谁加入队伍？";
+		s += "[邀请同房间所有人:term_invite_room]\n";
 		s += "[返回游戏:look]\n";
 		write(s);
 		return 1;

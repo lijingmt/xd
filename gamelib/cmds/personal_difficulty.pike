@@ -67,7 +67,7 @@ private void show_status(object player,string notice)
 	}
 	else
 		out+="你已完成全部七重破界试炼。\n";
-	out+="\n切换难度（只能在主城/幻境入口、脱战且停止挂机后操作）：\n";
+	out+="\n切换难度（任意地图均可，需脱战且停止挂机，有切换冷却）：\n";
 	for(int level=0;level<sizeof(catalog);level++){
 		mapping tier=catalog[level];
 		// 按钮文本不加色码，防止 § 字符干扰部分客户端的链接解析。
