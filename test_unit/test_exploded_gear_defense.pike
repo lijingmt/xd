@@ -440,7 +440,7 @@ int main()
 		"/gamelib/single/daemons/balance_transitiond.pike");
 	mapping fresh=balance->query_status();
 	mapping tuned=balance->set_percents(60,80,"testunit");
-	mapping bad=balance->set_percents(5,80,"testunit");
+	mapping bad=balance->set_percents(0,80,"testunit");
 	mapping after_tune=balance->query_status();
 	check("怪物过渡系数：热调生效且越界拒绝",
 		(int)tuned["ok"] && !(int)bad["ok"] &&

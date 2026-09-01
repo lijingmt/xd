@@ -43,14 +43,15 @@ private void refresh_cache()
 			cached_attack_percent=0;
 		}
 	}
-	if(cached_life_percent<10 || cached_life_percent>200)
+	if(cached_life_percent<1 || cached_life_percent>200)
 		cached_life_percent=0;
-	if(cached_attack_percent<10 || cached_attack_percent>200)
+	if(cached_attack_percent<1 || cached_attack_percent>200)
 		cached_attack_percent=0;
-	// 无持久配置时使用过渡默认：怪物生命降到5%（回收后的重建期），
-	// 攻击保持100%。管理员可用 mgr_balance_transition 随时调整。
+	// 无持久配置时使用过渡默认：怪物生命2%（与npc.pike同源的
+	// 世代设计强度），攻击保持100%。管理员可用 mgr_balance_transition
+	// 随时调整（允许低至1%实现极软过渡）。
 	if(!cached_life_percent)
-		cached_life_percent=mtime ? 100 : 5;
+		cached_life_percent=mtime ? 100 : 2;
 	if(!cached_attack_percent)
 		cached_attack_percent=100;
 }
@@ -80,9 +81,9 @@ mapping(string:mixed) set_percents(int life_percent,int attack_percent,
 	string reason)
 {
 	string payload;
-	if(life_percent<10 || life_percent>200 ||
-	   attack_percent<10 || attack_percent>200)
-		return (["ok":0,"message":"系数必须在10到200之间。"]);
+	if(life_percent<1 || life_percent>200 ||
+	   attack_percent<1 || attack_percent>200)
+		return (["ok":0,"message":"系数必须在1到200之间。"]);
 	payload=Standards.JSON.encode(([
 		"version":1,
 		"life_percent":life_percent,
