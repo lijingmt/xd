@@ -2407,9 +2407,10 @@ int query_abnormal_gear_class(object item)
 			if(!intp(raw))
 				continue;
 			value=raw;
-			cap=(caps[attr]/100000)*item_level*20;
-			if(cap<caps[attr]/100000*2500)
-				cap=caps[attr]/100000*2500;
+			cap=(caps[attr]/100000)*item_level*4;
+			if(cap<caps[attr]/100000*500)
+				cap=caps[attr]/100000*500;
+			cap=cap+cap/5;
 			if(value>cap*10)
 				return 2;
 			if(value>cap)
@@ -2492,7 +2493,8 @@ object generate_normal_replacement(object old_item)
 			limit=clamp_caps[attr]/100000;
 			if(limit<=0)
 				continue;
-			cap=limit*max(item_level*20,2500);
+			cap=limit*max(item_level*4,500);
+			cap=cap+cap/5;
 			replacement[attr]=min((int)old_raw,cap);
 		}
 	}

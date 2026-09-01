@@ -183,7 +183,7 @@ int main()
 			(int)extreme->query_item_canLevel():1);
 		int attack_limit=(int)(ITEMSD->query_base_attribute_caps(
 			"weapon/1duanmugun/1duanmugun")["attack_add"]/100000);
-		int attack_cap=attack_limit*max(extreme_level*20,2500);
+		int attack_cap=attack_limit*max(extreme_level*4,500)*6/5;
 		check("替换件按旧值钳制到合法上限而不是重掷到+1",
 			objectp(direct_rep) &&
 			(int)direct_rep["attack_add"]==
