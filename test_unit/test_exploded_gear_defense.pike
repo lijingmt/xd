@@ -124,7 +124,7 @@ int main()
 		// 第三层：登录回收——构造爆炸装，矫正后应被直接销毁。
 		object exploded=ITEMSD->get_convert_item(
 			"weapon/1duanmugun/1duanmugun",3,1,1);
-		exploded->set_attack_add(999999);
+		exploded->set_attack_add(9999999);
 		exploded->move(player);
 		jade_before=YUSHID->query_all_num(player);
 		corrected=player->normalize_exploded_equipment();
@@ -179,6 +179,19 @@ int main()
 		replacement_kept_affixes=!rep_err && objectp(direct_rep) &&
 			intp(direct_rep["attack_add"]) &&
 			(int)direct_rep["attack_add"]>0;
+		int extreme_level=max(1,functionp(extreme->query_item_canLevel)?
+			(int)extreme->query_item_canLevel():1);
+		int attack_limit=(int)(ITEMSD->query_base_attribute_caps(
+			"weapon/1duanmugun/1duanmugun")["attack_add"]/100000);
+		int attack_cap=attack_limit*max(extreme_level*20,2500);
+		check("替换件按旧值钳制到合法上限而不是重掷到+1",
+			objectp(direct_rep) &&
+			(int)direct_rep["attack_add"]==
+			min((int)extreme["attack_add"],attack_cap),
+			sprintf("替换=%d 期望=%d 旧值=%d 上限=%d",
+				objectp(direct_rep)?(int)direct_rep["attack_add"]:-1,
+				min((int)extreme["attack_add"],attack_cap),
+				(int)extreme["attack_add"],attack_cap));
 		if(direct_rep)
 			destruct(direct_rep);
 		jade_ceiling_before=YUSHID->query_all_num(player);
@@ -284,7 +297,7 @@ int main()
 		string forge_base=Stdio.read_file(forge_dir+"1duanmugun") ||
 			"";
 		string forge_boom=forge_base[0..sizeof(forge_base)-3]+
-			"set_attack_add(5000);\n}\n";
+			"set_attack_add(30000);\n}\n";
 		string forge_ceiling=forge_base[0..sizeof(forge_base)-3]+
 			"set_attack_add(9999999);\n}\n";
 		Stdio.write_file(forge_dir+"zztestunitboom5000",forge_boom);
@@ -298,7 +311,7 @@ int main()
 			ITEMSD->query_abnormal_gear_class_by_file(
 				"weapon/1duanmugun/1duanmugun")==0;
 		object bad=clone(ITEM_PATH+"weapon/1duanmugun/1duanmugun");
-		bad->set_attack_add(5000);
+		bad->set_attack_add(30000);
 		player->packaged_items=({});
 		deposit_refused=player->packaged(bad,100)!=0 &&
 			sizeof(player->packaged_items)==0;

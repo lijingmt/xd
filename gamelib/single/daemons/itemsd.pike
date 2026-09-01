@@ -2407,9 +2407,9 @@ int query_abnormal_gear_class(object item)
 			if(!intp(raw))
 				continue;
 			value=raw;
-			cap=(caps[attr]/100000)*item_level*4;
-			if(cap<caps[attr]/100000*500)
-				cap=caps[attr]/100000*500;
+			cap=(caps[attr]/100000)*item_level*20;
+			if(cap<caps[attr]/100000*2500)
+				cap=caps[attr]/100000*2500;
 			if(value>cap*10)
 				return 2;
 			if(value>cap)
@@ -2477,6 +2477,25 @@ object generate_normal_replacement(object old_item)
 	if(err || !replacement)
 		return 0;
 	// 保留凹槽宝石和VIP标记
+	/* 替换件按"旧值钳制到合法上限"而不是重掷：词条表上限普遍只有
+	 * 个位数，重掷会产出+1这种废件（玩家几千属性直接归零）。旧值
+	 * 不超上限保持原值，超出截到检测同一公式算出的上限。 */
+	{
+		mapping(string:int) clamp_caps=query_base_attribute_caps(base);
+		foreach(indices(clamp_caps),string attr){
+			mixed old_raw=old_item[attr];
+			mixed new_raw=replacement[attr];
+			int limit;
+			int cap;
+			if(!intp(old_raw) || (int)old_raw<=0 || !intp(new_raw))
+				continue;
+			limit=clamp_caps[attr]/100000;
+			if(limit<=0)
+				continue;
+			cap=limit*max(item_level*20,2500);
+			replacement[attr]=min((int)old_raw,cap);
+		}
+	}
 	if(functionp(old_item->query_if_aocao) &&
 	   old_item->query_if_aocao("all") &&
 	   functionp(replacement->set_aocao_max)){
