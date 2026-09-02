@@ -68,7 +68,7 @@ void test_skill_definitions()
 	object aoe=clone(ROOT+"/gamelib/single/skills/suijingqianying");
 	check("碎镜千影挂接通用群攻通道并按阶段扩大目标数",
 		(string)aoe->s_skill_type=="balanced_aoe" &&
-		(int)aoe->lingyi_aoe_power_percent==60 &&
+		(int)aoe->lingyi_aoe_power_percent==85 &&
 		aoe->query_balanced_aoe_target_limit(1)==2 &&
 		aoe->query_balanced_aoe_target_limit(3)==6 &&
 		aoe->query_balanced_aoe_target_limit(5)==10 &&

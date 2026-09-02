@@ -2205,7 +2205,7 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 	raw_base = raw_low+random(raw_high-raw_low+1)+
 		caster->query_equip_add(skill->s_skill_type)+
 		caster->query_equip_add("mofa_all")+
-		caster->query_think()*(balanced ? 5 : 7)/2;
+		caster->query_think()*7/2;
 	if(caster->query_buff("buff2",0)=="all_mofa_attack")
 		raw_base = raw_base*3/2;
 	penetration = caster->query_equip_add("mofachuantou_add");
@@ -2281,8 +2281,8 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 		if(target->is("player") && damage>target_life_max*8/100)
 			damage = target_life_max*8/100;
 		else if(target->is("npc") && target->_boss &&
-		   damage>target_life_max*2/100)
-			damage = target_life_max*2/100;
+		   damage>target_life_max*8/100)
+			damage = target_life_max*8/100;
 		if(damage<1)
 			damage = 1;
 		damage=PERSONAL_DIFFICULTYD->scale_pve_damage(caster,target,damage);

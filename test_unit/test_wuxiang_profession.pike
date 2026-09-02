@@ -963,7 +963,7 @@ void test_wuxiang_broad_not_best_balance()
 		(object)(ROOT+"/gamelib/single/skills/wuxiangbi");
 	object attr = (object)(ROOT+"/gamelib/single/skills/wuxianghou");
 	int ratios_ok = aoe && personal_shield && team_shield && attr &&
-		aoe->query_lingyi_aoe_power_percent()==60 &&
+		aoe->query_lingyi_aoe_power_percent()==85 &&
 		aoe->query_balanced_aoe_target_limit(1)==2 &&
 		aoe->query_balanced_aoe_target_limit(2)==4 &&
 		aoe->query_balanced_aoe_target_limit(3)==6 &&

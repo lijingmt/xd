@@ -10,6 +10,20 @@ array(string) piece_order=({
 	"thou","shoes","ring","neck","bangle",
 });
 array(int) set_tiers=({2,4,6,8,10});
+
+/* 与 equip.pike query_newmoon_set_tier_boost 同步的分阶读取期增强：
+ * 2件×2、4件×3、6件×2、8件×2、10件×5（2026-09-01套装加强）。 */
+int query_test_tier_boost(int tier)
+{
+	switch(tier){
+		case 2: return 2;
+		case 4: return 3;
+		case 6: return 2;
+		case 8: return 2;
+		case 10: return 5;
+	}
+	return 1;
+}
 array(string) set_attributes=({
 	"all","defend","dodge","hitte","doub","lunck",
 	"rase_life_add","rase_mofa_add","mofa_all","all_mofa_defend",
@@ -817,12 +831,14 @@ void test_full_set_progression()
 	}
 	check("十件套按2/4/6/8/10件逐级提高共鸣并封顶200%",
 		progression_valid,errors*";");
+	/* 2026-09-01分阶加强后：hitte(2件)×2=20、doub(4件)×3=30、
+	 * dodge(6件)×2=20、rase_life(8件)×2=20、all(10件)×5=50。 */
 	check("剑仙五档套装属性均按实际穿戴件数进入真实getter",
-		sum_set_attribute(items,"hitte")==10 &&
-		sum_set_attribute(items,"doub")==10 &&
-		sum_set_attribute(items,"dodge")==10 &&
-		sum_set_attribute(items,"rase_life_add")==10 &&
-		sum_set_attribute(items,"all")==10,
+		sum_set_attribute(items,"hitte")==20 &&
+		sum_set_attribute(items,"doub")==30 &&
+		sum_set_attribute(items,"dodge")==20 &&
+		sum_set_attribute(items,"rase_life_add")==20 &&
+		sum_set_attribute(items,"all")==50,
 		sprintf("命中%d 暴击%d 闪避%d 恢复%d 全属性%d",
 			sum_set_attribute(items,"hitte"),
 			sum_set_attribute(items,"doub"),
@@ -878,7 +894,8 @@ void test_all_profession_set_extras()
 			array spec=(array)tiers[tier];
 			string attribute=(string)spec[0];
 			int factor=attribute=="defend" ? 10 : 1;
-			int expected=(int)spec[1]*10*factor;
+			int expected=(int)spec[1]*10*factor*
+				query_test_tier_boost(tier);
 			int actual=sum_set_attribute(items,attribute);
 			if(actual!=expected){
 				all_valid=0;
@@ -954,7 +971,8 @@ void test_requested_piece_attribute_matrix()
 					int tier=set_tiers[tier_index];
 					array spec=(array)tiers[tier];
 					if(tier<=checkpoint && (string)spec[0]==attribute)
-						per_item+=(int)spec[1];
+						per_item+=(int)spec[1]*
+							query_test_tier_boost(tier);
 				}
 				int factor=attribute=="defend" ? 10 : 1;
 				int expected=checkpoint*per_item*factor;
@@ -1283,7 +1301,7 @@ void test_two_player_real_combat_comparisons()
 		mixed_items[2]->query_newmoon_set_piece_count()==2 &&
 		sum_core_attribute(coherent_items[..3],"str")==1680 &&
 		sum_core_attribute(mixed_items[..3],"str")==1440 &&
-		sum_set_attribute(coherent_items[..3],"doub")==4 &&
+		sum_set_attribute(coherent_items[..3],"doub")==12 &&
 		sum_set_attribute(mixed_items[..3],"doub")==0 &&
 		coherent->query_str()>mixed_player->query_str() &&
 		(int)coherent_profile["physical_raw"]>=
