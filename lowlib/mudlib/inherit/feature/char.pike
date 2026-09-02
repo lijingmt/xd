@@ -772,6 +772,30 @@ int query_balanced_attr_bonus(int current){
 	return current*percent/100;
 }
 
+/* 心法有效值：基础+装备+丹药+家园，非递归（绝不能调query_str/dex/
+ * think，它们反过来调心法）。2026-09-02用户拍板：心法按含装备总
+ * 属性计算（原为基础值，玩家期望65%×总属性）。 */
+private int query_heart_effective_stat(string attr)
+{
+	int total;
+	if(!functionp(this_object()->query_equip_add))
+		return 0;
+	total=(int)this_object()->query_equip_add(attr)+
+		(int)this_object()->query_equip_add("all");
+	if(functionp(this_object()->query_danyao_add)){
+		total+=(int)this_object()->query_danyao_add("attri_base",attr)+
+			(int)this_object()->query_danyao_add("te_base",attr)+
+			(int)this_object()->query_danyao_add("home_base",attr);
+	}
+	if(attr=="str")
+		total+=_str;
+	else if(attr=="dex")
+		total+=_dex;
+	else if(attr=="think")
+		total+=_think;
+	return total>0 ? total : 0;
+}
+
 int query_wuxiang_heart_bonus(string attr){
 	int s_v;
 	int d_v;
@@ -782,9 +806,9 @@ int query_wuxiang_heart_bonus(string attr){
 	if(!functionp(this_object()->query_profeId) ||
 	   this_object()->query_profeId()!="wuxiang")
 		return 0;
-	s_v = _str > 0 ? _str : 0;
-	d_v = _dex > 0 ? _dex : 0;
-	t_v = _think > 0 ? _think : 0;
+	s_v = query_heart_effective_stat("str");
+	d_v = query_heart_effective_stat("dex");
+	t_v = query_heart_effective_stat("think");
 	highest = s_v;
 	if(d_v > highest)
 		highest = d_v;
@@ -821,9 +845,9 @@ int query_taiji_heart_bonus(string attr){
 	if(!functionp(this_object()->query_profeId) ||
 	   this_object()->query_profeId()!="taiji")
 		return 0;
-	s_v = _str > 0 ? _str : 0;
-	d_v = _dex > 0 ? _dex : 0;
-	t_v = _think > 0 ? _think : 0;
+	s_v = query_heart_effective_stat("str");
+	d_v = query_heart_effective_stat("dex");
+	t_v = query_heart_effective_stat("think");
 	highest = s_v;
 	if(d_v > highest)
 		highest = d_v;

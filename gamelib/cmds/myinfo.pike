@@ -52,8 +52,8 @@ int main(string|zero arg)
 				(int)me->query_wuxiang_heart_bonus("think");
 			int hb_str = (int)me->query_taiji_heart_bonus("str")+
 				(int)me->query_wuxiang_heart_bonus("str");
-			s += "【"+(profe=="taiji"?"太极":"无相")+"心法】基础最高项"+
-				"(608)×"+percent+"%加成另两系（按基础属性计，不含装备）：";
+			s += "【"+(profe=="taiji"?"太极":"无相")+"心法】最高总属性(含装备)×"+
+				percent+"%加成另两系："
 			if(hb_str)
 				s += "力量＋"+format_game_number(hb_str)+" ";
 			if(hb_dex)
