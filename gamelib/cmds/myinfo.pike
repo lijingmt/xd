@@ -37,6 +37,32 @@ int main(string|zero arg)
 		s += "＋"+format_game_number(tmp)+"\n";
 	else
 		s += "\n";
+
+	// 心法（无相/太极）：结算时把最高项按比例加成另外两系。战斗与
+	// 客户端数值已包含（query_str/dex/think），但文字面板此前不
+	// 显示，玩家误以为"没有效果"。这里明确展示当前生效值。
+	{
+		string profe = functionp(me->query_profeId) ?
+			(string)me->query_profeId() : "";
+		if(profe=="wuxiang" || profe=="taiji"){
+			int percent = profe=="taiji" ? 65 : 50;
+			int hb_dex = (int)me->query_taiji_heart_bonus("dex")+
+				(int)me->query_wuxiang_heart_bonus("dex");
+			int hb_think = (int)me->query_taiji_heart_bonus("think")+
+				(int)me->query_wuxiang_heart_bonus("think");
+			int hb_str = (int)me->query_taiji_heart_bonus("str")+
+				(int)me->query_wuxiang_heart_bonus("str");
+			s += "【"+(profe=="taiji"?"太极":"无相")+"心法】结算时最高项"+
+				percent+"%加成另两系：";
+			if(hb_str)
+				s += "力量＋"+format_game_number(hb_str)+" ";
+			if(hb_dex)
+				s += "敏捷＋"+format_game_number(hb_dex)+" ";
+			if(hb_think)
+				s += "智力＋"+format_game_number(hb_think)+" ";
+			s += "（战斗结算已生效，不计入装备门槛）\n";
+		}
+	}
 	
 	tmp = me->query_equip_add("renxing");
 	if(tmp){

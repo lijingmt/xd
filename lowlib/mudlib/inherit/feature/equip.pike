@@ -494,20 +494,47 @@ int query_newmoon_resonance_active()
 	return (string)owner->query_profeId()==profession;
 }
 
-/* 分阶套装加成读取期增强（2026-09-01玩家反馈：4/6/8/10档过于鸡肋）。
- * 按仓库"读取时折算"先例（共鸣×100同款）：旧存量与新掉落存档里
- * 都还是模板小值，统一在此放大，无需迁移任何玩家物品。
- * 2件全属性×2；4件法抗×3；6件命中×2；8件暴击×2；10件回血×5。 */
-int query_newmoon_set_tier_boost(int tier)
+/* 分阶套装加成读取期增强（2026-09-01玩家反馈：档位加成与几千级
+ * 装备词条脱节）。按仓库"读取时折算"先例（共鸣×100同款）：
+ * 百分比词条（命中/闪避/暴击）保持模板原值；数值词条按底版因子
+ * 放大后，再沿装备等级曲线 ×lv/69 缩放（封顶15倍，与共鸣同曲线），
+ * 让套装加成跟随装备属性曲线成长，无需迁移任何存量物品。 */
+private int query_newmoon_set_tier_flat_factor(string attribute)
 {
-	switch(tier){
-		case 2: return 2;
-		case 4: return 3;
-		case 6: return 2;
-		case 8: return 2;
-		case 10: return 5;
+	switch(attribute){
+		case "all": return 20;
+		case "mofa_all": return 2;
+		case "all_mofa_defend": return 1;
+		case "defend": return 2;
+		case "rase_life_add": return 1;
+		case "rase_mofa_add": return 1;
+		case "lunck": return 2;
 	}
-	return 1;
+	return 0;
+}
+
+private int query_newmoon_set_tier_level_scale()
+{
+	int lv;
+	if(!functionp(query_item_canLevel))
+		return 100;
+	lv=max(1,(int)query_item_canLevel());
+	if(lv>69)
+		return min(lv*100/69,1500);
+	return 100;
+}
+
+int query_newmoon_set_tier_scaled_value(int tier,
+	string attribute,int stored_value)
+{
+	if(search(({"dodge","hitte","doub"}),attribute)!=-1)
+		return stored_value;
+	if(query_newmoon_set_tier_flat_factor(attribute)<=0 ||
+	   stored_value<=0)
+		return stored_value;
+	return stored_value*
+		query_newmoon_set_tier_flat_factor(attribute)*
+		query_newmoon_set_tier_level_scale()/100;
 }
 
 int query_newmoon_set_extra_value(string attribute)
@@ -523,8 +550,9 @@ int query_newmoon_set_extra_value(string attribute)
 			(string)tiers[index];
 		if(count>=tiers[index] && (string)this_object()[
 		   tier_path+"/attribute"]==attribute)
-			value+=(int)this_object()[tier_path+"/value"]*
-				query_newmoon_set_tier_boost(tiers[index]);
+			value+=query_newmoon_set_tier_scaled_value(
+				tiers[index],attribute,
+				(int)this_object()[tier_path+"/value"]);
 	}
 	// 数值整备：分阶词条保持模板精确传递（幸运/抗性等utility词条
 	// 不做件数保底），仅上限从40放宽到2000；核心属性的强化由
@@ -542,8 +570,8 @@ string query_newmoon_set_extra_description(int tier)
 		return "";
 	tier_path=NEWMOON_RESONANCE_ROOT+"/tier/"+(string)tier;
 	attribute=(string)(this_object()[tier_path+"/attribute"] || "");
-	value=(int)this_object()[tier_path+"/value"]*
-		query_newmoon_set_tier_boost(tier);
+	value=query_newmoon_set_tier_scaled_value(tier,attribute,
+		(int)this_object()[tier_path+"/value"]);
 	if(attribute=="all") label="全属性";
 	else if(attribute=="defend"){
 		label="防御";
