@@ -17,6 +17,7 @@ int main(string|zero arg){
 				//如果这里输入正确了，就消除....貌似业务逻辑不对，取消。。。只要外挂下线10分钟重新上线，就重置错误次数可以重新走掉落了
 				me["/tmp/wrong_rd"] = 1; //重置次数 //1.下线10分钟后，再上来 2.回答正确 3.进牢房
 				me["/plus/random_rcd"] = 0;//正确完成了，置为0
+				me["/plus/random_rcd_stuck"]=0;//完成即清自愈计数
 				me["/plus/random_award"]--;
 				me["/tmp/wg_times"]=0;//attack/use_perform连击状态重置
 				if(me["/plus/random_award"]<=0) me["/plus/random_award"] = 0;//随机奖励次数--，直到为0不再出现
