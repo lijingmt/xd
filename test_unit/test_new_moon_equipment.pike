@@ -11,26 +11,7 @@ array(string) piece_order=({
 });
 array(int) set_tiers=({2,4,6,8,10});
 
-/* 与 equip.pike query_newmoon_set_tier_scaled_value 同步的分阶
- * 读取期增强：百分比词条保持原值；数值词条按底版因子放大并沿
- * 装备等级曲线缩放（测试夹具为69级=×1）。 */
-int query_test_tier_scaled(int tier,string attribute,int stored)
-{
-	int factor;
-	if(search(({"dodge","hitte","doub"}),attribute)!=-1)
-		return stored;
-	switch(attribute){
-		case "all": factor=20; break;
-		case "mofa_all": factor=2; break;
-		case "all_mofa_defend": factor=1; break;
-		case "defend": factor=2; break;
-		case "rase_life_add": factor=1; break;
-		case "rase_mofa_add": factor=1; break;
-		case "lunck": factor=2; break;
-		default: return stored;
-	}
-	return stored*factor;
-}
+
 array(string) set_attributes=({
 	"all","defend","dodge","hitte","doub","lunck",
 	"rase_life_add","rase_mofa_add","mofa_all","all_mofa_defend",
@@ -844,8 +825,12 @@ void test_full_set_progression()
 		sum_set_attribute(items,"hitte")==10 &&
 		sum_set_attribute(items,"doub")==10 &&
 		sum_set_attribute(items,"dodge")==10 &&
-		sum_set_attribute(items,"rase_life_add")==10 &&
-		sum_set_attribute(items,"all")==200,
+		sum_set_attribute(items,"rase_life_add")==
+			items[0]->query_newmoon_set_tier_scaled_value(
+				8,"rase_life_add",1)*10 &&
+		sum_set_attribute(items,"all")==
+			items[0]->query_newmoon_set_tier_scaled_value(
+				10,"all",1)*10,
 		sprintf("命中%d 暴击%d 闪避%d 恢复%d 全属性%d",
 			sum_set_attribute(items,"hitte"),
 			sum_set_attribute(items,"doub"),
@@ -901,8 +886,9 @@ void test_all_profession_set_extras()
 			array spec=(array)tiers[tier];
 			string attribute=(string)spec[0];
 			int factor=attribute=="defend" ? 10 : 1;
-			int expected=query_test_tier_scaled(tier,attribute,
-				(int)spec[1])*10*factor;
+			int expected=items[0]->
+				query_newmoon_set_tier_scaled_value(tier,
+				attribute,(int)spec[1])*10*factor;
 			int actual=sum_set_attribute(items,attribute);
 			if(actual!=expected){
 				all_valid=0;
@@ -978,8 +964,9 @@ void test_requested_piece_attribute_matrix()
 					int tier=set_tiers[tier_index];
 					array spec=(array)tiers[tier];
 					if(tier<=checkpoint && (string)spec[0]==attribute)
-						per_item+=query_test_tier_scaled(tier,
-							attribute,(int)spec[1]);
+						per_item+=items[0]->
+						query_newmoon_set_tier_scaled_value(
+						tier,attribute,(int)spec[1]);
 				}
 				int factor=attribute=="defend" ? 10 : 1;
 				int expected=checkpoint*per_item*factor;

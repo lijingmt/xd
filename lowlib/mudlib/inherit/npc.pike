@@ -373,9 +373,10 @@ void npc_level_define(){
 			_think = _think*3;//智力
 		}
 		else if(_boss==1){
-			// Boss倍率3→2：全等级模拟确认，×2配合共鸣等级缩放
-			// 后入门Boss约7击、高等级数百击，全程落在设计区间。
-			_str = _str*2;
+			// Boss倍率2→4（2026-09-01玩家反馈：首领血太低）：玩家
+			// 输出经装备/共鸣曲线增长后×2已明显偏软，翻倍至×4；
+			// 精英保持×3，Boss>精英层级不变。
+			_str = _str*4;
 			_dex = _dex*2;//敏捷
 			_think = _think*2;//智力
 		}
@@ -716,11 +717,11 @@ void npc_level_define_dongtai(object player){
 			life_strength = life_strength*3;
 		}
 		else if(_boss==1){
-			// Boss倍率3→2：全等级(1-999)模拟确认。
-			_str = _str*2;
+			// Boss倍率2→4（2026-09-01玩家反馈首领血太低）。
+			_str = _str*4;
 			_dex = _dex*2;//敏捷
 			_think = _think*2;//智力
-			life_strength = life_strength*2;
+			life_strength = life_strength*4;
 		}
 		life = life_strength*10;//生命=生命上限
 		life_max = life;

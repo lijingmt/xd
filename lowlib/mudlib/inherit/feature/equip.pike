@@ -498,17 +498,18 @@ int query_newmoon_resonance_active()
  * 装备词条脱节）。按仓库"读取时折算"先例（共鸣×100同款）：
  * 百分比词条（命中/闪避/暴击）保持模板原值；数值词条按底版因子
  * 放大后，再沿装备等级曲线 ×lv/69 缩放（封顶15倍，与共鸣同曲线），
- * 让套装加成跟随装备属性曲线成长，无需迁移任何存量物品。 */
+ * 并乘收集阶位（新月1→寰极6）：阶位越高加成越多。300级寰极满套
+ * 全属性约+7800。无需迁移任何存量物品。 */
 private int query_newmoon_set_tier_flat_factor(string attribute)
 {
 	switch(attribute){
-		case "all": return 20;
-		case "mofa_all": return 2;
-		case "all_mofa_defend": return 1;
-		case "defend": return 2;
-		case "rase_life_add": return 1;
-		case "rase_mofa_add": return 1;
-		case "lunck": return 2;
+		case "all": return 30;
+		case "mofa_all": return 3;
+		case "all_mofa_defend": return 2;
+		case "defend": return 3;
+		case "rase_life_add": return 2;
+		case "rase_mofa_add": return 2;
+		case "lunck": return 3;
 	}
 	return 0;
 }
@@ -534,7 +535,8 @@ int query_newmoon_set_tier_scaled_value(int tier,
 		return stored_value;
 	return stored_value*
 		query_newmoon_set_tier_flat_factor(attribute)*
-		query_newmoon_set_tier_level_scale()/100;
+		query_newmoon_set_tier_level_scale()/100*
+		query_newmoon_collection_rank();
 }
 
 int query_newmoon_set_extra_value(string attribute)
