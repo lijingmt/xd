@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "仙道wapmud",
+    "name": "Xiandao 仙道",
     "slug": "xiand-client",
     "version": "0.2.3",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0d0b0e",
     "primaryColor": "#d4af37",
-    "description": "仙道wapmud - 东方幻想多职业MUD，原生客户端",
+    "description": "Xiandao 仙道 - Oriental fantasy multi-class MUD RPG. xiandao xianxia cultivation text adventure with AFK farming.",
     "ios": {
       "bundleIdentifier": "com.wapmud.xiandao",
       "supportsTablet": true,
