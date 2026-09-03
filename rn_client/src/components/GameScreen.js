@@ -15,6 +15,8 @@ import {
 } from '../utils/battleStats.js';
 import { parseSkillType, skillMeta } from '../utils/skillTypes.js';
 import { groupDigits, suiyuTime, clearSuiyuLog } from '../utils/suiyuLog.js';
+import { useTheme } from '../utils/ThemeContext.js';
+import { APP_THEMES } from '../utils/appThemes.js';
 import WorldMapScreen from './WorldMapScreen.js';
 import { getImageBase } from '../api/mudApi.js';
 import { useGameStore, setRuntimePlatform } from '../store/useGameStore.js';
@@ -355,6 +357,7 @@ function DeleteAccountModal({ visible, onClose }) {
 
 export default function GameScreen() {
   const store = useGameStore();
+  const { theme, themeId, setThemeId } = useTheme();
   const { width: screenW } = useWindowDimensions();
   const isTablet = screenW >= 768;
   const contentMaxW = isTablet ? 720 : 0;
@@ -366,6 +369,7 @@ export default function GameScreen() {
   const [rechargeOpen, setRechargeOpen] = useState(false);
   const [suiyuLogOpen, setSuiyuLogOpen] = useState(false);
   const [worldMapOpen, setWorldMapOpen] = useState(false);
+  const [charListOpen, setCharListOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(DEFAULT_UI_SETTINGS);
   const [activeTab, setActiveTab] = useState('');
@@ -716,6 +720,7 @@ export default function GameScreen() {
       {((store.accountToken && sessionEntries.length > 0) ||
         (sessionEntries.length > 1) ||
         ((store.accountCharacters || []).length > 1)) && (
+        <>
         <View style={styles.tabStrip}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ gap: 8, paddingHorizontal: 12,
@@ -754,8 +759,50 @@ export default function GameScreen() {
               onPress={() => store.backToDashboard()}>
               <Text style={styles.charChipAddText}>＋</Text>
             </Pressable>
+            <Pressable style={styles.charChipExpand}
+              onPress={() => setCharListOpen(!charListOpen)}>
+              <Text style={styles.charChipExpandText}>
+                {charListOpen ? '▾' : '▴'}
+              </Text>
+            </Pressable>
           </ScrollView>
         </View>
+        {charListOpen && (
+          <View style={styles.charListPanel}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 6, paddingHorizontal: 12,
+                paddingVertical: 6 }}>
+              {sessionEntries.map(entry => (
+                <Pressable
+                  key={entry.id}
+                  style={[
+                    styles.charChip,
+                    entry.active && styles.charChipActive,
+                  ]}
+                  onPress={() => {
+                    setCharListOpen(false);
+                    if (!entry.active) {
+                      if (entry.hasSession) store.switchCharacter(entry.id);
+                      else store.pickCharacter(entry.id);
+                    }
+                  }}>
+                  <Text style={[styles.charChipName,
+                    entry.active && styles.charChipNameActive]}
+                    numberOfLines={1}>
+                    {entry.summary.inBattle ? '⚔ ' : ''}
+                    {entry.name}
+                  </Text>
+                  <Text style={[styles.charChipMeta,
+                    entry.active && styles.charChipNameActive]}>
+                    {entry.hasSession ? 'Lv.'+(entry.summary.level||'?') : '多开'}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+        </>
+      
       )}
 
       {/* ===== 顶栏：复刻 Vue game-header ===== */}
@@ -1177,6 +1224,28 @@ export default function GameScreen() {
                   setRechargeOpen(true);
                 }} />
             )}
+            <View style={styles.themeRow}>
+              <Text style={styles.menuRowIcon}>🎨</Text>
+              <Text style={styles.menuRowLabel}>主题颜色</Text>
+            </View>
+            <View style={styles.themeChips}>
+              {Object.values(APP_THEMES).map(t => (
+                <TouchableOpacity
+                  key={t.id}
+                  style={[
+                    styles.themeChip,
+                    themeId === t.id && styles.themeChipActive,
+                  ]}
+                  onPress={() => setThemeId(t.id)}>
+                  <Text style={[
+                    styles.themeChipText,
+                    themeId === t.id && styles.themeChipTextActive,
+                  ]}>
+                    {t.icon} {t.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
             <View style={styles.menuDivider} />
             <MenuRow icon="👥" label="多开角色 / 切换职业"
               onPress={() => {
@@ -1418,6 +1487,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#16241c',
   },
   charChipAddText: { color: '#9ad0a0', fontSize: 15 },
+  charChipExpand: {
+    paddingHorizontal: 8, paddingVertical: 4, marginLeft: 2,
+  },
+  charChipExpandText: { color: '#a89aa8', fontSize: 14, fontWeight: '700' },
+  charListPanel: {
+    backgroundColor: '#14101a', borderBottomWidth: 1,
+    borderBottomColor: '#2e2430',
+  },
   menuOverlay: {
     flex: 1, backgroundColor: 'rgba(5,3,8,0.55)',
     alignItems: 'flex-end',
@@ -1433,6 +1510,23 @@ const styles = StyleSheet.create({
     color: '#d4af37', fontSize: 12, textAlign: 'center',
     paddingVertical: 8, letterSpacing: 1,
   },
+  themeRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 12, paddingVertical: 8,
+  },
+  themeChips: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 6,
+    paddingHorizontal: 12, paddingBottom: 8,
+  },
+  themeChip: {
+    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
+    borderWidth: 1, borderColor: '#3a2f46', backgroundColor: '#1a1522',
+  },
+  themeChipActive: {
+    borderColor: '#d4af37', backgroundColor: '#231b10',
+  },
+  themeChipText: { color: '#a89aa8', fontSize: 12 },
+  themeChipTextActive: { color: '#ffd700', fontSize: 12, fontWeight: '700' },
   menuDivider: {
     height: 1, backgroundColor: '#2e2430', marginVertical: 6,
     marginHorizontal: 6,
