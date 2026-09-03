@@ -15,6 +15,7 @@ import {
 } from '../utils/battleStats.js';
 import { parseSkillType, skillMeta } from '../utils/skillTypes.js';
 import { groupDigits, suiyuTime, clearSuiyuLog } from '../utils/suiyuLog.js';
+import WorldMapScreen from './WorldMapScreen.js';
 import { getImageBase } from '../api/mudApi.js';
 import { useGameStore, setRuntimePlatform } from '../store/useGameStore.js';
 import { PROFESSION_OPTIONS } from '../data/characterOptions.js';
@@ -364,6 +365,7 @@ export default function GameScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [rechargeOpen, setRechargeOpen] = useState(false);
   const [suiyuLogOpen, setSuiyuLogOpen] = useState(false);
+  const [worldMapOpen, setWorldMapOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(DEFAULT_UI_SETTINGS);
   const [activeTab, setActiveTab] = useState('');
@@ -825,6 +827,15 @@ export default function GameScreen() {
             )}
           </View>
           <TouchableOpacity
+            style={styles.mapButton}
+            activeOpacity={0.7}
+            onPress={() => {
+              lastUserNavRef.current = Date.now();
+              setWorldMapOpen(true);
+            }}>
+            <Text style={styles.mapButtonText}>🗺️</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[styles.afkButton,
               store.autofighting && styles.afkButtonOn]}
             disabled={store.afkBusy}
@@ -1067,6 +1078,12 @@ export default function GameScreen() {
         onClose={() => setRechargeOpen(false)}
       />
 
+      {/* ===== 世界地图 ===== */}
+      <WorldMapScreen
+        visible={worldMapOpen}
+        onClose={() => setWorldMapOpen(false)}
+      />
+
       {/* ===== 消费记录 ===== */}
       <SuivLogModal
         visible={suiyuLogOpen}
@@ -1130,6 +1147,11 @@ export default function GameScreen() {
                   send('profession_assistant');
                 }} />
             )}
+            <MenuRow icon="🗺️" label="世界地图 / 飞行"
+              onPress={() => {
+                setMenuOpen(false);
+                setWorldMapOpen(true);
+              }} />
             <MenuRow icon="🤝" label="邀请好友 / 查看奖励"
               onPress={() => {
                 setMenuOpen(false);
@@ -1354,6 +1376,13 @@ const styles = StyleSheet.create({
     color: '#5a4a5a', fontSize: 10, textAlign: 'center',
     paddingVertical: 8,
   },
+  mapButton: {
+    paddingHorizontal: 11, minHeight: 30, borderRadius: 999,
+    borderWidth: 1, borderColor: '#5a7a8a',
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#102028',
+  },
+  mapButtonText: { fontSize: 16 },
   afkButton: {
     paddingHorizontal: 11, minHeight: 30, borderRadius: 999,
     borderWidth: 1, borderColor: '#6a8a5a',
