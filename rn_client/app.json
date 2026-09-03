@@ -11,7 +11,7 @@
     "ios": {
       "bundleIdentifier": "com.wapmud.xiandao",
       "supportsTablet": true,
-      "buildNumber": "15",
+      "buildNumber": "16",
       "config": {
         "usesNonExemptEncryption": false
       },
@@ -25,7 +25,7 @@
     },
     "android": {
       "package": "com.wapmud.xiandao",
-      "versionCode": 5,
+      "versionCode": 6,
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE"
