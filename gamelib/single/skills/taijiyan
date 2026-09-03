@@ -5,7 +5,7 @@ protected void create(){
 	name=object_name(this_object()); name_cn="【极】太极焰"; picture="taijiyan_logo";
 	desc="太极群攻法术，覆盖同房敌对目标";
 	s_type="zhudong"; s_skill_type="balanced_aoe"; s_delayTime=3;
-	performs_mofa_attack[1]=({50,78}); performs_mofa_attack[2]=({121,172}); performs_mofa_attack[3]=({243,315}); performs_mofa_attack[4]=({400,515}); performs_mofa_attack[5]=({601,772});
+	performs_mofa_attack[1]=({65,101}); performs_mofa_attack[2]=({157,223}); performs_mofa_attack[3]=({315,409}); performs_mofa_attack[4]=({520,669}); performs_mofa_attack[5]=({781,1003});
 	performs_cast[1]=12; performs_cast[2]=20; performs_cast[3]=32; performs_cast[4]=46; performs_cast[5]=62;
 	skill_type+=({"taiji"});
 	performs_level_limit[1]=1; performs_level_limit[2]=21; performs_level_limit[3]=41; performs_level_limit[4]=61; performs_level_limit[5]=81;

@@ -68,7 +68,7 @@ void test_skill_definitions()
 	object aoe=clone(ROOT+"/gamelib/single/skills/suijingqianying");
 	check("碎镜千影挂接通用群攻通道并按阶段扩大目标数",
 		(string)aoe->s_skill_type=="balanced_aoe" &&
-		(int)aoe->lingyi_aoe_power_percent==85 &&
+		(int)aoe->lingyi_aoe_power_percent==100 &&
 		aoe->query_balanced_aoe_target_limit(1)==2 &&
 		aoe->query_balanced_aoe_target_limit(3)==6 &&
 		aoe->query_balanced_aoe_target_limit(5)==10 &&
@@ -77,8 +77,8 @@ void test_skill_definitions()
 		(string)aoe->name_cn=="【命】碎镜千影",
 		"群攻技能类型、倍率或目标上限不正确");
 	check("碎镜千影五阶伤害与法力消耗齐全",
-		aoe->query_performs_mofa_attack_low(1)==35 &&
-		aoe->query_performs_mofa_attack_high(5)==540 &&
+		aoe->query_performs_mofa_attack_low(1)==45 &&
+		aoe->query_performs_mofa_attack_high(5)==702 &&
 		aoe->query_performs_cast(5)==62,
 		"群攻五阶数值缺失");
 	// 技能克隆已进入 skillsd 注册表，destruct 会让注册表悬挂并

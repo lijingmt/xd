@@ -4,8 +4,8 @@ inherit WAP_SKILL;
 protected void create(){
 	name=object_name(this_object()); name_cn="【命】碎镜千影"; picture="zhaomingjue_logo";
 	desc="碎镜照心卷大成传承，让每一面破镜映出同一记剑光，横扫同房间合法敌人";
-	s_type="zhudong"; s_skill_type="balanced_aoe"; s_delayTime=3; lingyi_aoe_power_percent=85;
-	performs_mofa_attack[1]=({35,55}); performs_mofa_attack[2]=({85,120}); performs_mofa_attack[3]=({170,220}); performs_mofa_attack[4]=({280,360}); performs_mofa_attack[5]=({420,540});
+	s_type="zhudong"; s_skill_type="balanced_aoe"; s_delayTime=3; lingyi_aoe_power_percent=100;
+	performs_mofa_attack[1]=({45,71}); performs_mofa_attack[2]=({110,156}); performs_mofa_attack[3]=({221,286}); performs_mofa_attack[4]=({364,468}); performs_mofa_attack[5]=({546,702});
 	performs_cast[1]=12; performs_cast[2]=20; performs_cast[3]=32; performs_cast[4]=46; performs_cast[5]=62;
 	skill_type+=({"zhaoming"});
 	performs_level_limit[1]=1; performs_level_limit[2]=21; performs_level_limit[3]=41; performs_level_limit[4]=61; performs_level_limit[5]=81;
