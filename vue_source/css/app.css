@@ -12198,3 +12198,99 @@ body {
         font-size: 22px;
     }
 }
+
+/* ===== 世界地图节点详情浮窗 ===== */
+.desktop-world-node-inspector {
+    position: absolute;
+    left: 50%;
+    bottom: 72px;
+    transform: translateX(-50%);
+    min-width: 220px;
+    max-width: 320px;
+    padding: 12px 16px;
+    background: rgba(22, 14, 32, 0.92);
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+    pointer-events: auto;
+}
+
+.desktop-world-node-inspector small {
+    color: #8a7a8a;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+}
+
+.desktop-world-node-inspector strong {
+    color: #f0e6d2;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.desktop-world-node-inspector span {
+    color: #a898a8;
+    font-size: 11px;
+}
+
+.desktop-world-node-inspector button {
+    margin-top: 8px;
+    padding: 10px 16px;
+    border: 1px solid #8a6d2f;
+    border-radius: 8px;
+    background: #231b10;
+    color: #ffd700;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.desktop-world-node-inspector button:active {
+    background: #352815;
+    transform: scale(0.97);
+}
+
+.desktop-world-node-inspector em {
+    color: #5a8a6a;
+    font-size: 11px;
+    font-style: normal;
+    margin-top: 6px;
+}
+
+@media (max-width: 768px) {
+    .desktop-world-node-inspector {
+        bottom: 84px;
+        min-width: 200px;
+        max-width: 280px;
+    }
+
+    .desktop-world-node-inspector button {
+        min-height: 48px;
+        font-size: 14px;
+    }
+}
+
+.desktop-world-node-inspector .node-inspector-close {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    min-height: 28px;
+    border: 1px solid #3a2f46;
+    border-radius: 14px;
+    background: rgba(13, 11, 14, 0.8);
+    color: #8a7a8a;
+    font-size: 13px;
+    margin: 0;
+}

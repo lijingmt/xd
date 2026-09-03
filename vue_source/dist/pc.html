@@ -22,10 +22,10 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1788457410826">
-    <link rel="stylesheet" href="css/app.css?v=v1788457410826">
-    <link rel="stylesheet" href="css/realm.css?v=v1788457410826">
-    <link rel="stylesheet" href="css/pc.css?v=v1788457410826">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1788457466370">
+    <link rel="stylesheet" href="css/app.css?v=v1788457466370">
+    <link rel="stylesheet" href="css/realm.css?v=v1788457466370">
+    <link rel="stylesheet" href="css/pc.css?v=v1788457466370">
 </head>
 <body>
     <div id="app">
@@ -1505,6 +1505,10 @@
                                     鼠标拖拽移动 · 滚轮缩放 · 点选节点可银两飞行 · 金色方框是当前位置
                                 </div>
                                 <aside v-if="desktopWorldSelectedNode" class="desktop-world-node-inspector">
+                                    <button type="button"
+                                            class="node-inspector-close"
+                                            @click="desktopWorldSelectedNode = null"
+                                            aria-label="关闭详情">✕</button>
                                     <small>{{ desktopWorldSelectedNode.region }}</small>
                                     <strong>{{ desktopWorldSelectedNode.name }}</strong>
                                     <span>Lv.{{ desktopWorldSelectedNode.level || '动态' }} · {{ desktopWorldSelectedNode.biome }}</span>
@@ -2523,6 +2527,10 @@
                                     单指拖动 · 双指捏合缩放 · 点选节点可银两飞行 · 蓝线连接跨区域道路
                                 </div>
                                 <aside v-if="desktopWorldSelectedNode" class="desktop-world-node-inspector">
+                                    <button type="button"
+                                            class="node-inspector-close"
+                                            @click="desktopWorldSelectedNode = null"
+                                            aria-label="关闭详情">✕</button>
                                     <small>{{ desktopWorldSelectedNode.region }}</small>
                                     <strong>{{ desktopWorldSelectedNode.name }}</strong>
                                     <span>Lv.{{ desktopWorldSelectedNode.level || '动态' }} · {{ desktopWorldSelectedNode.biome }}</span>
@@ -2544,19 +2552,19 @@
                         </aside>
 </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1788457410826"></script>
-    <script src="vendor/canvas-confetti.js?v=v1788457410826"></script>
-    <script src="vendor/howler.core.min.js?v=v1788457410826"></script>
-    <script src="vendor/driver.iife.js?v=v1788457410826"></script>
-    <script src="../includes/game-number-format.js?v=v1788457410826" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1788457466370"></script>
+    <script src="vendor/canvas-confetti.js?v=v1788457466370"></script>
+    <script src="vendor/howler.core.min.js?v=v1788457466370"></script>
+    <script src="vendor/driver.iife.js?v=v1788457466370"></script>
+    <script src="../includes/game-number-format.js?v=v1788457466370" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1788457410826';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1788457466370';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1788457410826"></script>
+    <script src="js/app.js?v=v1788457466370"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1788457410826"></script>
+    <script src="../includes/translate.js?v=v1788457466370"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');
