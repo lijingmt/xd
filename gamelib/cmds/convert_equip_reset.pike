@@ -19,7 +19,7 @@ int main(string|zero arg)
 		if(ob && functionp(ob->query_catchup_equipment) &&
 		   ob->query_catchup_equipment())
 			continue;
-		if(ob && ob->query_item_rareLevel()>0 && !ob["equiped"]){
+		if(ob && ob->query_item_rareLevel()>0){
 			if(ob->query_name() == item_name){
 				can_reset = 1;
 				item = ob;
