@@ -12203,7 +12203,7 @@ body {
 .desktop-world-node-inspector {
     position: absolute;
     left: 50%;
-    bottom: 72px;
+    bottom: 120px;
     transform: translateX(-50%);
     min-width: 220px;
     max-width: 320px;
@@ -12268,7 +12268,7 @@ body {
 
 @media (max-width: 768px) {
     .desktop-world-node-inspector {
-        bottom: 84px;
+        bottom: 140px;
         min-width: 200px;
         max-width: 280px;
     }

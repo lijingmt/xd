@@ -28,8 +28,13 @@ private int fly_distance_tier(mapping graph,string from_id,
 	string to=String.trim_all_whites(to_id || "");
 	int from_x,from_y,to_x,to_y;
 	int seen_from=0,seen_to=0;
-	if(from=="" || to=="" || !arrayp(raw_nodes))
+	if(to=="" || !arrayp(raw_nodes))
 		return -1;
+	/* 出发点可能在动态房间（家园/限时活动/副本），坐标数据里没有。
+	 * 只要目的地在静态地图上就从中心点（金鳌岛广场）起飞，不再
+	 * 因为找不到出发点而拒绝整个飞行。 */
+	if(from=="")
+		from="jinaodao/jinaodaochangchang01";
 	foreach((array)raw_nodes,mixed one){
 		mapping node;
 		if(!mappingp(one))
@@ -48,8 +53,12 @@ private int fly_distance_tier(mapping graph,string from_id,
 		if(seen_from && seen_to)
 			break;
 	}
-	if(!seen_from || !seen_to)
+	if(!seen_to)
 		return -1;
+	if(!seen_from){
+		/* 出发点不在静态地图（家园等），按最远距离计费。 */
+		return 99999;
+	}
 	return (int)(sqrt((float)((to_x-from_x)*(to_x-from_x)+
 		(to_y-from_y)*(to_y-from_y))));
 }
