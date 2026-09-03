@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useWindowDimensions } from 'react-native';
 import {
   View, Text, FlatList, TouchableOpacity, Modal,
   Image, ScrollView, StyleSheet, KeyboardAvoidingView, Platform,
@@ -353,6 +354,9 @@ function DeleteAccountModal({ visible, onClose }) {
 
 export default function GameScreen() {
   const store = useGameStore();
+  const { width: screenW } = useWindowDimensions();
+  const isTablet = screenW >= 768;
+  const contentMaxW = isTablet ? 720 : 0;
   const listRef = useRef(null);
   const [inputValues, setInputValues] = useState({});
   const [moreOpen, setMoreOpen] = useState(false);
@@ -704,6 +708,7 @@ export default function GameScreen() {
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}>
+    <View style={isTablet ? styles.tabletContent : styles.screen}>
 
       {/* ===== 并行角色tab条：屏幕最顶部，账号中心模式即常驻 ===== */}
       {((store.accountToken && sessionEntries.length > 0) ||
@@ -989,7 +994,7 @@ export default function GameScreen() {
             ctx={{
               send, inputValues, setInputValues, imageBase,
               busy: store.busy,
-              fontScale: fontScaleFor(uiSettings.fontSize),
+              fontScale: fontScaleFor(uiSettings.fontSize) * (isTablet ? 1.25 : 1),
             }}
           />
         )}
@@ -1169,6 +1174,7 @@ export default function GameScreen() {
           </View>
         </Pressable>
       </Modal>
+    </View>
     </KeyboardAvoidingView>
   );
 }
@@ -1254,6 +1260,9 @@ function formatNumber(value) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#0d0b0e' },
+  tabletContent: {
+    flex: 1, maxWidth: 720, alignSelf: 'center', width: '100%',
+  },
   header: {
     backgroundColor: '#14101a', paddingHorizontal: 12, paddingTop: 10,
     paddingBottom: 8, gap: 6,
