@@ -842,6 +842,15 @@ int query_taiji_heart_bonus(string attr){
 	int highest;
 	int current;
 	int heart_percent = 65+query_balanced_heart_boost_percent();
+	/* 心法验证日志（临时）：部署后玩家打一次怪即验证实效 */
+	int log_this = attr=="str" && this_object()->query_profeId()=="taiji";
+	if(log_this){
+		s_v = query_heart_effective_stat("str");
+		d_v = query_heart_effective_stat("dex");
+		t_v = query_heart_effective_stat("think");
+		werror("[HEART_DEBUG] taiji user=%s eff_str=%d eff_dex=%d eff_think=%d percent=%d\n",
+			(string)this_object()->query_name(),s_v,d_v,t_v,heart_percent);
+	}
 	if(!functionp(this_object()->query_profeId) ||
 	   this_object()->query_profeId()!="taiji")
 		return 0;
@@ -1614,6 +1623,11 @@ int query_str(){
 	}
 	result += query_base_str()+query_base_all()+
 		query_wuxiang_heart_bonus("str")+query_taiji_heart_bonus("str");
+	if(this_object()->query_profeId()=="taiji"){
+		werror("[HEART_DEBUG] query_str user=%s base=%d equip=%d heart_str=%d base_str=%d base_all=%d final=%d\n",
+			(string)this_object()->query_name(),_str,equip_str,
+			query_taiji_heart_bonus("str"),query_base_str(),query_base_all(),result);
+	}
 	return result+query_balanced_attr_bonus(result);
 }
 void set_think(int think){
