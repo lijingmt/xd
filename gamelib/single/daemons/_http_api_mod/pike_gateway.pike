@@ -2008,6 +2008,57 @@ private void pike_gateway_recover_local_players_impl()
 				pike_gateway_record_account(userid,account_id);
 		}
 	}
+	/* 僵尸会话自愈（2026-09-03任务#27）：硬重启后 AFK 会话只出现在
+	 * 在线行（local_online_users）而不再持有租约，租约清单驱动的
+	 * 恢复永远看不见它们，表现为网关无限"recovery is in progress"
+	 * 拒绝该玩家（档案进不去/登录秒断）。此处对"仅一个 worker 在
+	 * 线行声明、租约清单缺失、且路由与该声明不一致"的会话执行与
+	 * 重复副本相同的 local_discard，安全保存并移除残影，玩家下次
+	 * 登录走全新准入。绝不触碰仍在租约清单中的活跃玩家。 */
+	{
+		object rows_key = pike_gateway_state_lock->lock();
+		mapping(string:array(mapping(string:mixed))) rows_snapshot =
+			copy_value(pike_gateway_online_rows_by_worker);
+		mapping(string:int) rows_at_snapshot =
+			copy_value(pike_gateway_online_rows_at);
+		destruct(rows_key);
+		mapping(string:array(string)) row_claims = ([]);
+		foreach(sort(indices(rows_snapshot)),string row_worker){
+			if(!pike_gateway_worker_is_reachable(row_worker))
+				continue;
+			if((int)rows_at_snapshot[row_worker]<time()-30)
+				continue;
+			foreach((array)rows_snapshot[row_worker],mixed raw_row){
+				mapping row = mappingp(raw_row) ? (mapping)raw_row : 0;
+				string row_user = row ?
+					(string)row["userid"] : "";
+				if(row_user=="" || inventoried[row_user])
+					continue;
+				if(!row_claims[row_user])
+					row_claims[row_user] = ({});
+				row_claims[row_user] += ({row_worker});
+			}
+		}
+		foreach(sort(indices(row_claims)),string userid){
+			array(string) claim_workers = row_claims[userid];
+			if(sizeof(claim_workers)!=1)
+				continue;
+			string claim_worker = claim_workers[0];
+			mapping route = MAP_WORKERD->query_player_route(userid);
+			if((int)route["ok"] &&
+			   (string)route["state"]=="active" &&
+			   (string)route["worker_id"]==claim_worker)
+				continue;
+			mapping discarded = pike_gateway_worker_rpc(
+				claim_worker,"local_discard",([
+					"userid":userid,"epoch":0,
+				]));
+			if((int)discarded["ok"])
+				werror("[PIKE_GATEWAY][ZOMBIE_DISCARD] user_ref=%s "+
+					"worker=%s\n",
+					pike_gateway_user_log_ref(userid),claim_worker);
+		}
+	}
 	foreach(sort(indices(inventoried)),string userid){
 		array(mapping) copies = inventoried[userid];
 		if(sizeof(copies)==1){
