@@ -837,6 +837,25 @@ object query_enemy(){
 	return this_object()->get_target();
 }
 
+/* 心法加成标签：太极/无相的伤害数字旁标注心法贡献。 */
+private string query_heart_contribution_tag(object who)
+{
+	string profe;
+	int bonus;
+	if(!who || !functionp(who->query_profeId))
+		return "";
+	profe=(string)who->query_profeId();
+	if(profe=="taiji")
+		bonus=(int)who->query_taiji_heart_bonus("think");
+	else if(profe=="wuxiang")
+		bonus=(int)who->query_wuxiang_heart_bonus("think");
+	else
+		return "";
+	if(bonus<1000)
+		return "";
+	return "§6(含心法+"+(bonus/1000)+"k)§r";
+}
+
 // 群攻在调用死亡回调前锁定本次合法施法者，避免多目标原有仇恨顺序
 // 把任务、掉落、荣誉或自动复苏的击杀者记到其他参战者名下。
 int set_aoe_defeat_credit(object attacker){
@@ -4325,7 +4344,7 @@ private void attack(int skill_add,int skill_add_per,string type,
 			////////////////////////战斗描述///////////////////////////////////////////////
 			if(baoji_a==1) {
 				if(skill_name_cn==""){
-					tell_object(this_object(),"你紧握"+fight_action_desc+"，产生暴击效果，对"+enemy->query_name_cn()+"造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"，产生暴击效果，对"+enemy->query_name_cn()+"造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+query_heart_contribution_tag(this_object())+"\n");
 					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"，对你的攻击产生暴击效果，造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
 				}
 				else {

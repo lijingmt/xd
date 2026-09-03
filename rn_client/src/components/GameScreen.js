@@ -844,6 +844,14 @@ export default function GameScreen() {
                 </Text>
               </View>
             )}
+            {typeof status.heart_bonus_think === 'number' &&
+             status.heart_bonus_think > 0 && (
+              <View style={styles.heartChip}>
+                <Text style={styles.heartChipText}>
+                  ✨心法+{fmt(status.heart_bonus_think)}
+                </Text>
+              </View>
+            )}
             {typeof status.account_suiyu === 'number' && (
               <View style={styles.suiyuChipWrap}>
                 {Platform.OS === 'ios' ? (
@@ -1387,6 +1395,11 @@ const styles = StyleSheet.create({
     borderRadius: 5, paddingHorizontal: 6, paddingVertical: 1,
   },
   profChipText: { color: '#9ab8d8', fontSize: 11 },
+  heartChip: {
+    backgroundColor: '#102018', borderWidth: 1, borderColor: '#3a7a5a',
+    borderRadius: 5, paddingHorizontal: 6, paddingVertical: 1,
+  },
+  heartChipText: { color: '#7ad0a0', fontSize: 10, fontWeight: '700' },
   suiyuChip: {
     backgroundColor: '#10201a', borderWidth: 1, borderColor: '#3a7a5a',
     borderRadius: 5, paddingHorizontal: 6, paddingVertical: 1,

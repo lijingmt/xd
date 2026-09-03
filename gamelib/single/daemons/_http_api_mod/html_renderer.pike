@@ -1441,6 +1441,12 @@ mapping query_player_state(object player)
             string highest = s>=d && s>=t ? "力量" :
                 d>=s && d>=t ? "敏捷" : "智力";
             result["wuxiang_heart_highest"] = highest;
+            result["heart_bonus_str"] =
+                (int)player->query_wuxiang_heart_bonus("str");
+            result["heart_bonus_dex"] =
+                (int)player->query_wuxiang_heart_bonus("dex");
+            result["heart_bonus_think"] =
+                (int)player->query_wuxiang_heart_bonus("think");
             // 化身次数（120 级后才有）
             if((int)player->query_level() >= 120){
                 int avatar_used = 0;
@@ -1471,6 +1477,12 @@ mapping query_player_state(object player)
             string highest = s>=d && s>=t ? "力量" :
                 d>=s && d>=t ? "敏捷" : "智力";
             result["taiji_heart_highest"] = highest;
+            result["heart_bonus_str"] =
+                (int)player->query_taiji_heart_bonus("str");
+            result["heart_bonus_dex"] =
+                (int)player->query_taiji_heart_bonus("dex");
+            result["heart_bonus_think"] =
+                (int)player->query_taiji_heart_bonus("think");
             int self_remain = player->query_taiji_self_revive_remaining();
             result["taiji_self_revive"] = ([
                 "ready":(self_remain<=0 ? 1 : 0),

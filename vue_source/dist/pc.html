@@ -22,10 +22,10 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1788457710302">
-    <link rel="stylesheet" href="css/app.css?v=v1788457710302">
-    <link rel="stylesheet" href="css/realm.css?v=v1788457710302">
-    <link rel="stylesheet" href="css/pc.css?v=v1788457710302">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1788478179501">
+    <link rel="stylesheet" href="css/app.css?v=v1788478179501">
+    <link rel="stylesheet" href="css/realm.css?v=v1788478179501">
+    <link rel="stylesheet" href="css/pc.css?v=v1788478179501">
 </head>
 <body>
     <div id="app">
@@ -806,6 +806,8 @@
                     <div class="player-info-line">
                         <span class="player-name-cn" v-if="playerStats && playerStats.name_cn">{{ playerStats.name_cn }}</span>
                         <span class="header-level-chip" v-if="playerStats">Lv.{{ playerStats.level }}</span>
+                        <span v-if="playerStats && playerStats.heart_bonus_think > 0"
+                              class="header-heart-chip">✨+{{ playerStats.heart_bonus_think >= 10000 ? (playerStats.heart_bonus_think / 10000).toFixed(1) + '万' : playerStats.heart_bonus_think }}</span>
                         <span class="header-profession-chip" v-if="playerStats?.profe">{{ playerStats.profe }}</span>
                         <button type="button"
                                 class="header-difficulty-chip"
@@ -2552,19 +2554,19 @@
                         </aside>
 </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1788457710302"></script>
-    <script src="vendor/canvas-confetti.js?v=v1788457710302"></script>
-    <script src="vendor/howler.core.min.js?v=v1788457710302"></script>
-    <script src="vendor/driver.iife.js?v=v1788457710302"></script>
-    <script src="../includes/game-number-format.js?v=v1788457710302" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1788478179501"></script>
+    <script src="vendor/canvas-confetti.js?v=v1788478179501"></script>
+    <script src="vendor/howler.core.min.js?v=v1788478179501"></script>
+    <script src="vendor/driver.iife.js?v=v1788478179501"></script>
+    <script src="../includes/game-number-format.js?v=v1788478179501" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1788457710302';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1788478179501';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1788457710302"></script>
+    <script src="js/app.js?v=v1788478179501"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1788457710302"></script>
+    <script src="../includes/translate.js?v=v1788478179501"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');
