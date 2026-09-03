@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1788353795711">
-    <link rel="stylesheet" href="css/app.css?v=v1788353795711">
-    <link rel="stylesheet" href="css/realm.css?v=v1788353795711">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1788457312298">
+    <link rel="stylesheet" href="css/app.css?v=v1788457312298">
+    <link rel="stylesheet" href="css/realm.css?v=v1788457312298">
 </head>
 <body>
     <div id="app">
@@ -1486,7 +1486,21 @@
                                         @pointermove="handleDesktopWorldPointerMove"
                                         @pointerup="handleDesktopWorldPointerUp"
                                         @pointercancel="handleDesktopWorldPointerUp"></canvas>
-                                <div class="desktop-world-map-help">
+                                <div class="desktop-world-map-zoom" role="toolbar" aria-label="地图缩放">
+                                            <button type="button"
+                                                    @click="desktopWorldMapTransform.scale = Math.min(6, desktopWorldMapTransform.scale * 1.3); renderDesktopWorldMap()"
+                                                    aria-label="放大">＋</button>
+                                            <button type="button"
+                                                    @click="desktopWorldMapTransform.scale = Math.max(0.15, desktopWorldMapTransform.scale / 1.3); renderDesktopWorldMap()"
+                                                    aria-label="缩小">－</button>
+                                            <button type="button"
+                                                    @click="fitDesktopWorldMap"
+                                                    aria-label="适配全图">⊙</button>
+                                            <button type="button"
+                                                    @click="focusDesktopWorldMap"
+                                                    aria-label="定位我">◎</button>
+                                        </div>
+                                        <div class="desktop-world-map-help">
                                     鼠标拖拽移动 · 滚轮缩放 · 点选节点可银两飞行 · 金色方框是当前位置
                                 </div>
                                 <aside v-if="desktopWorldSelectedNode" class="desktop-world-node-inspector">
@@ -2438,6 +2452,13 @@
                         <span class="quick-nav-icon" aria-hidden="true">◇</span>
                         <span>技能</span>
                     </button>
+                    <button class="quick-nav-btn"
+                            data-pc-key="M"
+                            data-tour="world-map"
+                            @click="openDesktopWorldMap">
+                        <span class="quick-nav-icon" aria-hidden="true">🗺</span>
+                        <span>地图</span>
+                    </button>
                     <button class="quick-nav-btn quick-more-btn"
                             data-pc-key="5"
                             data-tour="more-actions"
@@ -2487,7 +2508,21 @@
                                         @pointermove="handleDesktopWorldPointerMove"
                                         @pointerup="handleDesktopWorldPointerUp"
                                         @pointercancel="handleDesktopWorldPointerUp"></canvas>
-                                <div class="desktop-world-map-help">
+                                <div class="desktop-world-map-zoom" role="toolbar" aria-label="地图缩放">
+                                            <button type="button"
+                                                    @click="desktopWorldMapTransform.scale = Math.min(6, desktopWorldMapTransform.scale * 1.3); renderDesktopWorldMap()"
+                                                    aria-label="放大">＋</button>
+                                            <button type="button"
+                                                    @click="desktopWorldMapTransform.scale = Math.max(0.15, desktopWorldMapTransform.scale / 1.3); renderDesktopWorldMap()"
+                                                    aria-label="缩小">－</button>
+                                            <button type="button"
+                                                    @click="fitDesktopWorldMap"
+                                                    aria-label="适配全图">⊙</button>
+                                            <button type="button"
+                                                    @click="focusDesktopWorldMap"
+                                                    aria-label="定位我">◎</button>
+                                        </div>
+                                        <div class="desktop-world-map-help">
                                     单指拖动 · 双指捏合缩放 · 点选节点可银两飞行 · 蓝线连接跨区域道路
                                 </div>
                                 <aside v-if="desktopWorldSelectedNode" class="desktop-world-node-inspector">
@@ -2512,19 +2547,19 @@
                         </aside>
 </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1788353795711"></script>
-    <script src="vendor/canvas-confetti.js?v=v1788353795711"></script>
-    <script src="vendor/howler.core.min.js?v=v1788353795711"></script>
-    <script src="vendor/driver.iife.js?v=v1788353795711"></script>
-    <script src="../includes/game-number-format.js?v=v1788353795711" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1788457312298"></script>
+    <script src="vendor/canvas-confetti.js?v=v1788457312298"></script>
+    <script src="vendor/howler.core.min.js?v=v1788457312298"></script>
+    <script src="vendor/driver.iife.js?v=v1788457312298"></script>
+    <script src="../includes/game-number-format.js?v=v1788457312298" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1788353795711';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1788457312298';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1788353795711"></script>
+    <script src="js/app.js?v=v1788457312298"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1788353795711"></script>
+    <script src="../includes/translate.js?v=v1788457312298"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

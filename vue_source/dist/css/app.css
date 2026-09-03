@@ -12149,3 +12149,52 @@ body {
 .dark-mode .illusion-story-caption {
 	color: #d8c5f2;
 }
+
+/* ===== 世界地图缩放控制（触屏友好） ===== */
+.desktop-world-map-zoom {
+    position: absolute;
+    right: 12px;
+    bottom: 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 10;
+}
+
+.desktop-world-map-zoom button {
+    width: 44px;
+    height: 44px;
+    border: 1px solid rgba(212, 175, 55, 0.5);
+    border-radius: 10px;
+    background: rgba(13, 11, 14, 0.85);
+    color: #d4af37;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    touch-action: manipulation;
+}
+
+.desktop-world-map-zoom button:active {
+    background: rgba(35, 27, 16, 0.95);
+    border-color: #d4af37;
+    transform: scale(0.95);
+}
+
+/* 手机端加大触控目标 */
+@media (max-width: 768px) {
+    .desktop-world-map-zoom {
+        right: 8px;
+        bottom: 60px;
+    }
+
+    .desktop-world-map-zoom button {
+        width: 52px;
+        height: 52px;
+        font-size: 22px;
+    }
+}
