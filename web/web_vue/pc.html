@@ -22,10 +22,10 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1788457312298">
-    <link rel="stylesheet" href="css/app.css?v=v1788457312298">
-    <link rel="stylesheet" href="css/realm.css?v=v1788457312298">
-    <link rel="stylesheet" href="css/pc.css?v=v1788457312298">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1788457410826">
+    <link rel="stylesheet" href="css/app.css?v=v1788457410826">
+    <link rel="stylesheet" href="css/realm.css?v=v1788457410826">
+    <link rel="stylesheet" href="css/pc.css?v=v1788457410826">
 </head>
 <body>
     <div id="app">
@@ -2379,13 +2379,16 @@
                     </div>
                     <div class="quick-more-grid">
                         <button class="quick-tool-btn"
+                                @click="openDesktopWorldMap">
+                            <span>🧭</span>世界地图
+                        </button>
+                        <button class="quick-tool-btn"
                                 :class="{ active: playerStats?.daily_goal?.claimable }"
                                 @click="sendQuickCommand('daily')">
                             <span>{{ playerStats?.daily_goal?.claimable ? '🎁' : '📅' }}</span>
                             {{ playerStats?.daily_goal?.claimable ? '每日可领' : '每日修行' }}
                         </button>
                         <button class="quick-tool-btn" data-pc-key="M" data-tour="world-map" @click="sendQuickCommand('map_display')"><span>🗺️</span>地图</button>
-                        <button class="quick-tool-btn" @click="openDesktopWorldMap"><span>🧭</span>世界地图</button>
                         <button class="quick-tool-btn" data-pc-key="T" data-tour="quests" @click="sendQuickCommand('mytasks')"><span>📜</span>任务</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('illusion_realm')"><span>🌙</span>幻境任务</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('personal_difficulty')"><span>🔥</span>挑战难度</button>
@@ -2452,13 +2455,6 @@
                             @click="sendQuickCommand('myskills')">
                         <span class="quick-nav-icon" aria-hidden="true">◇</span>
                         <span>技能</span>
-                    </button>
-                    <button class="quick-nav-btn"
-                            data-pc-key="M"
-                            data-tour="world-map"
-                            @click="openDesktopWorldMap">
-                        <span class="quick-nav-icon" aria-hidden="true">🗺</span>
-                        <span>地图</span>
                     </button>
                     <button class="quick-nav-btn quick-more-btn"
                             data-pc-key="5"
@@ -2548,19 +2544,19 @@
                         </aside>
 </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1788457312298"></script>
-    <script src="vendor/canvas-confetti.js?v=v1788457312298"></script>
-    <script src="vendor/howler.core.min.js?v=v1788457312298"></script>
-    <script src="vendor/driver.iife.js?v=v1788457312298"></script>
-    <script src="../includes/game-number-format.js?v=v1788457312298" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1788457410826"></script>
+    <script src="vendor/canvas-confetti.js?v=v1788457410826"></script>
+    <script src="vendor/howler.core.min.js?v=v1788457410826"></script>
+    <script src="vendor/driver.iife.js?v=v1788457410826"></script>
+    <script src="../includes/game-number-format.js?v=v1788457410826" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1788457312298';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1788457410826';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1788457312298"></script>
+    <script src="js/app.js?v=v1788457410826"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1788457312298"></script>
+    <script src="../includes/translate.js?v=v1788457410826"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');
