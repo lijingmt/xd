@@ -2,8 +2,8 @@
   "expo": {
     "name": "Xiandao 仙道",
     "slug": "xiand-client",
-    "version": "0.2.3",
-    "orientation": "portrait",
+    "version": "0.2.4",
+    "orientation": "any",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0d0b0e",
     "primaryColor": "#d4af37",
@@ -11,7 +11,7 @@
     "ios": {
       "bundleIdentifier": "com.wapmud.xiandao",
       "supportsTablet": true,
-      "buildNumber": "14",
+      "buildNumber": "15",
       "config": {
         "usesNonExemptEncryption": false
       },
@@ -25,7 +25,7 @@
     },
     "android": {
       "package": "com.wapmud.xiandao",
-      "versionCode": 4,
+      "versionCode": 5,
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE"
