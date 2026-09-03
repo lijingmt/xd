@@ -1674,10 +1674,24 @@ private void pike_gateway_observe_account_response(string path,
 	pike_gateway_record_account_token(token,account_id);
 }
 
-private void pike_gateway_begin_request()
+/** 只读命令在恢复期放行：status/flushview/look等不改变世界状态。 */
+private int pike_gateway_command_is_read_only(string path)
+{
+	if(!path || sizeof(path)<2)
+		return 0;
+	return has_prefix(path,"/api/status") ||
+		has_prefix(path,"/api/flushview") ||
+		has_prefix(path,"/api/battle_status") ||
+		has_prefix(path,"/api/equipment_panel") ||
+		has_prefix(path,"/api/challenge") ||
+		has_prefix(path,"/api/partitions");
+}
+
+private void pike_gateway_begin_request(void|int read_only)
 {
 	object key = pike_gateway_state_lock->lock();
-	int ready = pike_gateway_routing_ready;
+	int ready = pike_gateway_routing_ready ||
+		(read_only && !pike_gateway_stop);
 	if(ready)
 		pike_gateway_active_requests++;
 	destruct(key);
@@ -1685,10 +1699,11 @@ private void pike_gateway_begin_request()
 		error("map worker recovery is in progress\n");
 }
 
-private void pike_gateway_ensure_routing_ready()
+private void pike_gateway_ensure_routing_ready(void|int read_only)
 {
 	object key = pike_gateway_state_lock->lock();
-	int ready = pike_gateway_routing_ready;
+	int ready = pike_gateway_routing_ready ||
+		(read_only && !pike_gateway_stop);
 	destruct(key);
 	if(!ready)
 		error("map worker recovery is in progress\n");
@@ -2839,7 +2854,9 @@ private mapping pike_gateway_process_public_snapshot(mapping snapshot)
 			error("invalid registration target\n");
 		if(registration_user!="" && userid!="" && userid!=registration_user)
 			error("conflicting registration identity\n");
-		pike_gateway_begin_request();
+		pike_gateway_begin_request(
+			pike_gateway_command_is_read_only(
+				(string)snapshot["path_only"]));
 		request_entered = 1;
 		if(pike_gateway_account_path((string)snapshot["path_only"])){
 			token_account = pike_gateway_resolve_account_token(account_token);
@@ -3987,6 +4004,14 @@ private void pike_gateway_run_background_handoffs()
 
 private void pike_gateway_run_lease_gc()
 {
+	/* 快速僵尸清理（不暂停路由）：重启后最先造成在线快照失败的是
+	 * 僵尸会话（无租约但在线行有记录），它们可以在不暂停全局路由
+	 * 的情况下被安全丢弃。只有清理后仍有真实所有权冲突时才走
+	 * 全量暂停恢复。目标：重启后登录等待从分钟级降到秒级。 */
+	mixed fast_err = catch { pike_gateway_fast_zombie_sweep(); };
+	if(fast_err)
+		werror("[PIKE_GATEWAY][FAST_SWEEP] error=%s\n",
+			pike_gateway_log_field(describe_error(fast_err),128));
 	object recovery_key = pike_gateway_recovery_lock->lock();
 	pike_gateway_pause_routing();
 	mixed recovery_err = catch { pike_gateway_recover_local_players(); };
@@ -3995,6 +4020,58 @@ private void pike_gateway_run_lease_gc()
 	destruct(recovery_key);
 	if(recovery_err)
 		error(describe_error(recovery_err));
+}
+
+/** 无暂停僵尸清理：只做在线行快照扫描+local_discard，不动路由。
+ *  玩家读请求（status/flushview/look等）不受影响。 */
+private void pike_gateway_fast_zombie_sweep()
+{
+	object rows_key = pike_gateway_state_lock->lock();
+	mapping(string:array(mapping(string:mixed))) rows_snapshot =
+		copy_value(pike_gateway_online_rows_by_worker);
+	mapping(string:int) rows_at_snapshot =
+		copy_value(pike_gateway_online_rows_at);
+	destruct(rows_key);
+	mapping(string:array(string)) row_claims = ([]);
+	foreach(sort(indices(rows_snapshot)),string row_worker){
+		if(!pike_gateway_worker_is_reachable(row_worker))
+			continue;
+		if((int)rows_at_snapshot[row_worker]<time()-30)
+			continue;
+		foreach((array)rows_snapshot[row_worker],mixed raw_row){
+			mapping row = mappingp(raw_row) ? (mapping)raw_row : 0;
+			string row_user = row ?
+				(string)row["userid"] : "";
+			if(row_user=="")
+				continue;
+			if(!row_claims[row_user])
+				row_claims[row_user] = ({});
+			row_claims[row_user] += ({row_worker});
+		}
+	}
+	int swept = 0;
+	foreach(sort(indices(row_claims)),string userid){
+		array(string) claim_workers = row_claims[userid];
+		if(sizeof(claim_workers)!=1)
+			continue;
+		string claim_worker = claim_workers[0];
+		mapping route = MAP_WORKERD->query_player_route(userid);
+		if((int)route["ok"] &&
+		   (string)route["state"]=="active" &&
+		   (string)route["worker_id"]==claim_worker)
+			continue;
+		mapping discarded = pike_gateway_worker_rpc(
+			claim_worker,"local_discard",([
+				"userid":userid,"epoch":0,
+			]));
+		if((int)discarded["ok"]){
+			swept++;
+			werror("[PIKE_GATEWAY][ZOMBIE_SWEEP] user_ref=%s worker=%s\n",
+				pike_gateway_user_log_ref(userid),claim_worker);
+		}
+	}
+	if(swept>0)
+		werror("[PIKE_GATEWAY][FAST_SWEEP] discarded=%d zombies\n",swept);
 }
 
 /**

@@ -52,8 +52,27 @@ int main(string|zero arg)
 				(int)me->query_wuxiang_heart_bonus("think");
 			int hb_str = (int)me->query_taiji_heart_bonus("str")+
 				(int)me->query_wuxiang_heart_bonus("str");
-			s += "【"+(profe=="taiji"?"太极":"无相")+"心法】最高总属性(含装备)×"+
-				percent+"%加成另两系：";
+			{
+				int es = (int)me->query_equip_add("str")+
+					(int)me->query_equip_add("all")+
+					(int)me->query_danyao_add("attri_base","str")+
+					(int)me->query_danyao_add("te_base","str")+
+					(int)me->query_danyao_add("home_base","str");
+				int ed = (int)me->query_equip_add("dex")+
+					(int)me->query_equip_add("all")+
+					(int)me->query_danyao_add("attri_base","dex")+
+					(int)me->query_danyao_add("te_base","dex")+
+					(int)me->query_danyao_add("home_base","dex");
+				int et = (int)me->query_equip_add("think")+
+					(int)me->query_equip_add("all")+
+					(int)me->query_danyao_add("attri_base","think")+
+					(int)me->query_danyao_add("te_base","think")+
+					(int)me->query_danyao_add("home_base","think");
+				string best = es>=ed && es>=et ? "力量" :
+					(ed>=es && ed>=et ? "敏捷" : "智力");
+				s += "【"+(profe=="taiji"?"太极":"无相")+"心法】最高项"+
+					best+"(含装备)×"+percent+"%加成另两系：";
+			}
 			if(hb_str)
 				s += "力量＋"+format_game_number(hb_str)+" ";
 			if(hb_dex)
