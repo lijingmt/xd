@@ -304,8 +304,8 @@ string get_user_password(string userid)
     mixed err = catch {
         // 密码行位置随存档体积漂移（大家族角色可达数MB且password
         // 靠近文件尾部），固定上限会把超限存档判成"档案不可用"。
-        // 先尝试异步全量（4MB安全上限），异步拒绝超限时回退直接读。
-        string content = ASYNC_IOD->read_text(user_file,4*1024*1024);
+        // 先尝试异步全量（10MB安全上限），异步拒绝超限时回退直接读。
+        string content = ASYNC_IOD->read_text(user_file,10*1024*1024);
         if(!content || sizeof(content)==0)
             content = Stdio.read_file(user_file);
         if(!content || sizeof(content) == 0) {
