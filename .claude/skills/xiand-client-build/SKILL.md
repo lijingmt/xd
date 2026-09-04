@@ -138,3 +138,11 @@ arch -arm64 adb exec-out screencap -p > /tmp/smoke.png       # 肉眼确认登�
 5. APK 上 205 后 MD5 双端一致 + 固定 URL HTTP 200。
 6. git 提交（英文规范）+ push；staged 只含任务文件，不含
    data_xiand/运行数据/dist 生成物。
+
+## Feature Parity Rule
+
+**RN 客户端新增任何玩家可见功能，Vue 网页版 (vue_source/) 必须同步实现。**
+
+Known exceptions: iOS IAP (App Store only), device-specific features.
+
+Implementation: Vue uses the same server commands via `sendQuickCommand()`. New modals go before `</template>`, CSS appends to `app.css`, localStorage keys use `xiand.` prefix. Build with `npm run build` in vue_source/ and run client TestUnit before pushing.
