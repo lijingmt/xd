@@ -669,14 +669,22 @@ createApp({
 
         renderGameText(value, allowHtml = false) {
             if (value === null || value === undefined) return '';
+            const text = String(value);
             if (typeof GameNumberFormat !== 'undefined') {
-                return GameNumberFormat.formatText(value, {
+                return GameNumberFormat.formatText(text, {
                     compact: this.compactGameNumbers,
                     allowHtml: allowHtml
                 });
             }
-            const text = String(value);
-            if (allowHtml) return text;
+            if (allowHtml) {
+                /* XSS 防护：先转义全部HTML，再恢复安全的游戏颜色标签 */
+                return text
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
             return text
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
@@ -3920,9 +3928,10 @@ createApp({
         // 解析文本中的内联图片 [imgurl picture:/images/...]
         parseInlineImages(text) {
             if (!text) return '';
-            // 匹配 [imgurl picture:路径] 格式
             return text.replace(/\[imgurl\s+picture:([^\]]+)\]/g, (match, imagePath) => {
-                // 构建完整图片URL
+                /* XSS 防护：只允许相对路径图片（字母/数字/_-.），禁止协议和注入 */
+                if (!/^[a-zA-Z0-9/_\-.]+$/.test(imagePath)) return '';
+                if (imagePath.includes('..')) return '';
                 const imageUrl = this.getImageUrl(imagePath);
                 return `<img src="${imageUrl}" class="mud-inline-image" alt="图片" onerror="this.style.display='none'">`;
             });
