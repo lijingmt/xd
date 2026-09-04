@@ -4004,14 +4004,9 @@ private void pike_gateway_run_background_handoffs()
 
 private void pike_gateway_run_lease_gc()
 {
-	/* 快速僵尸清理（不暂停路由）：重启后最先造成在线快照失败的是
-	 * 僵尸会话（无租约但在线行有记录），它们可以在不暂停全局路由
-	 * 的情况下被安全丢弃。只有清理后仍有真实所有权冲突时才走
-	 * 全量暂停恢复。目标：重启后登录等待从分钟级降到秒级。 */
-	mixed fast_err = catch { pike_gateway_fast_zombie_sweep(); };
-	if(fast_err)
-		werror("[PIKE_GATEWAY][FAST_SWEEP] error=%s\n",
-			pike_gateway_log_field(describe_error(fast_err),128));
+	/* 快速僵尸清理已禁用（2026-09-04事故）：不暂停路由的清理在
+	 * 登录/切角过渡期会误判在线玩家为僵尸并踢掉，造成持续掉线
+	 * 循环。僵尸清理只在全量恢复的暂停窗口内执行（安全边界）。 */
 	object recovery_key = pike_gateway_recovery_lock->lock();
 	pike_gateway_pause_routing();
 	mixed recovery_err = catch { pike_gateway_recover_local_players(); };
