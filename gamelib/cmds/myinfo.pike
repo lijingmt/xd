@@ -17,7 +17,9 @@ int main(string|zero arg)
 	s += "法力值："+format_game_number(me->get_cur_mofa())+"/"+
 		format_game_number(me->query_mofa_max())+"\n";
 	////////////////////////////////////////////////////////////////////////////////
-	/* 三系属性直接显示战斗实际值（含心法），括号标注心法部分。 */
+	/* 三系属性显示战斗实际值（含心法+buff+被动），心法部分括号标注。
+	 * 不再拆"基础+装备"子行：query_str 包含 buff/balanced_attr_bonus，
+	 * 拆减会出现负数或错值。 */
 	{
 		int heart_str = (int)me->query_taiji_heart_bonus("str")+
 			(int)me->query_wuxiang_heart_bonus("str");
@@ -25,33 +27,21 @@ int main(string|zero arg)
 			(int)me->query_wuxiang_heart_bonus("dex");
 		int heart_think = (int)me->query_taiji_heart_bonus("think")+
 			(int)me->query_wuxiang_heart_bonus("think");
-		int base_str = (int)me->get_cur_str();
-		int base_dex = (int)me->get_cur_dex();
-		int base_think = (int)me->get_cur_think();
-		int total_str = (int)me->query_str();
-		int total_dex = (int)me->query_dex();
-		int total_think = (int)me->query_think();
 
-		s += "力量："+format_game_number(total_str);
+		s += "力量："+format_game_number((int)me->query_str());
 		if(heart_str>0)
-			s += " §2(心法＋"+format_game_number(heart_str)+")§r";
-		s += "\n  基础"+format_game_number(base_str)+
-			"＋装备"+format_game_number(
-				total_str-base_str-heart_str)+"\n";
+			s += "（心法＋"+format_game_number(heart_str)+"）";
+		s += "\n";
 
-		s += "敏捷："+format_game_number(total_dex);
+		s += "敏捷："+format_game_number((int)me->query_dex());
 		if(heart_dex>0)
-			s += " §2(心法＋"+format_game_number(heart_dex)+")§r";
-		s += "\n  基础"+format_game_number(base_dex)+
-			"＋装备"+format_game_number(
-				total_dex-base_dex-heart_dex)+"\n";
+			s += "（心法＋"+format_game_number(heart_dex)+"）";
+		s += "\n";
 
-		s += "智力："+format_game_number(total_think);
+		s += "智力："+format_game_number((int)me->query_think());
 		if(heart_think>0)
-			s += " §2(心法＋"+format_game_number(heart_think)+")§r";
-		s += "\n  基础"+format_game_number(base_think)+
-			"＋装备"+format_game_number(
-				total_think-base_think-heart_think)+"\n";
+			s += "（心法＋"+format_game_number(heart_think)+"）";
+		s += "\n";
 	}
 
 	}

@@ -3025,7 +3025,7 @@ void perform(string name,void|int flag){
 						string damage_desc =
 							format_game_number(fact_mofa_a);
 						s += "造成了 "+damage_desc+" 点伤害！"+
-							absorb_desc+chuantou_desc+"\n";
+							absorb_desc+chuantou_desc+query_heart_contribution_tag(this_object())+"\n";
 						s1 += "造成了 "+damage_desc+" 点伤害！"+
 							absorb_desc+chuantou_desc+"\n";
 						tell_object(this_object(),s);
@@ -4356,12 +4356,12 @@ private void attack(int skill_add,int skill_add_per,string type,
 			}
 			else {
 				if(skill_name_cn==""){
-					tell_object(this_object(),"你紧握"+fight_action_desc+"，对"+enemy->query_name_cn()+"造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"，对"+enemy->query_name_cn()+"造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+query_heart_contribution_tag(this_object())+"\n");
 					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"，对你造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
 					//tell_object(enemy,this_object()->query_name_cn()+"紧握"+fight_action_desc+"，对你造成了"+attack_a+"点伤害"+absorb_desc+"\n");
 				}
 				else {
-					tell_object(this_object(),"你紧握"+fight_action_desc+"施展"+skill_name_cn+"，对"+enemy->query_name_cn()+"造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"施展"+skill_name_cn+"，对"+enemy->query_name_cn()+"造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+query_heart_contribution_tag(this_object())+"\n");
 					tell_object(enemy,this_object()->query_name_cn()+"施展"+skill_name_cn+"，对你造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
 					//熟练度提高,需要对方等级和自己相当，才会提升技能熟练度
 					if(name_skill != "xueranjiangshan")
