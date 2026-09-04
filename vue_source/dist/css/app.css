@@ -3804,10 +3804,10 @@ body {
 
 /* MUD内联图片 */
 .mud-inline-image {
-    max-width: 120px;
-    max-height: 120px;
+    max-width: 40px;
+    max-height: 40px;
     vertical-align: middle;
-    margin: 0 4px;
+    margin: 0 3px;
     border-radius: 4px;
     display: inline-block;
 }
@@ -3815,9 +3815,10 @@ body {
 /* 角色头像/装备图等小图片 */
 .mud-inline-image[src*="/user/"],
 .mud-inline-image[src*="/equipment/"] {
-    max-width: 64px;
-    max-height: 64px;
+    max-width: 28px;
+    max-height: 28px;
     border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
 }
 
 /* S1 章节使用通用 imgurl 协议以兼容旧 Vue/JSP，但仍按剧情大图展示。 */
@@ -12516,4 +12517,71 @@ body {
 /* 主题切换平滑过渡 */
 body, .game-container, .modal, .panel, .btn {
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* ===== 图片尺寸统一优化 ===== */
+
+/* 战斗面板怪物头像：与文字行高一致（不再巨大） */
+.battle-enemy-avatar {
+    font-size: 18px;
+    line-height: 1;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+}
+
+.battle-player-avatar {
+    font-size: 18px;
+    line-height: 1;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+}
+
+/* 装备面板图片保持48px（专用面板，非行内） */
+.equipment-item-art {
+    width: 40px;
+    height: 40px;
+}
+
+/* 装备槽位图片（面板网格中） */
+.equipment-slot-icon img {
+    max-width: 32px;
+    max-height: 32px;
+    object-fit: contain;
+}
+
+/* 战斗面板中的怪物图片（如果服务端返回了图片URL） */
+.battle-enemy-image {
+    max-width: 36px;
+    max-height: 36px;
+    border-radius: 6px;
+    object-fit: cover;
+}
+
+/* RN Web端的行内图片也需要调整 */
+@media (max-width: 768px) {
+    .mud-inline-image {
+        max-width: 32px;
+        max-height: 32px;
+    }
+
+    .mud-inline-image[src*="/user/"],
+    .mud-inline-image[src*="/equipment/"] {
+        max-width: 24px;
+        max-height: 24px;
+    }
+
+    .battle-enemy-avatar,
+    .battle-player-avatar {
+        width: 18px;
+        height: 18px;
+        font-size: 14px;
+    }
 }

@@ -112,5 +112,5 @@ const styles = StyleSheet.create({
     paddingVertical: 6, color: '#F0E6D2', fontSize: 14,
     borderWidth: 1, borderColor: '#3a2f46', minWidth: 130, minHeight: 34,
   },
-  image: { width: 76, height: 76, borderRadius: 10, marginVertical: 4 },
+  image: { width: 36, height: 36, borderRadius: 6, marginVertical: 2 },
 });

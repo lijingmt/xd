@@ -463,11 +463,11 @@ const styles = StyleSheet.create({
   },
   slotTileFilled: { backgroundColor: '#1a1622' },
   slotIconBox: {
-    width: 34, height: 34, borderRadius: 7, borderWidth: 1,
+    width: 30, height: 30, borderRadius: 6, borderWidth: 1,
     borderColor: '#3a2f46', alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#0f0c14', overflow: 'hidden',
   },
-  slotImage: { width: 32, height: 32 },
+  slotImage: { width: 28, height: 28 },
   slotIconText: { color: '#8a7a8a', fontSize: 14 },
   slotLabel: { color: '#a89aa8', fontSize: 9, marginTop: 3 },
   choicePanel: {
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, padding: 10,
   },
   itemArt: {
-    width: 44, height: 44, borderRadius: 8,
+    width: 38, height: 38, borderRadius: 7,
     borderWidth: 1, borderColor: '#8a6d2f',
   },
   currentTag: { color: '#5a8a6a', fontSize: 10 },
