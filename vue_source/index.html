@@ -745,7 +745,11 @@
         </div>
 
         <!-- 游戏主界面 - 使用iframe显示原始HTML -->
-        <template v-if="!showLogin && !showRegister && !showCharacterSelect">
+        <!-- 离线横幅 -->
+    <div v-if="!navigatorOnline" class="offline-banner">
+      ⚠ 网络已断开，正在重连…
+    </div>
+    <template v-if="!showLogin && !showRegister && !showCharacterSelect">
             <!-- 顶部状态栏 -->
             <header class="game-header"
                     :class="{ 'has-header-pet': !!headerPetSlots, 'header-collapsed': headerCollapsed }"

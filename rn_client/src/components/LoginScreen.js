@@ -23,6 +23,7 @@ export default function LoginScreen() {
   const [regBusy, setRegBusy] = useState(false);
   const [regDone, setRegDone] = useState(false);
   const [savedAccounts, setSavedAccounts] = useState([]);
+  const [loginProgress, setLoginProgress] = useState('');
   /* 测试服彩蛋：连点Logo 5次解锁（3秒内），正式版玩家不可见。 */
   const [devUnlock, setDevUnlock] = useState(false);
   const logoTapsRef = useRef({ count: 0, first: 0 });
@@ -209,9 +210,19 @@ export default function LoginScreen() {
               (busy || !partition || !userid || !password) &&
                 styles.loginButtonDisabled]}
             disabled={busy || !partition || !userid || !password}
-            onPress={() => login(partition, userid.trim(), password)}>
+            onPress={() => {
+              setLoginProgress('正在连接…');
+              setTimeout(() => setLoginProgress('正在验证…'), 800);
+              setTimeout(() => setLoginProgress('正在加载…'), 1600);
+              login(partition, userid.trim(), password);
+            }}>
             {busy
-              ? <ActivityIndicator color="#ffe3e8" size="small" />
+              ? <View style={styles.loginProgressWrap}>
+                  <ActivityIndicator color="#ffe3e8" size="small" />
+                  <Text style={styles.loginProgressText}>
+                    {loginProgress || '正在连接…'}
+                  </Text>
+                </View>
               : <Text style={styles.loginText}>进入仙道wapmud</Text>}
           </TouchableOpacity>
         ) : (
@@ -382,6 +393,12 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#ff4d6d', shadowOpacity: 0.35,
     shadowRadius: 10, elevation: 6,
+  },
+  loginProgressWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+  },
+  loginProgressText: {
+    color: '#ffe3e8', fontSize: 14,
   },
   loginButtonDisabled: { opacity: 0.55 },
   loginText: { color: '#ffe3e8', fontSize: 17, fontWeight: '700', letterSpacing: 4 },

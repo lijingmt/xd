@@ -12490,3 +12490,30 @@ body {
     color: #ff5a6a;
     font-weight: 700;
 }
+
+/* ===== UX 优化：离线横幅 + 主题过渡 ===== */
+.offline-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 999;
+    background: #3d1018;
+    color: #ff9aa8;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    border-bottom: 1px solid #5a2d3a;
+    animation: slide-down 0.3s ease;
+}
+
+@keyframes slide-down {
+    from { transform: translateY(-100%); }
+    to { transform: translateY(0); }
+}
+
+/* 主题切换平滑过渡 */
+body, .game-container, .modal, .panel, .btn {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}

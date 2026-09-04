@@ -16,6 +16,8 @@ import {
 import { parseSkillType, skillMeta } from '../utils/skillTypes.js';
 import { groupDigits, suiyuTime, clearSuiyuLog } from '../utils/suiyuLog.js';
 import { useTheme } from '../utils/ThemeContext.js';
+import { Vibration } from 'react-native';
+import { toast } from './Toast.js';
 import { APP_THEMES } from '../utils/appThemes.js';
 import WorldMapScreen from './WorldMapScreen.js';
 import { getImageBase } from '../api/mudApi.js';
@@ -369,6 +371,7 @@ export default function GameScreen() {
   const [rechargeOpen, setRechargeOpen] = useState(false);
   const [suiyuLogOpen, setSuiyuLogOpen] = useState(false);
   const [worldMapOpen, setWorldMapOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [charListOpen, setCharListOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(DEFAULT_UI_SETTINGS);
@@ -436,6 +439,22 @@ export default function GameScreen() {
   /* 挂机开启的瞬间清掉阅读保护期：玩家点挂机就是想立刻看战斗，
    * 不能被15秒菜单保护挡住画面轮询。 */
   const wasAfkRef = useRef(false);
+  /* 新手引导：首次进入游戏时显示（AsyncStorage 持久化标记） */
+  useEffect(() => {
+    if (store.txd) {
+      import('../utils/themeStorage.js').then(({ injectableStorage }) => {
+        injectableStorage().then(st =>
+          st.getItem('xiand.onboarding_done')).then(done => {
+            if (!done) {
+              setShowOnboarding(true);
+              injectableStorage().then(st =>
+                st.setItem('xiand.onboarding_done', '1'));
+            }
+          });
+      }).catch(() => {});
+    }
+  }, [store.txd]);
+
   useEffect(() => {
     if (store.autofighting && !wasAfkRef.current) {
       lastUserNavRef.current = 0;
@@ -656,9 +675,26 @@ export default function GameScreen() {
 
   const send = cmd => {
     if (!cmd) return;
+    Vibration.vibrate(10); /* 轻微触觉反馈 */
     setMoreOpen(false);
     lastUserNavRef.current = Date.now();
     store.command(cmd.trim());
+    /* 操作反馈：让玩家知道命令已发送 */
+    const cmdStr = cmd.trim();
+    if (/^wield |^wear /.test(cmdStr)) toast('正在穿戴装备…');
+    else if (/^unwield |^unwear /.test(cmdStr)) toast('正在卸下装备…');
+    else if (/^auto_equip/.test(cmdStr)) toast('智能穿装中…');
+    else if (/^fly_to_room/.test(cmdStr)) toast('飞行中…');
+    else if (/^term_invite_room/.test(cmdStr)) toast('正在邀请全房玩家…');
+    else if (/^book_cleanup confirm/.test(cmdStr)) toast('正在清理书卷…');
+  };
+
+  /* 危险操作二次确认 */
+  const sendDangerous = (cmd, confirmMsg) => {
+    Alert.alert('确认操作', confirmMsg, [
+      { text: '取消', style: 'cancel' },
+      { text: '确认', style: 'destructive', onPress: () => send(cmd) },
+    ]);
   };
 
   const sendTab = tab => {
@@ -803,6 +839,32 @@ export default function GameScreen() {
         )}
         </>
       
+      )}
+
+      {/* ===== 离线横幅 ===== */}
+      {!store.networkOnline && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineText}>
+            ⚠ 网络已断开，正在重连…
+          </Text>
+        </View>
+      )}
+
+      {/* ===== 新手引导（首次使用） ===== */}
+      {showOnboarding && (
+        <TouchableOpacity
+          style={styles.onboardingOverlay}
+          activeOpacity={1}
+          onPress={() => setShowOnboarding(false)}>
+          <View style={styles.onboardingCard}>
+            <Text style={styles.onboardingTitle}>🧭 快速上手指南</Text>
+            <Text style={styles.onboardingItem}>1️⃣ 点击左上角头像 → 查看装备和属性</Text>
+            <Text style={styles.onboardingItem}>2️⃣ 点击 🗺️ 按钮 → 打开世界地图飞行</Text>
+            <Text style={styles.onboardingItem}>3️⃣ 点击 ▶ 挂机 → 自动打怪无需操作</Text>
+            <Text style={styles.onboardingItem}>4️⃣ 点击 ☰ 菜单 → 消费记录/主题/设置</Text>
+            <Text style={styles.onboardingHint}>点击任意位置关闭</Text>
+          </View>
+        </TouchableOpacity>
       )}
 
       {/* ===== 顶栏：复刻 Vue game-header ===== */}

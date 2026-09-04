@@ -430,6 +430,7 @@ createApp({
             globalSkillEventHistory: {},  // 全服事件ID去重
             patchViewerOpen: false,  // 版本公告查看器
             showSuiyuLog: false,       // 碎玉消费记录
+            navigatorOnline: true,      // 网络状态
             suiyuLogData: [],
             savedAccounts: [],         // 快速登录账号列表
             vueTheme: 'night',         // 页面主题
@@ -6757,6 +6758,16 @@ createApp({
             await this.sendQuickCommand('book_cleanup confirm');
         },
 
+        initNetworkWatch() {
+            window.addEventListener('online', () => {
+                this.navigatorOnline = true;
+            });
+            window.addEventListener('offline', () => {
+                this.navigatorOnline = false;
+            });
+            this.navigatorOnline = navigator.onLine;
+        },
+
         closePatchViewer() {
             this.patchViewerOpen = false;
             try {
@@ -7297,6 +7308,7 @@ createApp({
     },
 
     mounted() {
+        this.initNetworkWatch();
         // 保存实例到全局以便HTML中的onclick调用
         window.vueInstance = this;
 
