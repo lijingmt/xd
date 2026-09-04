@@ -628,7 +628,7 @@ int main()
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
 				"pike_gateway_run_lease_gc()") &&
 			source_has("/gamelib/single/daemons/_http_api_mod/pike_gateway.pike",
-				"if(!recovery_err)\n\t\tpike_gateway_resume_routing()") &&
+				"pike_gateway_resume_routing()") &&
 			source_has("/.env.example",
 				"XIAND_MAP_WORKER_LEASE_GC_SECONDS=3600") &&
 			source_has("/test_unit/test_pike_gateway.pike",

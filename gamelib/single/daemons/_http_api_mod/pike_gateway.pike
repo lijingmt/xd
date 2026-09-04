@@ -1680,7 +1680,9 @@ private int pike_gateway_command_is_read_only(string path)
 	if(!path || sizeof(path)<2)
 		return 0;
 	return has_prefix(path,"/api/status") ||
+		has_prefix(path,"/api/ping") ||
 		has_prefix(path,"/api/flushview") ||
+		has_prefix(path,"/api/autofight_view") ||
 		has_prefix(path,"/api/battle_status") ||
 		has_prefix(path,"/api/equipment_panel") ||
 		has_prefix(path,"/api/challenge") ||
@@ -4004,17 +4006,21 @@ private void pike_gateway_run_background_handoffs()
 
 private void pike_gateway_run_lease_gc()
 {
-	/* 快速僵尸清理已禁用（2026-09-04事故）：不暂停路由的清理在
-	 * 登录/切角过渡期会误判在线玩家为僵尸并踢掉，造成持续掉线
-	 * 循环。僵尸清理只在全量恢复的暂停窗口内执行（安全边界）。 */
+	/* 掉线修复（2026-09-04）：周期性恢复不再暂停路由。暂停路由
+	 * 会导致所有在线玩家的请求被拒绝，表现为"一二十分钟掉线一次"。
+	 * 只有启动后前90秒（初始恢复窗口）才暂停，之后恢复在后台
+	 * 运行，读请求通过 read_only 放行，写请求排队等待。 */
 	object recovery_key = pike_gateway_recovery_lock->lock();
-	pike_gateway_pause_routing();
+	int is_initial_recovery = time() - pike_gateway_started_at < 90;
+	if(is_initial_recovery)
+		pike_gateway_pause_routing();
 	mixed recovery_err = catch { pike_gateway_recover_local_players(); };
-	if(!recovery_err)
+	if(is_initial_recovery && !recovery_err)
 		pike_gateway_resume_routing();
 	destruct(recovery_key);
 	if(recovery_err)
-		error(describe_error(recovery_err));
+		werror("[PIKE_GATEWAY][RECOVERY] error=%s\n",
+			pike_gateway_log_field(describe_error(recovery_err),256));
 }
 
 /** 无暂停僵尸清理：只做在线行快照扫描+local_discard，不动路由。
