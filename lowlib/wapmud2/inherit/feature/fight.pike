@@ -2309,9 +2309,6 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 		target_life_max = target->query_life_max();
 		if(target->is("player") && damage>target_life_max*8/100)
 			damage = target_life_max*8/100;
-		else if(target->is("npc") && target->_boss &&
-		   damage>target_life_max*8/100)
-			damage = target_life_max*8/100;
 		if(damage<1)
 			damage = 1;
 		damage=PERSONAL_DIFFICULTYD->scale_pve_damage(caster,target,damage);

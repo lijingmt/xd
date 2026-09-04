@@ -44,9 +44,8 @@ int main(string|zero arg)
 		s += "\n";
 	}
 
-	}
 	
-	tmp = me->query_equip_add("renxing");
+	int tmp = me->query_equip_add("renxing");
 	if(tmp){
 		s += "韧性：+"+format_game_number(tmp)+"\n";
 	}
