@@ -846,9 +846,13 @@ private string query_heart_contribution_tag(object who)
 		return "";
 	profe=(string)who->query_profeId();
 	if(profe=="taiji")
-		bonus=(int)who->query_taiji_heart_bonus("think");
+		bonus=(int)who->query_taiji_heart_bonus("str")+
+			(int)who->query_taiji_heart_bonus("dex")+
+			(int)who->query_taiji_heart_bonus("think");
 	else if(profe=="wuxiang")
-		bonus=(int)who->query_wuxiang_heart_bonus("think");
+		bonus=(int)who->query_wuxiang_heart_bonus("str")+
+			(int)who->query_wuxiang_heart_bonus("dex")+
+			(int)who->query_wuxiang_heart_bonus("think");
 	else
 		return "";
 	if(bonus<1000)
