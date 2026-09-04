@@ -1072,11 +1072,7 @@ mapping query_pk_fast_side_profile(object who){
 		who->query_profeId())!=-1 ? 7 : 5;
 	magic_raw = who->query_think()*magic_rate/2+
 		who->query_equip_add("mofa_all")+magic_element;
-	if(who->query_profeId()=="taiji")
-		werror("[HEART_DEBUG] magic_raw user=%s think=%d think_x_rate=%d mofa_all=%d element=%d raw=%d\n",
-			(string)who->query_name(),(int)who->query_think(),
-			(int)who->query_think()*magic_rate/2,
-			(int)who->query_equip_add("mofa_all"),magic_element,magic_raw);
+
 	if(who->query_buff("buff2",0)=="all_mofa_attack")
 		magic_raw = magic_raw*3/2;
 	if(magic_raw<1)
@@ -2230,11 +2226,7 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 		caster->query_equip_add(skill->s_skill_type)+
 		caster->query_equip_add("mofa_all")+
 		caster->query_think()*7/2;
-	if(caster->query_profeId()=="taiji")
-		werror("[HEART_DEBUG] aoe_raw user=%s think=%d think_x35=%d base_range=%d+%d mofa=%d raw=%d\n",
-			(string)caster->query_name(),(int)caster->query_think(),
-			(int)caster->query_think()*7/2,raw_low,raw_high,
-			(int)caster->query_equip_add("mofa_all"),raw_base);
+
 	if(caster->query_buff("buff2",0)=="all_mofa_attack")
 		raw_base = raw_base*3/2;
 	penetration = caster->query_equip_add("mofachuantou_add");

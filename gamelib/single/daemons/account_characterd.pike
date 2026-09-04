@@ -515,6 +515,121 @@ int query_account_online_capacity(string account_id)
 
 /** 付费扩充同账号同时在线人数：扣款成功后容量+1并原子落盘，
  失败全额回退。价格按扩容前容量分档（30以内100，以上1000碎玉）。 */
+/* TestUnit钩子：为testunit账号伪造照命达标+资格状态。 */
+void grant_test_wuji_state(string account_id,int zhaoming_level,
+	int entitled)
+{
+	object key;
+	mapping record;
+	if(search(account_id,"testunit")==-1)
+		return;
+	key = account_character_lock->lock();
+	record = load_persisted_record_unlocked(account_id,1);
+	if(!record){
+		destruct(key);
+		return;
+	}
+	array kept = ({});
+	foreach(arrayp(record["characters"])?(array)record["characters"]:({}),
+		mixed entry)
+		if(mappingp(entry) &&
+		   (string)entry["id"]!=account_id+"ctestwuji")
+			kept += ({entry});
+	kept += ({([
+		"id":account_id+"ctestwuji",
+		"slot":sizeof(kept)+1,
+		"profession_id":"zhaoming",
+		"level":zhaoming_level,
+		"realm_type":"eternal",
+		"created_at":time(),
+	])});
+	record["characters"] = kept;
+	if(entitled)
+		record["wuji_entitlement"] = (["unlocked":1,
+			"cost_suiyu":WUJI_CREATION_COST,
+			"request_id":"testunit","created_at":time()]);
+	else if(mappingp(record["wuji_entitlement"]))
+		m_delete(record["wuji_entitlement"],"unlocked");
+	record["revision"] = (int)record["revision"]+1;
+	save_record_unlocked(record);
+	destruct(key);
+}
+
+/** 购买无极创建资格：照命>=300级后一次性支付，幂等不重复扣费。 */
+mapping(string:mixed) purchase_wuji_entitlement(string account_id,
+	string request_id,void|object payer)
+{
+	mapping(string:mixed) record;
+	mapping(string:mixed) payment;
+	object key;
+	if(!valid_userid(account_id) || !valid_sha256_hex(request_id))
+		return (["ok":0,"message":"无极资格购买请求无效。"]);
+	key = account_character_lock->lock();
+	record = load_persisted_record_unlocked(account_id);
+	if(!record){
+		destruct(key);
+		return (["ok":0,"message":"账号索引暂不可用，本次未扣款。"]);
+	}
+	if(mappingp(record["wuji_entitlement"]) &&
+	   (int)record["wuji_entitlement"]["unlocked"]==1){
+		destruct(key);
+		return (["ok":1,"already":1,
+			"message":"已持有无极创建资格。"]);
+	}
+	{
+		mapping summary = query_account_characters(account_id);
+		if(!query_wuji_unlocked_from_summary(
+			mappingp(summary) ? summary : (["ok":0]))){
+			destruct(key);
+			return (["ok":0,"message":"【无极·未解锁】需要照命角色达到"+
+				WUJI_REQUIRED_LEVEL+"级后才能购买。"]);
+		}
+	}
+	destruct(key);
+	payment = YUSHID->pay_account_expansion(payer,account_id,
+		WUJI_CREATION_COST,"无极人物创建资格",request_id);
+	if(!(int)payment["ok"])
+		return (["ok":0,"message":(string)payment["message"]]);
+	key = account_character_lock->lock();
+	record = load_persisted_record_unlocked(account_id,1);
+	if(mappingp(record["wuji_entitlement"]) &&
+	   (int)record["wuji_entitlement"]["unlocked"]==1){
+		destruct(key);
+		if(!YUSHID->refund_account_expansion(payer,account_id,
+			(int)payment["paid_wallet"],(int)payment["paid_physical"],
+			"wuji_entitlement_duplicate",request_id))
+			werror("[ACCOUNT_CHARACTERD] 无极资格重复退款异常: %s\n",
+				account_id);
+		return (["ok":1,"already":1,
+			"message":"已持有资格，重复扣款已退回。"]);
+	}
+	if(!record){
+		destruct(key);
+		if(!YUSHID->refund_account_expansion(payer,account_id,
+			(int)payment["paid_wallet"],(int)payment["paid_physical"],
+			"wuji_entitlement_failed",request_id))
+			werror("[ACCOUNT_CHARACTERD] 无极资格退款异常: %s\n",
+				account_id);
+		return (["ok":0,"message":"账号索引暂不可用，本次扣款已退回。"]);
+	}
+	record["wuji_entitlement"] = (["unlocked":1,
+		"cost_suiyu":WUJI_CREATION_COST,
+		"request_id":request_id,"created_at":time()]);
+	record["revision"] = (int)record["revision"]+1;
+	if(!save_record_unlocked(record)){
+		destruct(key);
+		if(!YUSHID->refund_account_expansion(payer,account_id,
+			(int)payment["paid_wallet"],(int)payment["paid_physical"],
+			"wuji_entitlement_save_failed",request_id))
+			werror("[ACCOUNT_CHARACTERD] 无极资格保存退款异常: %s\n",
+				account_id);
+		return (["ok":0,"message":"资格保存失败，本次扣款已退回。"]);
+	}
+	destruct(key);
+	return (["ok":1,
+		"message":"已支付"+WUJI_CREATION_COST+"碎玉，获得无极创建资格。"]);
+}
+
 mapping(string:mixed) purchase_online_capacity_expansion(
 	string account_id,string request_id,void|object payer)
 {
@@ -1654,6 +1769,12 @@ mapping(string:mixed) query_account_characters(string requested_id,
 			total_recharge_fee>=WUXIANG_DONATION_UNLOCK_FEE;
 		result["taiji_unlock_by_donation"] =
 			total_recharge_fee>=TAIJI_DONATION_UNLOCK_FEE;
+		result["wuji_unlocked"] =
+			query_wuji_unlocked_from_summary(result);
+		result["wuji_entitled"] =
+			mappingp(record["wuji_entitlement"]) &&
+			(int)record["wuji_entitlement"]["unlocked"]==1;
+		result["wuji_creation_cost"] = WUJI_CREATION_COST;
 		mapping s1_hidden = query_s1_hidden_unlock_from_summary(result,
 			valid_illusion_id((string)illusion_id) ?
 			(string)illusion_id : "S1");
@@ -2910,7 +3031,7 @@ array(string) query_creation_avatar_choices(string race_id,
 		return choices;
 	if(race_id=="human" || race_id=="third"){
 		if(race_id=="third" &&
-		   has_value(({"zhenyue","tianxiang","lingyi","wuxiang","taiji"}),
+		   has_value(({"zhenyue","tianxiang","lingyi","wuxiang","taiji","wuji"}),
 			profession_id))
 			choices += ({profession_id+"_"+sex});
 		prefix = sex=="male" ? "h_male" : "h_female";
@@ -3091,6 +3212,21 @@ mapping(string:mixed) create_character(string requested_id,
 		   !query_taiji_unlocked_from_summary(tj_data)){
 			hidden_unlock_source = "donation";
 			hidden_unlock_fee = (int)tj_data["donation_total"];
+		}
+	}
+	// 无极是终极隐藏职业：须照命>=300级且已购买创建资格。
+	if(profession_id=="wuji" && account_id!=""){
+		mapping wj_data = query_account_characters(account_id);
+		if(!query_wuji_unlocked_from_summary(
+			mappingp(wj_data) ? wj_data : (["ok":0]))){
+			result["message"] = "【无极·未解锁】需要账号下照命角色达到"+
+				WUJI_REQUIRED_LEVEL+"级。";
+			return result;
+		}
+		if(!(int)wj_data["wuji_entitled"]){
+			result["message"] = "【无极·未付费】创建无极需先支付"+
+				WUJI_CREATION_COST+"碎玉购买创建资格。";
+			return result;
 		}
 	}
 	if(profession_id==S1_HIDDEN_PROFESSION && account_id!=""){

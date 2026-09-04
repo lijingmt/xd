@@ -517,6 +517,24 @@ void handle_api_account_character_create(Protocols.HTTP.Server.Request req)
 		send_json(req,(["error":"请完整选择人物姓名、性别和头像"]),400);
 		return;
 	}
+	// 无极：先购买创建资格再走常规建角。
+	if(profession_id=="wuji"){
+		string wuji_request_id = lower_case(String.trim_all_whites(
+			(string)(params["request_id"] || "")));
+		if(wuji_request_id==""){
+			send_json(req,(["error":
+				"创建无极需要提供request_id"]),400);
+			return;
+		}
+		mapping wuji_purchase = ACCOUNT_CHARACTERD->
+			purchase_wuji_entitlement(account_id,wuji_request_id,
+				resolve_expansion_payer(params,account_id));
+		if(!(int)wuji_purchase["ok"]){
+			send_json(req,(["error":wuji_purchase["message"] ||
+				"无极资格购买失败"]),409);
+			return;
+		}
+	}
 	if(realm_type=="illusion")
 		result = SEASONALD->create_illusion_character(account_id,
 			race_id,profession_id,name_cn,sex,avatar_id);
