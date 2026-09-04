@@ -17,70 +17,43 @@ int main(string|zero arg)
 	s += "法力值："+format_game_number(me->get_cur_mofa())+"/"+
 		format_game_number(me->query_mofa_max())+"\n";
 	////////////////////////////////////////////////////////////////////////////////
-	s += "力量："+format_game_number(me->get_cur_str());
-	int tmp = me->query_equip_add("str")+me->query_equip_add("all")+me->query_danyao_add("attri_base","str")+me->query_danyao_add("te_base","str")+me->query_danyao_add("home_base","str");
-	if(tmp)
-		s += "＋"+format_game_number(tmp)+"\n";
-	else
-		s += "\n";
-	
-	s += "敏捷："+format_game_number(me->get_cur_dex());
-	tmp = me->query_equip_add("dex")+me->query_equip_add("all")+me->query_danyao_add("attri_base","dex")+me->query_danyao_add("te_base","dex")+me->query_danyao_add("home_base","dex");
-	if(tmp)
-		s += "＋"+format_game_number(tmp)+"\n";
-	else
-		s += "\n";
-
-	s += "智力："+format_game_number(me->get_cur_think());
-	tmp = me->query_equip_add("think")+me->query_equip_add("all")+me->query_danyao_add("attri_base","think")+me->query_danyao_add("te_base","think")+me->query_danyao_add("home_base","think") ;
-	if(tmp)
-		s += "＋"+format_game_number(tmp)+"\n";
-	else
-		s += "\n";
-
-	// 心法（无相/太极）：结算时把最高项按比例加成另外两系。战斗与
-	// 客户端数值已包含（query_str/dex/think），但文字面板此前不
-	// 显示，玩家误以为"没有效果"。这里明确展示当前生效值。
+	/* 三系属性直接显示战斗实际值（含心法），括号标注心法部分。 */
 	{
-		string profe = functionp(me->query_profeId) ?
-			(string)me->query_profeId() : "";
-		if(profe=="wuxiang" || profe=="taiji"){
-			int percent = profe=="taiji" ? 65 : 50;
-			int hb_dex = (int)me->query_taiji_heart_bonus("dex")+
-				(int)me->query_wuxiang_heart_bonus("dex");
-			int hb_think = (int)me->query_taiji_heart_bonus("think")+
-				(int)me->query_wuxiang_heart_bonus("think");
-			int hb_str = (int)me->query_taiji_heart_bonus("str")+
-				(int)me->query_wuxiang_heart_bonus("str");
-			{
-				int es = (int)me->query_equip_add("str")+
-					(int)me->query_equip_add("all")+
-					(int)me->query_danyao_add("attri_base","str")+
-					(int)me->query_danyao_add("te_base","str")+
-					(int)me->query_danyao_add("home_base","str");
-				int ed = (int)me->query_equip_add("dex")+
-					(int)me->query_equip_add("all")+
-					(int)me->query_danyao_add("attri_base","dex")+
-					(int)me->query_danyao_add("te_base","dex")+
-					(int)me->query_danyao_add("home_base","dex");
-				int et = (int)me->query_equip_add("think")+
-					(int)me->query_equip_add("all")+
-					(int)me->query_danyao_add("attri_base","think")+
-					(int)me->query_danyao_add("te_base","think")+
-					(int)me->query_danyao_add("home_base","think");
-				string best = es>=ed && es>=et ? "力量" :
-					(ed>=es && ed>=et ? "敏捷" : "智力");
-				s += "【"+(profe=="taiji"?"太极":"无相")+"心法】最高项"+
-					best+"(含装备)×"+percent+"%加成另两系：";
-			}
-			if(hb_str)
-				s += "力量＋"+format_game_number(hb_str)+" ";
-			if(hb_dex)
-				s += "敏捷＋"+format_game_number(hb_dex)+" ";
-			if(hb_think)
-				s += "智力＋"+format_game_number(hb_think)+" ";
-			s += "（战斗结算已生效，不计入装备门槛）\n";
-		}
+		int heart_str = (int)me->query_taiji_heart_bonus("str")+
+			(int)me->query_wuxiang_heart_bonus("str");
+		int heart_dex = (int)me->query_taiji_heart_bonus("dex")+
+			(int)me->query_wuxiang_heart_bonus("dex");
+		int heart_think = (int)me->query_taiji_heart_bonus("think")+
+			(int)me->query_wuxiang_heart_bonus("think");
+		int base_str = (int)me->get_cur_str();
+		int base_dex = (int)me->get_cur_dex();
+		int base_think = (int)me->get_cur_think();
+		int total_str = (int)me->query_str();
+		int total_dex = (int)me->query_dex();
+		int total_think = (int)me->query_think();
+
+		s += "力量："+format_game_number(total_str);
+		if(heart_str>0)
+			s += " §2(心法＋"+format_game_number(heart_str)+")§r";
+		s += "\n  基础"+format_game_number(base_str)+
+			"＋装备"+format_game_number(
+				total_str-base_str-heart_str)+"\n";
+
+		s += "敏捷："+format_game_number(total_dex);
+		if(heart_dex>0)
+			s += " §2(心法＋"+format_game_number(heart_dex)+")§r";
+		s += "\n  基础"+format_game_number(base_dex)+
+			"＋装备"+format_game_number(
+				total_dex-base_dex-heart_dex)+"\n";
+
+		s += "智力："+format_game_number(total_think);
+		if(heart_think>0)
+			s += " §2(心法＋"+format_game_number(heart_think)+")§r";
+		s += "\n  基础"+format_game_number(base_think)+
+			"＋装备"+format_game_number(
+				total_think-base_think-heart_think)+"\n";
+	}
+
 	}
 	
 	tmp = me->query_equip_add("renxing");

@@ -176,11 +176,23 @@ private mapping query_equipment_panel_state(object player)
 		if(item_view["equipped"])
 			result["equipped"][slot] = item_view;
 	}
+	int heart_str=(int)player->query_taiji_heart_bonus("str")+
+		(int)player->query_wuxiang_heart_bonus("str");
+	int heart_dex=(int)player->query_taiji_heart_bonus("dex")+
+		(int)player->query_wuxiang_heart_bonus("dex");
+	int heart_think=(int)player->query_taiji_heart_bonus("think")+
+		(int)player->query_wuxiang_heart_bonus("think");
 	result["player"] = ([
 		"name":player->query_name(),
 		"name_cn":player->query_name_cn(),
 		"level":player->query_level(),
 		"profession":player->query_profe_cn(player->query_profeId()),
+		"total_str":(int)player->query_str(),
+		"total_dex":(int)player->query_dex(),
+		"total_think":(int)player->query_think(),
+		"heart_bonus_str":heart_str,
+		"heart_bonus_dex":heart_dex,
+		"heart_bonus_think":heart_think,
 	]);
 	return result;
 }

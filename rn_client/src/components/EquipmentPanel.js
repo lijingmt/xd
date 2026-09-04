@@ -8,6 +8,12 @@ import { getImageBase } from '../api/mudApi.js';
 import { fetchEquipmentPanel, panelModel, attrRows, attrTotalDelta } from '../api/equipmentApi.js';
 import { SmartImage } from './GameSmartImage.js';
 
+function fmtNum(v) {
+  const n = Number(v) || 0;
+  if (n >= 10000) return (n / 10000).toFixed(1) + '万';
+  return String(n);
+}
+
 const RARE_COLORS = {
   0: '#8a7a8a', 1: '#a89aa8', 2: '#5a8a6a',
   3: '#3a6ac2', 4: '#8a3ac2', 5: '#d4af37', 6: '#ff4d6d', 7: '#FFD700',
@@ -169,9 +175,22 @@ export default function EquipmentPanel({ visible, onClose }) {
             <Text style={styles.eyebrow}>人物外观 · 快速换装</Text>
             <Text style={styles.title}>{player.name_cn || '我的装备'}</Text>
             {player.name ? (
-              <Text style={styles.sub}>
-                Lv.{player.level || '?'} · {player.profession || ''}
-              </Text>
+              <>
+                <Text style={styles.sub}>
+                  Lv.{player.level || '?'} · {player.profession || ''}
+                </Text>
+                {typeof player.total_think === 'number' && (
+                  <Text style={styles.heartStatText}>
+                    力{fmtNum(player.total_str)} 敏{fmtNum(player.total_dex)}
+                    {' '}智{fmtNum(player.total_think)}
+                    {player.heart_bonus_think > 0 && (
+                      <Text style={styles.heartBonusText}>
+                        {' '}✨+{fmtNum(player.heart_bonus_think)}
+                      </Text>
+                    )}
+                  </Text>
+                )}
+              </>
             ) : null}
           </View>
           <TouchableOpacity onPress={load} style={styles.iconBtn}>
@@ -396,6 +415,8 @@ const styles = StyleSheet.create({
   eyebrow: { color: '#8a7a8a', fontSize: 10 },
   title: { color: '#f0e6d2', fontSize: 17, fontWeight: '700' },
   sub: { color: '#a89aa8', fontSize: 11, marginTop: 1 },
+  heartStatText: { color: '#7ad0a0', fontSize: 10, marginTop: 2 },
+  heartBonusText: { color: '#d4af37', fontSize: 10, fontWeight: '700' },
   iconBtn: {
     width: 34, height: 34, borderRadius: 17, alignItems: 'center',
     justifyContent: 'center', borderWidth: 1, borderColor: '#3a2f46',

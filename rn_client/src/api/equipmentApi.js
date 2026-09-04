@@ -85,6 +85,8 @@ export function panelModel(panelData) {
   }) : null;
   return {
     player: data.player || null,
+    playerStats: data.player && typeof data.player.total_str === 'number'
+      ? data.player : null,
     slotOrder: order,
     slotMeta: slots,
     slots: order.map(slot => ({
