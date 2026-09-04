@@ -2153,10 +2153,25 @@
                                 </p>
                             </div>
                         </div>
-                        <button type="button"
-                                class="equipment-panel-close"
-                                @click="closeEquipmentPanel"
-                                aria-label="关闭装备面板">✕</button>
+                        <div class="equipment-panel-header-actions">
+                            <div v-if="equipmentPanel?.player?.total_str"
+                                 class="equipment-player-stats">
+                                <span>力{{ fmtEquipNum(equipmentPanel.player.total_str) }}</span>
+                                <span>敏{{ fmtEquipNum(equipmentPanel.player.total_dex) }}</span>
+                                <span>智{{ fmtEquipNum(equipmentPanel.player.total_think) }}</span>
+                                <em v-if="equipmentPanel.player.heart_bonus_think > 0">✨+{{ fmtEquipNum(equipmentPanel.player.heart_bonus_think) }}</em>
+                            </div>
+                            <button type="button"
+                                    class="equipment-smart-btn"
+                                    :disabled="!!equipmentActionBusy"
+                                    @click="smartEquip">
+                                {{ equipmentActionBusy === 'smart_equip' ? '⏳ 穿装中...' : '⚡ 一键智能穿装' }}
+                            </button>
+                            <button type="button"
+                                    class="equipment-panel-close"
+                                    @click="closeEquipmentPanel"
+                                    aria-label="关闭装备面板">✕</button>
+                        </div>
                     </header>
 
                     <div v-if="equipmentPanelLoading" class="equipment-panel-state">
@@ -2252,6 +2267,15 @@
                                     <div>
                                         <strong>{{ cleanEquipmentName(item.name_cn) }}</strong>
                                         <small>需求 Lv.{{ item.level_requirement || 0 }} · 品阶 {{ item.rare_level || 0 }}</small>
+                                        <div class="equipment-attr-diff"
+                                             v-if="equipmentAttrDiff(item, equipmentPanel.equipped[equipmentSelectedSlot]).length">
+                                            <span v-for="diff in equipmentAttrDiff(item, equipmentPanel.equipped[equipmentSelectedSlot]).slice(0, 5)"
+                                                  :key="diff.key"
+                                                  :class="diff.delta > 0 ? 'attr-up' : 'attr-down'"
+                                                  class="attr-chip">
+                                                {{ diff.label }}{{ diff.delta > 0 ? '+' : '' }}{{ diff.delta }}
+                                            </span>
+                                        </div>
                                     </div>
                                     <button type="button"
                                             class="equipment-action-btn"

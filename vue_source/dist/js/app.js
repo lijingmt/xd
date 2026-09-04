@@ -3089,6 +3089,42 @@ createApp({
                 .trim();
         },
 
+        fmtEquipNum(v) {
+            const n = Number(v) || 0;
+            if (n >= 10000) return (n / 10000).toFixed(1) + '万';
+            return String(n);
+        },
+
+        equipmentAttrDiff(candidate, equipped) {
+            if (!candidate) return [];
+            const cand = candidate.attrs || {};
+            const equip = equipped || {};
+            const labels = {
+                attack: '攻击', attack_limit: '攻上', attack_add: '攻加',
+                hitte: '命中', doub: '会心', defend: '防御', dodge: '闪避',
+                recive: '减伤', str: '力量', dex: '敏捷', think: '智力',
+                life: '气血', mofa: '法力', all: '全属'
+            };
+            const keys = Object.keys(labels).filter(k =>
+                (cand[k] || 0) !== 0 || (equip[k] || 0) !== 0);
+            return keys.map(k => ({
+                key: k,
+                label: labels[k],
+                delta: (cand[k] || 0) - (equip[k] || 0)
+            })).filter(r => r.delta !== 0);
+        },
+
+        async smartEquip() {
+            if (this.equipmentActionBusy) return;
+            this.equipmentActionBusy = 'smart_equip';
+            try {
+                await this.sendJsonCommand('auto_equip smart');
+                await this.fetchEquipmentPanel();
+            } finally {
+                this.equipmentActionBusy = '';
+            }
+        },
+
         getEquipmentCandidates(slot) {
             const candidates = this.equipmentPanel?.candidates?.[slot];
             if (!Array.isArray(candidates)) return [];

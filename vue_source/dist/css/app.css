@@ -12308,3 +12308,89 @@ body {
     font-weight: 700;
     line-height: 1.3;
 }
+
+/* ===== 装备面板：智能穿装+属性对比+玩家属性 ===== */
+.equipment-panel-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.equipment-player-stats {
+    display: flex;
+    gap: 6px;
+    font-size: 11px;
+    color: #a89aa8;
+    margin-right: 4px;
+    white-space: nowrap;
+}
+
+.equipment-player-stats em {
+    color: #d4af37;
+    font-style: normal;
+    font-weight: 700;
+}
+
+.equipment-smart-btn {
+    padding: 8px 14px;
+    border: 1px solid #8a6d2f;
+    border-radius: 8px;
+    background: #231b10;
+    color: #ffd700;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.equipment-smart-btn:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+
+.equipment-smart-btn:not(:disabled):active {
+    background: #352815;
+    transform: scale(0.97);
+}
+
+.equipment-attr-diff {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 4px;
+}
+
+.equipment-attr-diff .attr-chip {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.equipment-attr-diff .attr-up {
+    background: #10241a;
+    color: #5ad47a;
+    border: 1px solid #2d5a3a;
+}
+
+.equipment-attr-diff .attr-down {
+    background: #241016;
+    color: #ff5a6a;
+    border: 1px solid #5a2d3a;
+}
+
+@media (max-width: 768px) {
+    .equipment-panel-header-actions {
+        flex-wrap: wrap;
+    }
+
+    .equipment-player-stats {
+        display: none; /* 手机上隐藏，空间不够 */
+    }
+
+    .equipment-smart-btn {
+        font-size: 12px;
+        padding: 6px 10px;
+    }
+}
