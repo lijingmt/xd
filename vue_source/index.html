@@ -2435,6 +2435,9 @@
                         <button class="quick-tool-btn" @click="sendQuickCommand('my_games')"><span>🌊</span>江湖</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('userlist')"><span>🌀</span>传送</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('yushi_myzone')"><span>🪙</span>仙玉</button>
+                        <button class="quick-tool-btn" @click="showSuiyuLog = true"><span>🧾</span>消费记录</button>
+                        <button class="quick-tool-btn" @click="inviteRoomAll"><span>👥</span>同房邀请</button>
+                        <button class="quick-tool-btn" @click="cleanupBooks"><span>📚</span>清书卷</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('game_detail')"><span>⚙️</span>设置</button>
                         <button class="quick-tool-btn" @click="sendQuickCommand('vip_service_list')"><span>👑</span>会员</button>
                         <button class="quick-tool-btn"
@@ -2573,7 +2576,32 @@
                                         当前位置
                                     </em>
                                 </aside>
-                            </template>
+                            
+    <!-- ===== 碎玉消费记录弹窗 ===== -->
+    <div v-if="showSuiyuLog" class="suiyu-log-modal" @click.self="showSuiyuLog = false">
+        <div class="suiyu-log-panel">
+            <div class="suiyu-log-header">
+                <span class="suiyu-log-title">🧾 消费记录</span>
+                <button type="button" @click="showSuiyuLog = false"
+                        style="background:none;border:none;color:#6a5a6a;font-size:18px;cursor:pointer">✕</button>
+            </div>
+            <div v-if="suiyuLogData && suiyuLogData.shared_recharge_balance !== undefined"
+                 style="padding:8px 0;color:#7ad0a0;font-size:13px;margin-bottom:8px">
+                当前共享余额：{{ suiyuLogData.shared_recharge_balance }} 碎玉
+            </div>
+            <div v-if="suiyuLogData && suiyuLogData.transactions">
+                <div v-for="(tx, idx) in suiyuLogData.transactions.slice().reverse().slice(0, 20)"
+                     :key="idx" class="suiyu-log-entry">
+                    <span>{{ tx.reason || tx.type }} · {{ tx.character_id || '' }}</span>
+                    <span class="suiyu-log-amount">-{{ tx.amount || 0 }}</span>
+                </div>
+            </div>
+            <div v-else style="color:#5a4a5a;text-align:center;padding:20px;font-size:12px">
+                暂无消费记录
+            </div>
+        </div>
+    </div>
+</template>
                         </aside>
 </div>
 

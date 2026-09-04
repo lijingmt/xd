@@ -429,6 +429,11 @@ createApp({
             globalSkillCasts: [],  // 神太古全服施法全屏动画
             globalSkillEventHistory: {},  // 全服事件ID去重
             patchViewerOpen: false,  // 版本公告查看器
+            showSuiyuLog: false,       // 碎玉消费记录
+            suiyuLogData: [],
+            savedAccounts: [],         // 快速登录账号列表
+            vueTheme: 'night',         // 页面主题
+            showDeleteAccount: false,  // 删除账号
             patchSeenVersion: '',  // 已读公告版本
             patchSelectedVersion: '20260901',  // 当前查看的公告
             // 版本公告数据：新版本发布时在数组头部插入一条即可。
@@ -6687,6 +6692,69 @@ createApp({
 
         selectPatch(version) {
             this.patchSelectedVersion = String(version || '');
+        },
+
+        // ===== 补齐功能：消费记录/快速登录/主题/邀请/书卷清理 =====
+        async loadSuiyuLog() {
+            try {
+                const txd = this.txd;
+                if (!txd) return;
+                // 消费记录由服务端返回（account wallet transactions）
+                const data = await this.postAccountApi('/api/account/characters', {
+                    token: this.accountToken
+                });
+                if (data.ok && data.shared_recharge_balance !== undefined) {
+                    this.suiyuLogData = data;
+                }
+            } catch (e) {
+                // 静默失败
+            }
+        },
+
+        loadSavedAccounts() {
+            try {
+                const raw = localStorage.getItem('xiand.saved_accounts');
+                this.savedAccounts = raw ? JSON.parse(raw) : [];
+            } catch (e) {
+                this.savedAccounts = [];
+            }
+        },
+
+        saveAccount(userid) {
+            const list = this.savedAccounts.filter(a => a !== userid);
+            list.unshift(userid);
+            this.savedAccounts = list.slice(0, 5);
+            localStorage.setItem('xiand.saved_accounts',
+                JSON.stringify(this.savedAccounts));
+        },
+
+        removeSavedAccount(userid) {
+            this.savedAccounts = this.savedAccounts.filter(a => a !== userid);
+            localStorage.setItem('xiand.saved_accounts',
+                JSON.stringify(this.savedAccounts));
+        },
+
+        quickLoginAccount(userid) {
+            this.loginForm.userid = userid.split(/(\d+)/).filter(Boolean)
+                .slice(1).join('');
+            this.$refs.passwordInput?.focus?.();
+        },
+
+        setVueTheme(themeId) {
+            this.vueTheme = themeId;
+            localStorage.setItem('xiand.vue_theme', themeId);
+            document.documentElement.setAttribute('data-theme',
+                themeId === 'day' ? 'day' : 'classic');
+        },
+
+        inviteRoomAll() {
+            this.sendQuickCommand('term_invite_room');
+            this.showUiToast('已向同房间所有人发出组队邀请');
+        },
+
+        async cleanupBooks() {
+            if (!confirm('确定摧毁所有比当前等级低30级的书卷？')) return;
+            await this.sendQuickCommand('book_cleanup confirm');
         },
 
         closePatchViewer() {
