@@ -21,7 +21,12 @@ SUPERVISOR_CLUSTER_RESTARTS=0
 SUPERVISOR_LAST_RESTART_SECONDS=0
 STARTUP_EMERGENCY_LEGACY=0
 EMERGENCY_LAST_ATTEMPT=0
-MAP_WORKER_STARTUP_STABILIZATION_SECONDS=60
+SUPERVISOR_MAX_CLUSTER_RESTARTS=5
+# 无预编译冷启时10个Worker的HTTP就绪在600秒上下浮动（与下方1200秒
+# 健康窗口同量级）。宽限若小于冷编译时间，监督者会在冷启动中途判
+# 定不健康并重启集群，又被下一轮冷启动拖垮，形成"每两分钟重启一次"
+# 的死循环（2026-09-05生产事故：协调器进程被重启150次）。
+MAP_WORKER_STARTUP_STABILIZATION_SECONDS="${XIAND_MAP_WORKER_STARTUP_STABILIZATION_SECONDS:-900}"
 
 export PATH="/usr/local/pike9/bin:${PATH}"
 if [[ "${XIAND_STARTUP_LIBRARY_ONLY:-0}" != "1" ]]; then
@@ -436,6 +441,10 @@ restart_worker_cluster()
 	fi
 	if start_cluster; then
 		write_runtime_mode "$traffic_mode"
+		# 重启后的Worker要重新冷编译（约600秒），宽限必须重新武装，
+		# 否则新一轮冷启动又被判不健康，重启梯被无谓烧光。
+		SUPERVISOR_GRACE_DEADLINE=$(( SECONDS +
+			MAP_WORKER_STARTUP_STABILIZATION_SECONDS ))
 		log "multi-worker topology restarted; supervisor keeps watching"
 	else
 		log "cluster restart failed; supervisor will retry after backoff"
@@ -465,12 +474,29 @@ attempt_emergency_cluster_recovery()
 	start_legacy_main || fail "legacy main could not restart during topology recovery"
 }
 
+# 集群重启梯耗尽后的兜底：停集群、起应急单进程，交回监督者的应急
+# 恢复梯（attempt_emergency_cluster_recovery）定期重试拉回多worker。
+# 玩家先有可玩的服务器，比无限503重启循环好得多。
+degrade_to_emergency_legacy()
+{
+	local traffic_mode="$1"
+	stop_cluster_safely "$traffic_mode" || true
+	start_legacy_main || fail "legacy main could not start during supervisor degrade"
+	STARTUP_EMERGENCY_LEGACY=1
+	EMERGENCY_LAST_ATTEMPT=$SECONDS
+	write_runtime_mode legacy-fallback
+	SUPERVISOR_CLUSTER_RESTARTS=0
+	SUPERVISOR_HEALTH_FAILURES=0
+	log "emergency legacy main serving; periodic cluster recovery will continue"
+}
+
 supervise_worker_cluster_once()
 {
 	local traffic_mode="$1"
 	local startup_grace_deadline="$2"
 	if cluster_is_healthy; then
 		SUPERVISOR_HEALTH_FAILURES=0
+		SUPERVISOR_CLUSTER_RESTARTS=0
 		return 0
 	fi
 	if (( SECONDS < startup_grace_deadline )); then
@@ -481,12 +507,28 @@ supervise_worker_cluster_once()
 	SUPERVISOR_HEALTH_FAILURES=$((SUPERVISOR_HEALTH_FAILURES + 1))
 	log "worker health probe failed ($SUPERVISOR_HEALTH_FAILURES/3)"
 	if (( SUPERVISOR_HEALTH_FAILURES >= 3 )); then
-		# 多worker是正式拓扑：崩溃后直接重启集群，绝不降级单进程
+		# 多worker是正式拓扑：崩溃后优先重启集群，不秒降级单进程
 		# （降级后持久化的房间亲和仍指向死worker，每个动作吃满
-		# 控制超时，玩家体感每步卡约10秒）。60秒退避防崩溃循环。
+		# 控制超时，玩家体感每步卡约10秒）。但重启必须收敛：
+		# 指数退避（60s起、封顶900s）防崩溃循环；连续多轮仍不健
+		# 康时降级应急单进程，保证玩家始终有可玩的服务器，再由
+		# 应急恢复梯定期尝试拉回集群。
+		if (( SUPERVISOR_CLUSTER_RESTARTS >=
+		      SUPERVISOR_MAX_CLUSTER_RESTARTS )); then
+			if [[ "$traffic_mode" == "active" ]]; then
+				log "cluster restarts exhausted ($SUPERVISOR_CLUSTER_RESTARTS); degrading to emergency legacy main"
+				degrade_to_emergency_legacy "$traffic_mode"
+			else
+				log "shadow cluster restarts exhausted ($SUPERVISOR_CLUSTER_RESTARTS); legacy main remains authoritative"
+				SUPERVISOR_CLUSTER_RESTARTS=0
+			fi
+			return 0
+		fi
+		local backoff=$(( 60 << SUPERVISOR_CLUSTER_RESTARTS ))
+		(( backoff > 900 )) && backoff=900
 		if (( SUPERVISOR_LAST_RESTART_SECONDS > 0 &&
-		      SECONDS - SUPERVISOR_LAST_RESTART_SECONDS < 60 )); then
-			log "restart backoff active; waiting before next cluster restart"
+		      SECONDS - SUPERVISOR_LAST_RESTART_SECONDS < backoff )); then
+			log "restart backoff active (${backoff}s); waiting before next cluster restart"
 			return 0
 		fi
 		SUPERVISOR_LAST_RESTART_SECONDS=$SECONDS
@@ -499,12 +541,12 @@ run_supervisor()
 {
 	local enabled="$1"
 	local traffic_mode="$2"
-	local startup_grace_deadline=$((
-		SECONDS + MAP_WORKER_STARTUP_STABILIZATION_SECONDS))
 	SUPERVISOR_ENABLED="$enabled"
 	SUPERVISOR_HEALTH_FAILURES=0
 	SUPERVISOR_CLUSTER_RESTARTS=0
 	SUPERVISOR_LAST_RESTART_SECONDS=0
+	SUPERVISOR_GRACE_DEADLINE=$(( SECONDS +
+		MAP_WORKER_STARTUP_STABILIZATION_SECONDS ))
 	while true; do
 		sleep 5
 		if [[ -n "$TOMCAT_PID" ]] && ! kill -0 "$TOMCAT_PID" 2>/dev/null; then
@@ -516,7 +558,7 @@ run_supervisor()
 		if [[ "$SUPERVISOR_ENABLED" == "1" &&
 		   "$CLUSTER_STARTED" == "1" ]]; then
 			supervise_worker_cluster_once "$traffic_mode" \
-				"$startup_grace_deadline"
+				"$SUPERVISOR_GRACE_DEADLINE"
 		elif [[ "$SUPERVISOR_ENABLED" == "1" &&
 		        "$STARTUP_EMERGENCY_LEGACY" == "1" &&
 		        -n "$LEGACY_PID" ]] &&
