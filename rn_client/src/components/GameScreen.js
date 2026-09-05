@@ -373,6 +373,7 @@ export default function GameScreen() {
   const [worldMapOpen, setWorldMapOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [charListOpen, setCharListOpen] = useState(false);
+  const [loginAllBusy, setLoginAllBusy] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(DEFAULT_UI_SETTINGS);
   const [activeTab, setActiveTab] = useState('');
@@ -791,6 +792,30 @@ export default function GameScreen() {
                 </Text>
               </Pressable>
             ))}
+            <Pressable style={styles.charChipLoginAll}
+              disabled={loginAllBusy}
+              onPress={async () => {
+                if (loginAllBusy) return;
+                setLoginAllBusy(true);
+                try {
+                  const r = await store.loginAllCharacters();
+                  if (r && (r.ok > 0 || r.failed > 0)) {
+                    toast(`已登录 ${r.ok} 个角色` +
+                      (r.failed > 0 ? `，${r.failed} 个失败` : ''),
+                      r.failed > 0 ? 'warn' : 'success');
+                  } else if (r && r.skipped > 0) {
+                    toast(`并行上限已满，${r.skipped} 个角色未登录`, 'warn');
+                  }
+                } catch (e) {
+                  toast('一键登录失败: ' + (e.message || e), 'error');
+                } finally {
+                  setLoginAllBusy(false);
+                }
+              }}>
+              <Text style={styles.charChipLoginAllText}>
+                {loginAllBusy ? '⏳' : '⚡ 全部登录'}
+              </Text>
+            </Pressable>
             <Pressable style={styles.charChipAdd}
               onPress={() => store.backToDashboard()}>
               <Text style={styles.charChipAddText}>＋</Text>
@@ -1561,6 +1586,12 @@ const styles = StyleSheet.create({
     borderRadius: 999, borderWidth: 1, borderColor: '#6a8a5a',
     backgroundColor: '#16241c',
   },
+  charChipLoginAll: {
+    paddingHorizontal: 10, minHeight: 30, borderRadius: 999,
+    borderWidth: 1, borderColor: '#8a6d2f', backgroundColor: '#231b10',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  charChipLoginAllText: { color: '#ffd700', fontSize: 11, fontWeight: '700' },
   charChipAddText: { color: '#9ad0a0', fontSize: 15 },
   charChipExpand: {
     paddingHorizontal: 8, paddingVertical: 4, marginLeft: 2,

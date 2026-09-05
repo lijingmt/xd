@@ -369,6 +369,35 @@ export const useGameStore = create((set, get) => ({
     return txd;
   },
 
+  /** 一键登录全部角色：为账号下每个未开会话的角色建立会话（顺序，
+   * 容忍单个失败），服务端会在每个登录时自动续跑存档里的挂机状态。 */
+  async loginAllCharacters() {
+    const { accountCharacters, sessions, parallelLimit } = get();
+    const cap = parallelLimit > 0 ? parallelLimit : PARALLEL_CHARACTER_LIMIT;
+    const pending = (accountCharacters || [])
+      .filter(card => card && card.available !== false)
+      .map(card => String(card.id))
+      .filter(id => {
+        const s = (sessions || {})[id];
+        return !(s && s.txd);
+      });
+    const room = cap - Object.keys(sessions || {})
+      .filter(id => sessions[id] && sessions[id].txd).length;
+    const targets = pending.slice(0, Math.max(0, room));
+    let ok = 0;
+    let lastError = '';
+    for (const id of targets) {
+      try {
+        const txd = await get().ensureCharacterSession(id);
+        if (txd) ok += 1;
+      } catch (e) {
+        lastError = e && e.message ? e.message : String(e);
+      }
+    }
+    if (lastError) set({ error: lastError });
+    return { ok, skipped: pending.length - targets.length, failed: targets.length - ok };
+  },
+
   /** 不切换画面，直接开关某角色的挂机（并行挂机核心入口）。 */
   async toggleCharacterAfk(characterId) {
     if (!characterId) return;
