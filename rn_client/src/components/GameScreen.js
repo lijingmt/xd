@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useWindowDimensions } from 'react-native';
 import {
   View, Text, FlatList, TouchableOpacity, Modal,
@@ -7,7 +7,7 @@ import {
   TextInput, Alert,
 } from 'react-native';
 import {
-  lineKey,
+  lineKey, COLOR_HEX, COLOR_HEX_DAY,
 } from '../utils/segments.js';
 import { parseBattleLines, extractSkillName, skillAnimationTarget } from '../utils/battleFeedback.js';
 import {
@@ -117,16 +117,73 @@ function AfkPulseDot({ active }) {
   );
 }
 
-/* ☰ 菜单行（复刻网页版 menu-item）。 */
+/* ☰ 菜单行（复刻网页版 menu-item）。随主题变色，浅色主题下不可见是bug。 */
 function MenuRow({ icon, label, onPress, danger }) {
+  const { theme } = useTheme();
+  const th = (theme && theme.colors) || {};
   return (
-    <TouchableOpacity style={styles.menuRow} onPress={onPress}
-      activeOpacity={0.6}>
+    <TouchableOpacity style={[styles.menuRow,
+      th.surface ? { backgroundColor: th.surface,
+        borderColor: th.menuBorder } : null]}
+      onPress={onPress} activeOpacity={0.6}>
       <Text style={styles.menuRowIcon}>{icon}</Text>
-      <Text style={[styles.menuRowLabel, !!danger && styles.menuRowDanger]}>
+      <Text style={[styles.menuRowLabel, !!danger && styles.menuRowDanger,
+        th.text ? { color: th.text } : null]}>
         {label}
       </Text>
     </TouchableOpacity>
+  );
+}
+
+/* 充值钻石按钮：金色呼吸发光 + 首充提示气泡（iOS专属充值入口）。 */
+function SuiyuRechargeChip({ onOpen, value }) {
+  const glow = useRef(new Animated.Value(0)).current;
+  const [tipVisible, setTipVisible] = useState(false);
+  const tippedRef = useRef(false);
+  useEffect(() => {
+    Animated.loop(Animated.sequence([
+      Animated.timing(glow, {
+        toValue: 1, duration: 900, useNativeDriver: false,
+      }),
+      Animated.timing(glow, {
+        toValue: 0.2, duration: 900, useNativeDriver: false,
+      }),
+    ])).start();
+    const t1 = setTimeout(() => {
+      if (!tippedRef.current) { tippedRef.current = true; setTipVisible(true); }
+    }, 4000);
+    const t2 = setTimeout(() => setTipVisible(false), 16000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [glow]);
+  const shadow = glow.interpolate({
+    inputRange: [0, 1], outputRange: [2, 14],
+  });
+  return (
+    <View>
+      <Animated.View style={{
+        shadowColor: '#ffd700', shadowOpacity: 0.9,
+        shadowRadius: shadow, shadowOffset: { width: 0, height: 0 },
+        elevation: 8, borderRadius: 999 }}>
+        <TouchableOpacity
+          style={styles.suiyuChip}
+          activeOpacity={0.6}
+          onPress={() => { setTipVisible(false); onOpen(); }}>
+          <Text style={styles.suiyuText} numberOfLines={1}>
+            💎{fmt(value)}<Text style={styles.suiyuPlus}> ＋</Text>
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+      {tipVisible && (
+        <TouchableOpacity style={styles.rechargeTip}
+          activeOpacity={0.9}
+          onPress={() => { setTipVisible(false); onOpen(); }}>
+          <Text style={styles.rechargeTipText}>
+            💎 首充特惠 · 首次充值享折扣，点此充值 →
+          </Text>
+          <View style={styles.rechargeTipArrow} />
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
@@ -360,6 +417,46 @@ function DeleteAccountModal({ visible, onClose }) {
 export default function GameScreen() {
   const store = useGameStore();
   const { theme, themeId, setThemeId } = useTheme();
+  /* 主题落到核心表面：背景/头部/底栏/文字/弹窗。玩家点击主题切换
+   * 必须有肉眼可见的变化（2026-09-05反馈"点击无变化"）。 */
+  const th = (theme && theme.colors) || {};
+  const themeStyle = useMemo(() => ({
+    screen: th.appBackground ? { backgroundColor: th.appBackground } : null,
+    header: th.headerBackground ? {
+      backgroundColor: th.headerBackground,
+      borderBottomColor: th.headerBorder,
+    } : null,
+    nameCn: th.text ? { color: th.text } : null,
+    tabBar: th.headerBackground ? {
+      backgroundColor: th.headerBackground,
+      borderTopColor: th.headerBorder,
+    } : null,
+    tabIcon: th.textSubtle ? { color: th.textSubtle } : null,
+    tabIconActive: th.gold ? { color: th.gold } : null,
+    tabLabel: th.textSubtle ? { color: th.textSubtle } : null,
+    tabLabelActive: th.gold ? { color: th.gold } : null,
+    emptyText: th.textSubtle ? { color: th.textSubtle } : null,
+    moreScreen: th.appBackground ? { backgroundColor: th.appBackground } : null,
+    moreEyebrow: th.textSubtle ? { color: th.textSubtle } : null,
+    moreTitle: th.text ? { color: th.text } : null,
+    moreClose: th.textMuted ? { color: th.textMuted } : null,
+    toolBtn: th.surface ? {
+      backgroundColor: th.surface, borderColor: th.menuBorder,
+    } : null,
+    toolLabel: th.text ? { color: th.text } : null,
+    menuRow: th.surface ? {
+      backgroundColor: th.surface, borderColor: th.menuBorder,
+    } : null,
+    charListPanel: th.headerBackground ? {
+      backgroundColor: th.headerBackground,
+      borderBottomColor: th.headerBorder,
+    } : null,
+    menuPanel: th.modalBackground ? {
+      backgroundColor: th.modalBackground, borderColor: th.menuBorder,
+    } : null,
+  }), [th.appBackground, th.headerBackground, th.headerBorder,
+    th.text, th.textSubtle, th.textMuted, th.gold, th.surface,
+    th.menuBorder, th.modalBackground]);
   const { width: screenW } = useWindowDimensions();
   const isTablet = screenW >= 768;
   const contentMaxW = isTablet ? 720 : 0;
@@ -374,6 +471,28 @@ export default function GameScreen() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [charListOpen, setCharListOpen] = useState(false);
   const [loginAllBusy, setLoginAllBusy] = useState(false);
+  const [loginAllMenu, setLoginAllMenu] = useState(false);
+
+  const runLoginAll = async mode => {
+    if (loginAllBusy) return;
+    setLoginAllMenu(false);
+    setLoginAllBusy(true);
+    try {
+      const r = await store.loginAllCharacters(mode);
+      if (r && (r.ok > 0 || r.failed > 0)) {
+        toast(`已登录 ${r.ok} 个角色` +
+          (mode === 'afk' ? '并开启挂机' : mode === 'noafk' ? '（挂机关闭）' : '') +
+          (r.failed > 0 ? `，${r.failed} 个失败` : ''),
+          r.failed > 0 ? 'warn' : 'success');
+      } else if (r && r.skipped > 0) {
+        toast(`并行上限已满，${r.skipped} 个角色未登录`, 'warn');
+      }
+    } catch (e) {
+      toast('一键登录失败: ' + (e.message || e), 'error');
+    } finally {
+      setLoginAllBusy(false);
+    }
+  };
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(DEFAULT_UI_SETTINGS);
   const [activeTab, setActiveTab] = useState('');
@@ -748,10 +867,10 @@ export default function GameScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.screen}
+      style={[styles.screen, themeStyle.screen]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}>
-    <View style={isTablet ? styles.tabletContent : styles.screen}>
+    <View style={isTablet ? styles.tabletContent : [styles.screen, themeStyle.screen]}>
 
       {/* ===== 并行角色tab条：屏幕最顶部，账号中心模式即常驻 ===== */}
       {((store.accountToken && sessionEntries.length > 0) ||
@@ -794,24 +913,7 @@ export default function GameScreen() {
             ))}
             <Pressable style={styles.charChipLoginAll}
               disabled={loginAllBusy}
-              onPress={async () => {
-                if (loginAllBusy) return;
-                setLoginAllBusy(true);
-                try {
-                  const r = await store.loginAllCharacters();
-                  if (r && (r.ok > 0 || r.failed > 0)) {
-                    toast(`已登录 ${r.ok} 个角色` +
-                      (r.failed > 0 ? `，${r.failed} 个失败` : ''),
-                      r.failed > 0 ? 'warn' : 'success');
-                  } else if (r && r.skipped > 0) {
-                    toast(`并行上限已满，${r.skipped} 个角色未登录`, 'warn');
-                  }
-                } catch (e) {
-                  toast('一键登录失败: ' + (e.message || e), 'error');
-                } finally {
-                  setLoginAllBusy(false);
-                }
-              }}>
+              onPress={() => setLoginAllMenu(true)}>
               <Text style={styles.charChipLoginAllText}>
                 {loginAllBusy ? '⏳' : '⚡ 全部登录'}
               </Text>
@@ -829,7 +931,7 @@ export default function GameScreen() {
           </ScrollView>
         </View>
         {charListOpen && (
-          <View style={styles.charListPanel}>
+          <View style={[styles.charListPanel, themeStyle.charListPanel]}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: 6, paddingHorizontal: 12,
                 paddingVertical: 6 }}>
@@ -893,7 +995,7 @@ export default function GameScreen() {
       )}
 
       {/* ===== 顶栏：复刻 Vue game-header ===== */}
-      <View style={styles.header}>
+      <View style={[styles.header, themeStyle.header]}>
         <View style={styles.infoRow}>
           <AvatarPressable
             onPress={() => {
@@ -918,7 +1020,7 @@ export default function GameScreen() {
             </View>
           )}
           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={styles.nameCn} numberOfLines={1}>
+            <Text style={[styles.nameCn, themeStyle.nameCn]} numberOfLines={1}>
               {status.name_cn || store.userid || '仙道'}
             </Text>
             <View style={styles.levelChip}>
@@ -931,6 +1033,20 @@ export default function GameScreen() {
                 </Text>
               </View>
             )}
+            {status.personal_difficulty &&
+             status.personal_difficulty.current &&
+             status.personal_difficulty.current.name && (
+              <TouchableOpacity style={styles.diffChip}
+                activeOpacity={0.6}
+                onPress={() => {
+                  lastUserNavRef.current = Date.now();
+                  send('personal_difficulty');
+                }}>
+                <Text style={styles.diffChipText} numberOfLines={1}>
+                  ⚔{status.personal_difficulty.current.name}
+                </Text>
+              </TouchableOpacity>
+            )}
             {typeof status.heart_bonus_think === 'number' &&
              status.heart_bonus_think > 0 && (
               <View style={styles.heartChip}>
@@ -942,18 +1058,13 @@ export default function GameScreen() {
             {typeof status.account_suiyu === 'number' && (
               <View style={styles.suiyuChipWrap}>
                 {Platform.OS === 'ios' ? (
-                  <TouchableOpacity style={styles.suiyuChip}
-                    activeOpacity={0.6}
-                    onPress={() => {
+                  <SuiyuRechargeChip
+                    onOpen={() => {
                       lastUserNavRef.current = Date.now();
                       setRechargeOpen(true);
-                    }}>
-                    <Text style={styles.suiyuText} numberOfLines={1}>
-                      💎{fmt(typeof suiyuShown === 'number'
-                        ? suiyuShown : status.account_suiyu)}
-                      <Text style={styles.suiyuPlus}> ＋</Text>
-                    </Text>
-                  </TouchableOpacity>
+                    }}
+                    value={typeof suiyuShown === 'number'
+                      ? suiyuShown : status.account_suiyu} />
                 ) : (
                   <View style={styles.suiyuChip}>
                     <Text style={styles.suiyuText} numberOfLines={1}>
@@ -968,15 +1079,6 @@ export default function GameScreen() {
               </View>
             )}
           </View>
-          <TouchableOpacity
-            style={styles.mapButton}
-            activeOpacity={0.7}
-            onPress={() => {
-              lastUserNavRef.current = Date.now();
-              setWorldMapOpen(true);
-            }}>
-            <Text style={styles.mapButtonText}>🗺️</Text>
-          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.afkButton,
               store.autofighting && styles.afkButtonOn]}
@@ -1138,7 +1240,7 @@ export default function GameScreen() {
         }
         ListEmptyComponent={
           !store.busy && store.lines.length === 0
-            ? <Text style={styles.emptyText}>暂无内容</Text>
+            ? <Text style={[styles.emptyText, themeStyle.emptyText]}>暂无内容</Text>
             : null
         }
         renderItem={({ item }) => (
@@ -1148,6 +1250,10 @@ export default function GameScreen() {
               send, inputValues, setInputValues, imageBase,
               busy: store.busy,
               fontScale: fontScaleFor(uiSettings.fontSize) * (isTablet ? 1.25 : 1),
+              textColor: th.text,
+              colorPalette: themeId === 'day'
+                ? COLOR_HEX_DAY : COLOR_HEX,
+              themeMode: themeId === 'day' ? 'day' : 'night',
             }}
           />
         )}
@@ -1156,16 +1262,18 @@ export default function GameScreen() {
       {/* ===== 底部五Tab：复刻 Vue quick-nav =====
        * 自由命令输入栏已移除：原生端全部走按钮/页面内cmd-input表单，
        * 裸文本命令在MUD里不成立（聊天走服务端下发的输入框）。 */}
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, themeStyle.tabBar]}>
         {MAIN_TABS.map(tab => (
           <TouchableOpacity key={tab.cmd} style={styles.tabButton}
             onPress={() => sendTab(tab)}>
-            <Text style={[styles.tabIcon,
-              activeTab === tab.cmd && styles.tabIconActive]}>
+            <Text style={[styles.tabIcon, themeStyle.tabIcon,
+              activeTab === tab.cmd && styles.tabIconActive,
+              activeTab === tab.cmd && themeStyle.tabIconActive]}>
               {tab.icon}
             </Text>
-            <Text style={[styles.tabLabel,
-              activeTab === tab.cmd && styles.tabLabelActive]}>
+            <Text style={[styles.tabLabel, themeStyle.tabLabel,
+              activeTab === tab.cmd && styles.tabLabelActive,
+              activeTab === tab.cmd && themeStyle.tabLabelActive]}>
               {tab.label}
             </Text>
           </TouchableOpacity>
@@ -1182,14 +1290,14 @@ export default function GameScreen() {
       {/* ===== 更多功能面板 ===== */}
       <Modal visible={moreOpen} animationType="slide"
         onRequestClose={() => setMoreOpen(false)}>
-        <View style={styles.moreScreen}>
+        <View style={[styles.moreScreen, themeStyle.moreScreen]}>
           <View style={styles.moreHeader}>
             <View>
-              <Text style={styles.moreEyebrow}>常用功能</Text>
-              <Text style={styles.moreTitle}>探索与成长</Text>
+              <Text style={[styles.moreEyebrow, themeStyle.moreEyebrow]}>常用功能</Text>
+              <Text style={[styles.moreTitle, themeStyle.moreTitle]}>探索与成长</Text>
             </View>
             <TouchableOpacity onPress={() => setMoreOpen(false)}>
-              <Text style={styles.moreClose}>✕ 收起</Text>
+              <Text style={[styles.moreClose, themeStyle.moreClose]}>✕ 收起</Text>
             </TouchableOpacity>
           </View>
           <FlatList
@@ -1199,9 +1307,9 @@ export default function GameScreen() {
             keyExtractor={item => item.cmd}
             numColumns={3}
             renderItem={({ item }) => (
-              <TouchableOpacity style={styles.toolBtn} onPress={() => send(item.cmd)}>
+              <TouchableOpacity style={[styles.toolBtn, themeStyle.toolBtn]} onPress={() => send(item.cmd)}>
                 <Text style={styles.toolIcon}>{item.icon}</Text>
-                <Text style={styles.toolLabel}>{item.label}</Text>
+                <Text style={[styles.toolLabel, themeStyle.toolLabel]}>{item.label}</Text>
               </TouchableOpacity>
             )}
           />
@@ -1219,6 +1327,39 @@ export default function GameScreen() {
         visible={rechargeOpen}
         onClose={() => setRechargeOpen(false)}
       />
+
+      {/* ===== 一键登录子菜单 ===== */}
+      <Modal visible={loginAllMenu} transparent animationType="fade"
+        onRequestClose={() => setLoginAllMenu(false)}>
+        <TouchableOpacity style={styles.loginAllMask}
+          activeOpacity={1} onPress={() => setLoginAllMenu(false)}>
+          <View style={styles.loginAllSheet}>
+            <Text style={styles.loginAllTitle}>⚡ 一键登录全部角色</Text>
+            <Text style={styles.loginAllSub}>
+              登录账号下所有未开角色（受并行上限约束），并统一设置挂机：
+            </Text>
+            <TouchableOpacity style={styles.loginAllOpt}
+              onPress={() => runLoginAll('afk')}>
+              <Text style={styles.loginAllOptMain}>◎ 登录并开启自动挂机</Text>
+              <Text style={styles.loginAllOptSub}>
+                全部上线后自动打怪（各角色按存档设置运行）
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.loginAllOpt,
+              styles.loginAllOptOff]}
+              onPress={() => runLoginAll('noafk')}>
+              <Text style={styles.loginAllOptMainOff}>○ 仅登录，不开挂机</Text>
+              <Text style={styles.loginAllOptSub}>
+                全部上线但保持挂机关闭状态
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.loginAllCancel}
+              onPress={() => setLoginAllMenu(false)}>
+              <Text style={styles.loginAllCancelText}>取消</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* ===== 世界地图 ===== */}
       <WorldMapScreen
@@ -1243,7 +1384,7 @@ export default function GameScreen() {
         onRequestClose={() => setMenuOpen(false)}>
         <Pressable style={styles.menuOverlay}
           onPress={() => setMenuOpen(false)}>
-          <View style={styles.menuPanel}
+          <View style={[styles.menuPanel, themeStyle.menuPanel]}
             onStartShouldSetResponder={() => true}>
             <Text style={styles.menuHeader}>
               并行挂机 {Object.keys(store.sessions || {}).length}/
@@ -1289,20 +1430,15 @@ export default function GameScreen() {
                   send('profession_assistant');
                 }} />
             )}
-            <MenuRow icon="🗺️" label="世界地图 / 飞行"
-              onPress={() => {
-                setMenuOpen(false);
-                setWorldMapOpen(true);
-              }} />
             <MenuRow icon="🤝" label="邀请好友 / 查看奖励"
               onPress={() => {
                 setMenuOpen(false);
                 send('invite');
               }} />
             {typeof status.account_suiyu === 'number' && (
-              <View style={styles.menuRow}>
+              <View style={[styles.menuRow, themeStyle.menuRow]}>
                 <Text style={styles.menuRowIcon}>💎</Text>
-                <Text style={styles.menuRowLabel}>
+                <Text style={[styles.menuRowLabel, themeStyle.toolLabel]}>
                   碎玉余额：{groupDigits(status.account_suiyu)}
                 </Text>
               </View>
@@ -1321,7 +1457,7 @@ export default function GameScreen() {
             )}
             <View style={styles.themeRow}>
               <Text style={styles.menuRowIcon}>🎨</Text>
-              <Text style={styles.menuRowLabel}>主题颜色</Text>
+              <Text style={[styles.menuRowLabel, themeStyle.toolLabel]}>主题颜色</Text>
             </View>
             <View style={styles.themeChips}>
               {Object.values(APP_THEMES).map(t => (
@@ -1482,6 +1618,11 @@ const styles = StyleSheet.create({
     borderRadius: 5, paddingHorizontal: 6, paddingVertical: 1,
   },
   profChipText: { color: '#9ab8d8', fontSize: 11 },
+  diffChip: {
+    backgroundColor: '#231b10', borderWidth: 1, borderColor: '#8a6d2f',
+    borderRadius: 5, paddingHorizontal: 6, paddingVertical: 1,
+  },
+  diffChipText: { color: '#ffd700', fontSize: 11 },
   heartChip: {
     backgroundColor: '#102018', borderWidth: 1, borderColor: '#3a7a5a',
     borderRadius: 5, paddingHorizontal: 6, paddingVertical: 1,
@@ -1492,6 +1633,21 @@ const styles = StyleSheet.create({
     borderRadius: 5, paddingHorizontal: 6, paddingVertical: 1,
   },
   suiyuChipWrap: { position: 'relative' },
+  rechargeTip: {
+    position: 'absolute', top: 40, right: 0, zIndex: 50,
+    backgroundColor: '#1a1208', borderWidth: 1.5, borderColor: '#ffd700',
+    borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7,
+    shadowColor: '#000', shadowOpacity: 0.8, shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 }, elevation: 12,
+  },
+  rechargeTipText: { color: '#ffd700', fontSize: 12,
+    fontWeight: '800', letterSpacing: 0.5 },
+  rechargeTipArrow: {
+    position: 'absolute', top: -6, right: 16, width: 10, height: 10,
+    backgroundColor: '#1a1208', borderLeftWidth: 1.5,
+    borderTopWidth: 1.5, borderColor: '#ffd700',
+    transform: [{ rotate: '45deg' }],
+  },
   suiyuFxBox: { position: 'absolute', top: 22, left: 0, zIndex: 60 },
   suiyuFxDelta: {
     fontSize: 15, fontWeight: '800',
@@ -1592,6 +1748,30 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   charChipLoginAllText: { color: '#ffd700', fontSize: 11, fontWeight: '700' },
+  loginAllMask: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center', justifyContent: 'center', padding: 28,
+  },
+  loginAllSheet: {
+    width: '100%', backgroundColor: '#14101a', borderRadius: 16,
+    borderWidth: 1, borderColor: '#8a6d2f', padding: 16, gap: 10,
+  },
+  loginAllTitle: { color: '#ffd700', fontSize: 16, fontWeight: '700',
+    textAlign: 'center' },
+  loginAllSub: { color: '#a89aa8', fontSize: 12, textAlign: 'center',
+    marginBottom: 2 },
+  loginAllOpt: {
+    backgroundColor: '#16241c', borderRadius: 12, borderWidth: 1,
+    borderColor: '#6a8a5a', padding: 12, gap: 3,
+  },
+  loginAllOptOff: { backgroundColor: '#1c1620', borderColor: '#3a2f46' },
+  loginAllOptMain: { color: '#9ad0a0', fontSize: 14, fontWeight: '700' },
+  loginAllOptMainOff: { color: '#a89aa8', fontSize: 14, fontWeight: '700' },
+  loginAllOptSub: { color: '#6a5a6a', fontSize: 11 },
+  loginAllCancel: {
+    alignItems: 'center', paddingVertical: 10, marginTop: 2,
+  },
+  loginAllCancelText: { color: '#6a5a6a', fontSize: 13 },
   charChipAddText: { color: '#9ad0a0', fontSize: 15 },
   charChipExpand: {
     paddingHorizontal: 8, paddingVertical: 4, marginLeft: 2,

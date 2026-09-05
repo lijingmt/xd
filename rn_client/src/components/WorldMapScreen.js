@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import {
   View, Text, Modal, TouchableOpacity, StyleSheet,
-  TextInput, Dimensions, Alert, ActivityIndicator, PanResponder,
+  TextInput, Dimensions, Alert, ActivityIndicator, ScrollView,
 } from 'react-native';
 import Svg, { Circle, Line, Text as SvgText, G } from 'react-native-svg';
 import { useGameStore } from '../store/useGameStore.js';
@@ -11,11 +11,14 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 /**
  * 世界地图（RN 客户端版，与 Vue 网页版同源数据）：
- * - 数据：GET {apiBase}/data/world-map.json（2681 房间 / 76 区域完整拓扑）
- * - 渲染：react-native-svg，单指拖动 + 双指捏合 + +/- 缩放
- * - LOD：缩小只画区域标记；中等画房间点；放大画连线与房间名
- * - 搜索全部房间；点击房间 → fly_to_room 飞行（与 Vue 相同命令）
+ * - 数据：GET {apiBase}/api/world_map（2681 房间 / 76 区域完整拓扑）
+ * - 交互：iOS/Android 原生 ScrollView 捏合缩放+拖动；房间点 Svg onPress
+ * - LOD：onScroll 跟踪 zoomScale——缩小只画区域标记，放大画连线与房名
+ * - 搜索全部房间；点房间/区域 → fly_to_room 飞行（与 Vue 相同命令）
  */
+
+const K0 = 0.1;          // 世界坐标 → 内容坐标
+const PAD = 600;         // 内容四周留白，避免边缘房间贴边
 
 const BIOME_COLORS = {
   snow: '#9fc7e8', forest: '#5a9e6f', mountain: '#a08a6a', plain: '#8faa58',
@@ -33,11 +36,9 @@ export default function WorldMapScreen({ visible, onClose }) {
   const [loadError, setLoadError] = useState('');
   const [searchText, setSearchText] = useState('');
   const [selected, setSelected] = useState(null);
-  const [k, setK] = useState(0);
-  const [tx, setTx] = useState(0);
-  const [ty, setTy] = useState(0);
-  const baseRef = useRef({ baseK: 1, k: 0, tx: 0, ty: 0 });
-  const gestureRef = useRef(null);
+  const [regionOpen, setRegionOpen] = useState(null);
+  const [zoom, setZoom] = useState(0);
+  const scrollRef = useRef(null);
 
   /* ---------- 数据加载 ---------- */
   useEffect(() => {
@@ -64,16 +65,21 @@ export default function WorldMapScreen({ visible, onClose }) {
           if (n.y > maxY) maxY = n.y;
         }
         data.worldBounds = { minX, minY, maxX, maxY };
+        data.contentW = (maxX - minX) * K0 + PAD * 2;
+        data.contentH = (maxY - minY) * K0 + PAD * 2;
+        /* 内容坐标系平移：世界原点 → (PAD, PAD)。 */
+        for (const n of data.nodes) {
+          n.cx = (n.x - minX) * K0 + PAD;
+          n.cy = (n.y - minY) * K0 + PAD;
+        }
         const regions = new Map();
         for (const n of data.nodes) {
           if (!regions.has(n.region)) {
-            regions.set(n.region, {
-              id: n.region, name: n.region, count: 0,
-              sx: 0, sy: 0, level: n.level || 0,
-            });
+            regions.set(n.region, { id: n.region, count: 0, sx: 0, sy: 0,
+              level: n.level || 0 });
           }
           const r = regions.get(n.region);
-          r.count += 1; r.sx += n.x; r.sy += n.y;
+          r.count += 1; r.sx += n.cx; r.sy += n.cy;
           if ((n.level || 0) > r.level) r.level = n.level || 0;
         }
         data.regionList = [...regions.values()].map(r => ({
@@ -87,163 +93,85 @@ export default function WorldMapScreen({ visible, onClose }) {
     return () => { cancelled = true; };
   }, [visible, graph, loadError]);
 
-  /* 初始视野：整图居中适配。 */
-  const fitAll = useCallback(() => {
-    if (!graph) return;
-    const b = graph.worldBounds;
-    const w = (b.maxX - b.minX) || 1;
-    const h = (b.maxY - b.minY) || 1;
-    const kk = Math.min(SCREEN_W / w, (SCREEN_H - 160) / h) * 0.92;
-    const cx = (b.maxX + b.minX) / 2;
-    const cy = (b.maxY + b.minY) / 2;
-    setK(kk);
-    setTx(SCREEN_W / 2 - cx * kk);
-    setTy((SCREEN_H - 120) / 2 - cy * kk + 20);
-  }, [graph]);
-
+  /* 初始定位到当前房间并放大到房间点清晰可见的档位（zoom≈2）；
+   * 捏合缩小可回到整图区域总览。 */
   useEffect(() => {
-    if (visible && graph && !k) fitAll();
-  }, [visible, graph, k, fitAll]);
+    if (!visible || !graph || zoom) return;
+    const cur = findCurrentNode(graph, lines);
+    if (!cur || !scrollRef.current) return;
+    const rect = {
+      x: cur.cx - SCREEN_W / 2, y: cur.cy - (SCREEN_H - 220) / 2,
+      width: SCREEN_W * 2, height: (SCREEN_H - 220) * 2,
+    };
+    setTimeout(() => {
+      try {
+        const responder = scrollRef.current.getScrollResponder
+          ? scrollRef.current.getScrollResponder() : scrollRef.current;
+        if (responder && responder.scrollResponderZoomTo) {
+          responder.scrollResponderZoomTo(rect);
+        } else {
+          scrollRef.current.scrollTo({
+            x: rect.x, y: rect.y, animated: false,
+          });
+        }
+      } catch (e) { /* 布局未就绪时忽略 */ }
+    }, 160);
+  }, [visible, graph, zoom, lines]);
 
-  const baseK = useMemo(() => {
-    if (!graph) return 1;
-    const b = graph.worldBounds;
-    return Math.min(SCREEN_W / ((b.maxX - b.minX) || 1),
-      (SCREEN_H - 160) / ((b.maxY - b.minY) || 1)) * 0.92;
+  const minZoom = useMemo(() => {
+    if (!graph) return 0.2;
+    return Math.min(SCREEN_W / graph.contentW,
+      (SCREEN_H - 180) / graph.contentH);
   }, [graph]);
 
-  /* ---------- 手势：拖动 + 捏合（经 ref 读写最新视图状态） ---------- */
-  const viewRef = useRef({ k: 0, tx: 0, ty: 0, baseK: 1, visible: [] });
+  /* 视口状态（含偏移），按粗档位更新避免每帧重渲。 */
+  const [viewport, setViewport] = useState({ x: 0, y: 0, z: 0 });
 
-  const dist = touches => {
-    const dx = touches[0].pageX - touches[1].pageX;
-    const dy = touches[0].pageY - touches[1].pageY;
-    return Math.sqrt(dx * dx + dy * dy);
-  };
-
-  const handleGesture = e => {
-    const g = gestureRef.current;
-    if (!g) return;
-    const st = viewRef.current;
-    if (e.nativeEvent.numberofTouches >= 2) {
-      const d = dist(e.nativeEvent.touches);
-      if (g.pinchD0 > 4) {
-        const nk = Math.max(st.baseK * 0.7,
-          Math.min(st.baseK * 40, g.k0 * d / g.pinchD0));
-        const wx = (g.pivotX - g.tx0) / g.k0;
-        const wy = (g.pivotY - g.ty0) / g.k0;
-        setK(nk);
-        setTx(g.pivotX - wx * nk);
-        setTy(g.pivotY - wy * nk);
-      }
-    } else {
-      setTx(g.tx0 + e.nativeEvent.pageX - g.x0);
-      setTy(g.ty0 + e.nativeEvent.pageY - g.y0);
-    }
-  };
-
-  const panRef = useRef(null);
-  if (!panRef.current) {
-    panRef.current = PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: e => {
-        const nt = e.nativeEvent.numberofTouches;
-        const st = viewRef.current || { k: 1, tx: 0, ty: 0 };
-        gestureRef.current = {
-          x0: e.nativeEvent.pageX, y0: e.nativeEvent.pageY,
-          k0: st.k, tx0: st.tx, ty0: st.ty,
-          moved: false,
-          pinchD0: nt >= 2 && e.nativeEvent.touches
-            ? dist(e.nativeEvent.touches) : 0,
-          pivotX: SCREEN_W / 2, pivotY: SCREEN_H / 2,
-        };
-      },
-      onPanResponderMove: e => {
-        const g = gestureRef.current;
-        if (g) {
-          if (Math.abs(e.nativeEvent.pageX - g.x0) > 8 ||
-              Math.abs(e.nativeEvent.pageY - g.y0) > 8) g.moved = true;
-        }
-        handleGesture(e);
-      },
-      onPanResponderRelease: e => {
-        const g = gestureRef.current;
-        gestureRef.current = null;
-        if (!g || g.moved) return;
-        /* 视作点按：命中最近的可见节点（屏幕距离 26px 内）。 */
-        const st = viewRef.current || { k: 1, tx: 0, ty: 0 };
-        const nodes = st.visible || [];
-        const px = e.nativeEvent.pageX, py = e.nativeEvent.pageY;
-        let best = null, bestD = 26 * 26;
-        for (const n of nodes) {
-          const sx = n.x * st.k + st.tx, sy = n.y * st.k + st.ty;
-          const d = (sx - px) * (sx - px) + (sy - py) * (sy - py);
-          if (d < bestD) { bestD = d; best = n; }
-        }
-        if (best) setSelected(best);
-      },
-    });
-  }
-
-  /* ---------- LOD 与视口裁剪 ---------- */
+  /* ---------- LOD：按捏合缩放档位渲染 ---------- */
   const lod = useMemo(() => ({
-    showNodes: k >= baseK * 1.6,
-    showEdges: k >= baseK * 3,
-    showLabels: k >= baseK * 6,
-    showRegions: k < baseK * 2.4,
-  }), [k, baseK]);
+    regionMode: zoom < 1.1,
+    showEdges: zoom >= 1.8,
+    showLabels: zoom >= 3.2,
+  }), [zoom]);
 
+  /* 视口裁剪：只渲染视野内（含边距）的房间与连线，控制元素数。
+   * 房间点任何缩放档位都渲染（半径按缩放反向补偿=屏幕恒定大小），
+   * 否则默认整图视图只剩区域圆（玩家反馈"看不到地图内部"）。 */
   const visibleNodes = useMemo(() => {
-    if (!graph || !lod.showNodes) return [];
-    const m = 60;
+    if (!graph) return [];
+    const m = 220;
+    const vw = SCREEN_W / Math.max(zoom, 0.05) + m * 2;
+    const vh = (SCREEN_H - 220) / Math.max(zoom, 0.05) + m * 2;
+    const vx = viewport.x - m, vy = viewport.y - m;
     const out = [];
     for (const n of graph.nodes) {
-      const sx = n.x * k + tx, sy = n.y * k + ty;
-      if (sx > -m && sx < SCREEN_W + m && sy > 60 && sy < SCREEN_H - 60) {
+      if (n.cx >= vx && n.cx <= vx + vw && n.cy >= vy && n.cy <= vy + vh) {
         out.push(n);
-        if (out.length >= 900) break;
+        if (out.length >= 1200) break;
       }
     }
     return out;
-  }, [graph, k, tx, ty, lod.showNodes]);
+  }, [graph, zoom, viewport]);
 
-  /* 渲染期同步最新视图/裁剪结果给一次性创建的手势回调。 */
-  viewRef.current = { k, tx, ty, baseK, visible: visibleNodes };
+  /* 内容半径按当前缩放反向补偿：屏幕上恒定约5px。 */
+  const nodeR = 5 / Math.max(zoom || minZoom, 0.12);
 
   const visibleEdges = useMemo(() => {
     if (!graph || !lod.showEdges) return [];
-    const nodeSet = new Set(visibleNodes.map(n => n.id));
+    const ids = new Set(visibleNodes.map(n => n.id));
     const out = [];
-    const m = 40;
     for (const e of graph.edges) {
-      const a = graph.nodeIndex.get(e.from);
-      const b = graph.nodeIndex.get(e.to);
-      if (!a || !b) continue;
-      if (nodeSet.has(a.id) && nodeSet.has(b.id)) {
-        const ax = a.x * k + tx, ay = a.y * k + ty;
-        const bx = b.x * k + tx, by = b.y * k + ty;
-        if (Math.min(ax, bx) < SCREEN_W + m && Math.max(ax, bx) > -m &&
-            Math.min(ay, by) < SCREEN_H + m && Math.max(ay, by) > 20 - m) {
-          out.push([ax, ay, bx, by]);
-          if (out.length >= 700) break;
-        }
+      if (ids.has(e.from) && ids.has(e.to)) {
+        out.push(e);
+        if (out.length >= 500) break;
       }
     }
     return out;
-  }, [graph, visibleNodes, k, tx, ty, lod.showEdges]);
+  }, [graph, visibleNodes, lod.showEdges]);
 
   /* 当前房间：从最近的行里精确匹配房间名。 */
-  const currentNode = useMemo(() => {
-    if (!graph) return null;
-    for (let i = (lines || []).length - 1; i >= 0 && i >= (lines || []).length - 120; i--) {
-      const line = (lines || [])[i];
-      const text = typeof line === 'string' ? line.trim()
-        : (line && line.text ? String(line.text).trim() : '');
-      if (text && graph.nameIndex.has(text)) return graph.nameIndex.get(text);
-    }
-    return null;
-  }, [graph, lines]);
+  const currentNode = useMemo(() =>
+    findCurrentNode(graph, lines), [graph, lines]);
 
   /* ---------- 搜索 ---------- */
   const searchResults = useMemo(() => {
@@ -261,10 +189,17 @@ export default function WorldMapScreen({ visible, onClose }) {
 
   const focusNode = n => {
     if (!n) return;
-    setTx(SCREEN_W / 2 - n.x * k);
-    setTy((SCREEN_H - 140) / 2 - n.y * k);
     setSelected(n);
     setSearchText('');
+    if (scrollRef.current && zoom < 3) {
+      try {
+        scrollRef.current.scrollTo({
+          x: n.cx * 3 - SCREEN_W / 2,
+          y: n.cy * 3 - (SCREEN_H - 200) / 2,
+          animated: true,
+        });
+      } catch (e) { /* 忽略 */ }
+    }
   };
 
   const fly = n => {
@@ -282,14 +217,102 @@ export default function WorldMapScreen({ visible, onClose }) {
     );
   };
 
-  const zoomBy = f => {
-    const nk = Math.max(baseK * 0.7, Math.min(baseK * 40, k * f));
-    const px = SCREEN_W / 2, py = SCREEN_H / 2;
-    const wx = (px - tx) / k, wy = (py - ty) / k;
-    setK(nk); setTx(px - wx * nk); setTy(py - wy * nk);
-  };
+  /* 区域房间菜单：限30行+搜索提示，避免长列表显得乱。 */
+  const regionRooms = useMemo(() => {
+    if (!graph || !regionOpen) return [];
+    return graph.nodes
+      .filter(n => n.region === regionOpen)
+      .sort((a, b) => (b.level || 0) - (a.level || 0))
+      .slice(0, 30);
+  }, [graph, regionOpen]);
 
   if (!visible) return null;
+
+  const content = graph ? (
+    <ScrollView
+      ref={scrollRef}
+      style={{ flex: 1, backgroundColor: '#0d0b0e' }}
+      contentContainerStyle={{
+        width: graph.contentW, height: graph.contentH,
+      }}
+      minimumZoomScale={minZoom}
+      maximumZoomScale={12}
+      showsHorizontalScrollIndicator={false}
+      showsVerticalScrollIndicator={false}
+      onScroll={e => {
+        const z = e.nativeEvent.zoomScale || minZoom;
+        const bucket = Math.round(z * 4) / 4;
+        const ox = Math.round((e.nativeEvent.contentOffset
+          ? e.nativeEvent.contentOffset.x : 0) / 40) * 40;
+        const oy = Math.round((e.nativeEvent.contentOffset
+          ? e.nativeEvent.contentOffset.y : 0) / 40) * 40;
+        setZoom(prev => (prev === bucket ? prev : bucket));
+        setViewport(prev => (prev.x === ox && prev.y === oy && prev.z === bucket
+          ? prev : { x: ox, y: oy, z: bucket }));
+      }}
+      scrollEventThrottle={120}
+    >
+      <Svg width={graph.contentW} height={graph.contentH}>
+        <G>
+          {lod.regionMode && graph.regionList.map(r => (
+            <G key={'rg-' + r.id}
+              onPress={() => { setSelected(null); setRegionOpen(r.id); }}>
+              <Circle
+                cx={r.x} cy={r.y}
+                r={Math.max(20, Math.sqrt(r.count) * 14)}
+                fill="#2d3a5a" stroke="#5a7aba" strokeWidth={2}
+                opacity={0.85}
+              />
+              <SvgText
+                x={r.x}
+                y={r.y - Math.max(20, Math.sqrt(r.count) * 14) - 6}
+                fontSize={30} fill="#9ab8d8" textAnchor="middle">
+                {r.name}
+              </SvgText>
+            </G>
+          ))}
+          {lod.showEdges && visibleEdges.map((e, i) => {
+            const a = graph.nodeIndex.get(e.from);
+            const b = graph.nodeIndex.get(e.to);
+            if (!a || !b) return null;
+            return (
+              <Line key={'e' + i}
+                x1={a.cx} y1={a.cy} x2={b.cx} y2={b.cy}
+                stroke="#3a3a52" strokeWidth={1} opacity={0.6}
+              />
+            );
+          })}
+          {visibleNodes.map(n => {
+            const isCur = currentNode && currentNode.id === n.id;
+            const isSel = selected && selected.id === n.id;
+            return (
+              <G key={n.id} onPress={() => {
+                setRegionOpen(null);
+                setSelected(n);
+              }}>
+                <Circle
+                  cx={n.cx} cy={n.cy}
+                  r={isCur ? nodeR * 1.6 : isSel ? nodeR * 1.4 : nodeR}
+                  fill={isCur ? '#ffd700' : biomeColor(n.biome)}
+                  stroke={isSel ? '#ff4d6d' : isCur ? '#fff0b0' : 'none'}
+                  strokeWidth={2}
+                />
+                {lod.showLabels && (isCur || zoom >= 5) && (
+                  <SvgText
+                    x={n.cx} y={n.cy - nodeR - 4}
+                    fontSize={11 / Math.max(zoom, 0.2)}
+                    textAnchor="middle"
+                    fill={isCur ? '#ffd700' : '#a89aa8'}>
+                    {n.name}
+                  </SvgText>
+                )}
+              </G>
+            );
+          })}
+        </G>
+      </Svg>
+    </ScrollView>
+  ) : null;
 
   return (
     <Modal visible animationType="slide" transparent={false}>
@@ -317,24 +340,7 @@ export default function WorldMapScreen({ visible, onClose }) {
           )}
         </View>
 
-        {/* 搜索结果浮层 */}
-        {searchText.trim() !== '' && (
-          <View style={styles.resultPanel}>
-            {searchResults.length === 0 ? (
-              <Text style={styles.resultEmpty}>没有匹配的房间</Text>
-            ) : searchResults.map(n => (
-              <TouchableOpacity key={n.id} style={styles.resultRow}
-                onPress={() => focusNode(n)}>
-                <Text style={styles.resultName} numberOfLines={1}>{n.name}</Text>
-                <Text style={styles.resultMeta}>
-                  {n.level ? 'Lv.' + n.level : ''} · {n.region}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* 地图主体 */}
+        {/* 地图主体：原生捏合缩放 + 拖动 */}
         <View style={styles.mapArea}>
           {!graph ? (
             <View style={styles.centerBox}>
@@ -352,75 +358,52 @@ export default function WorldMapScreen({ visible, onClose }) {
                 </>
               )}
             </View>
-          ) : (
-            <View style={{ flex: 1 }} {...panRef.current.panHandlers}>
-              <Svg width={SCREEN_W} height={SCREEN_H} style={styles.svg}>
-                <G>
-                  {lod.showRegions && graph.regionList.map(r => (
-                    <G key={'rg-' + r.id}>
-                      <Circle
-                        cx={r.x * k + tx} cy={r.y * k + ty}
-                        r={Math.max(3, Math.sqrt(r.count) * 1.2)}
-                        fill="#2d3a5a" stroke="#5a7aba" strokeWidth={1}
-                        opacity={0.85}
-                      />
-                      <SvgText
-                        x={r.x * k + tx}
-                        y={r.y * k + ty - Math.max(3, Math.sqrt(r.count) * 1.2) - 3}
-                        fontSize={10} fill="#9ab8d8" textAnchor="middle">
-                        {r.name}
-                      </SvgText>
-                    </G>
-                  ))}
-                  {visibleEdges.map((e, i) => (
-                    <Line key={'e' + i}
-                      x1={e[0]} y1={e[1]} x2={e[2]} y2={e[3]}
-                      stroke="#3a3a52" strokeWidth={1} opacity={0.7}
-                    />
-                  ))}
-                  {visibleNodes.map(n => {
-                    const isCur = currentNode && currentNode.id === n.id;
-                    const isSel = selected && selected.id === n.id;
-                    return (
-                      <G key={n.id}>
-                        <Circle
-                          cx={n.x * k + tx} cy={n.y * k + ty}
-                          r={isCur ? 6 : isSel ? 5.5 : 3.5}
-                          fill={isCur ? '#ffd700' : biomeColor(n.biome)}
-                          stroke={isSel ? '#ff4d6d' : isCur ? '#fff0b0' : 'none'}
-                          strokeWidth={1.5}
-                        />
-                        {lod.showLabels && (isCur || visibleNodes.length <= 80) && (
-                          <SvgText
-                            x={n.x * k + tx} y={n.y * k + ty - 8}
-                            fontSize={9} textAnchor="middle"
-                            fill={isCur ? '#ffd700' : '#a89aa8'}>
-                            {n.name}
-                          </SvgText>
-                        )}
-                      </G>
-                    );
-                  })}
-                </G>
-              </Svg>
-            </View>
-          )}
-
-          {/* 缩放控件 */}
-          {graph && (
-            <View style={styles.zoomControls}>
-              <TouchableOpacity style={styles.zoomBtn} onPress={() => zoomBy(1.7)}>
-                <Text style={styles.zoomText}>＋</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.zoomBtn} onPress={() => zoomBy(1 / 1.7)}>
-                <Text style={styles.zoomText}>－</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.zoomBtn} onPress={fitAll}>
-                <Text style={styles.zoomText}>⌂</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          ) : content}
         </View>
+
+        {/* 区域房间菜单：点区域圆弹出，行内直接飞行 */}
+        {graph && regionOpen && (
+          <View style={styles.resultPanel}>
+            <View style={styles.regionHeader}>
+              <Text style={styles.regionTitle}>🗺 {regionOpen}</Text>
+              <TouchableOpacity onPress={() => setRegionOpen(null)}
+                style={styles.regionClose}>
+                <Text style={styles.selCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.regionHint}>
+              按等级显示前30个房间；找具体房间请用顶部搜索
+            </Text>
+            <View style={{ maxHeight: 260 }}>
+              {regionRooms.map(n => (
+                <TouchableOpacity key={n.id} style={styles.resultRow}
+                  onPress={() => fly(n)}>
+                  <Text style={styles.resultName} numberOfLines={1}>{n.name}</Text>
+                  <Text style={styles.flyRowHint}>
+                    {n.level ? 'Lv.' + n.level : ''} › 飞行
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* 搜索结果浮层 */}
+        {graph && searchText.trim() !== '' && (
+          <View style={styles.resultPanel}>
+            {searchResults.length === 0 ? (
+              <Text style={styles.resultEmpty}>没有匹配的房间</Text>
+            ) : searchResults.map(n => (
+              <TouchableOpacity key={n.id} style={styles.resultRow}
+                onPress={() => focusNode(n)}>
+                <Text style={styles.resultName} numberOfLines={1}>{n.name}</Text>
+                <Text style={styles.resultMeta}>
+                  {n.level ? 'Lv.' + n.level : ''} · {n.region}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* 选中房间操作条 */}
         {graph && selected && (
@@ -450,6 +433,18 @@ export default function WorldMapScreen({ visible, onClose }) {
   );
 }
 
+function findCurrentNode(graph, lines) {
+  if (!graph) return null;
+  for (let i = (lines || []).length - 1;
+       i >= 0 && i >= (lines || []).length - 120; i--) {
+    const line = (lines || [])[i];
+    const text = typeof line === 'string' ? line.trim()
+      : (line && line.text ? String(line.text).trim() : '');
+    if (text && graph.nameIndex.has(text)) return graph.nameIndex.get(text);
+  }
+  return null;
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#0d0b0e' },
   topBar: {
@@ -474,10 +469,15 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   hereText: { color: '#ffd700', fontSize: 11 },
+  mapArea: { flex: 1 },
+  centerBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
+  loadingText: { color: '#a89aa8', fontSize: 13 },
+  errText: { color: '#ff9aa8', fontSize: 13, textAlign: 'center', paddingHorizontal: 30 },
+  retryText: { color: '#9ab8d8', fontSize: 13, marginTop: 8 },
   resultPanel: {
     position: 'absolute', top: 98, left: 12, right: 12,
     backgroundColor: '#14101aee', borderRadius: 12,
-    borderWidth: 1, borderColor: '#3a2f46', maxHeight: 300,
+    borderWidth: 1, borderColor: '#3a2f46', maxHeight: 320,
     paddingHorizontal: 6, paddingVertical: 4, zIndex: 20,
   },
   resultRow: {
@@ -488,21 +488,16 @@ const styles = StyleSheet.create({
   resultName: { color: '#f0e6d2', fontSize: 13, flexShrink: 1 },
   resultMeta: { color: '#6a5a6a', fontSize: 11 },
   resultEmpty: { color: '#6a5a6a', fontSize: 12, padding: 10, textAlign: 'center' },
-  mapArea: { flex: 1 },
-  svg: { backgroundColor: '#0d0b0e' },
-  centerBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
-  loadingText: { color: '#a89aa8', fontSize: 13 },
-  errText: { color: '#ff9aa8', fontSize: 13, textAlign: 'center', paddingHorizontal: 30 },
-  retryText: { color: '#9ab8d8', fontSize: 13, marginTop: 8 },
-  zoomControls: {
-    position: 'absolute', right: 12, bottom: 24, gap: 8,
+  regionHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 8, paddingVertical: 6,
+    borderBottomWidth: 1, borderBottomColor: '#3a2f46',
   },
-  zoomBtn: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: '#14101aee',
-    borderWidth: 1, borderColor: '#8a6d2f', alignItems: 'center',
-    justifyContent: 'center',
-  },
-  zoomText: { color: '#ffd700', fontSize: 17, fontWeight: '700' },
+  regionTitle: { color: '#ffd700', fontSize: 13, fontWeight: '700' },
+  regionClose: { padding: 4 },
+  regionHint: { color: '#6a5a6a', fontSize: 10, paddingHorizontal: 10,
+    paddingVertical: 4 },
+  flyRowHint: { color: '#9ab8d8', fontSize: 11 },
   selectBar: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: '#14101a', borderTopWidth: 1, borderTopColor: '#8a6d2f',

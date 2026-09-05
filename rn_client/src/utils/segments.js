@@ -34,8 +34,38 @@ export const COLOR_HEX = {
   'color-bright-yellow-bold': '#FFFF00',
 };
 
-export function colorHexForClass(className) {
-  return COLOR_HEX[String(className || '')] || '#F0E6D2';
+/* 白天（浅色底）色板：深色底下的亮黄/浅粉在浅底上不可读，
+ * 按视觉等价整体压暗为可读的深色系。 */
+export const COLOR_HEX_DAY = {
+  'color-black': '#000000',
+  'color-red-bold': '#C62828',
+  'color-green-bold': '#1B7A1B',
+  'color-blue-bold': '#0D47A1',
+  'color-cyan-bold': '#7A5C00',
+  'color-purple-bold': '#6A1B9A',
+  'color-orange-bold': '#C75800',
+  'color-gray': '#37474F',
+  'color-dark-gray': '#616161',
+  'color-light-gray': '#14405C',
+  'color-red': '#1B5E20',
+  'color-green': '#1565C0',
+  'color-cyan': '#C62828',
+  'color-purple': '#7B1FA2',
+  'color-yellow': '#8A6D00',
+  'color-white': '#333333',
+  'color-gold': '#8A6D00',
+  'color-bold': '#2A2015',
+  'color-bright-green-bold': '#1B7A1B',
+  'color-bright-blue-bold': '#0D47A1',
+  'color-hot-pink-bold': '#C2185B',
+  'color-bright-gold-bold': '#8A6D00',
+  'color-bright-white-bold': '#1A1208',
+  'color-bright-yellow-bold': '#8A6D00',
+};
+
+export function colorHexForClass(className, palette) {
+  const map = palette || COLOR_HEX;
+  return map[String(className || '')] || '#F0E6D2';
 }
 
 export function isBoldClass(className) {
@@ -128,8 +158,12 @@ export function parseHtmlishSpans(text, baseColor) {
   return spans;
 }
 
-/** 把 text segment 的 parts 压平为 [{text,color,bold}] 渲染单元。 */
-export function flattenTextParts(parts) {
+/** 把 text segment 的 parts 压平为 [{text,color,bold}] 渲染单元。
+ * opts.palette：按主题传入色板（白天传 COLOR_HEX_DAY）；
+ * opts.defaultColor：无颜色类时的正文颜色。 */
+export function flattenTextParts(parts, opts) {
+  const palette = opts && opts.palette;
+  const defaultColor = (opts && opts.defaultColor) || '#F0E6D2';
   const units = [];
   let currentColor = '';
   let currentBold = false;
@@ -146,12 +180,13 @@ export function flattenTextParts(parts) {
       continue;
     }
     if (part.type === 'text') {
-      const base = currentColor ? colorHexForClass(currentColor) : null;
+      const base = currentColor
+        ? colorHexForClass(currentColor, palette) : null;
       for (const span of
           parseHtmlishSpans(part.content, base)) {
         units.push({
           text: span.text,
-          color: span.color || '#F0E6D2',
+          color: span.color || defaultColor,
           bold: currentBold,
         });
       }
@@ -246,20 +281,29 @@ export function filterGarbageLines(lines) {
 }
 
 /** 按钮样式归一化：服务端 class -> {bg,border,color}。 */
-export function buttonStyleFor(segment) {
+export function buttonStyleFor(segment, mode) {
   const cls = String((segment && segment.class) || '');
+  const day = mode === 'day';
   if (cls.indexOf('outline') !== -1) {
-    return { bg: 'transparent', border: '#8a6d2f', color: '#d4af37' };
+    return day
+      ? { bg: 'transparent', border: '#8A6D00', color: '#7A5C00' }
+      : { bg: 'transparent', border: '#8a6d2f', color: '#d4af37' };
   }
   /* danger 必须先于 success 判断：'btn-danger' 内含字母g，
    * 不能用单字母启发式，否则红色按钮会被误染成绿色。 */
   if (cls.indexOf('danger') !== -1) {
-    return { bg: '#5a1a2a', border: '#ff4d6d', color: '#ffe3e8' };
+    return day
+      ? { bg: '#FDE8EC', border: '#C62828', color: '#A01525' }
+      : { bg: '#5a1a2a', border: '#ff4d6d', color: '#ffe3e8' };
   }
   if (cls.indexOf('success') !== -1 || cls.indexOf('warning') !== -1) {
-    return { bg: '#2d5243', border: '#2d5243', color: '#e8f2ec' };
+    return day
+      ? { bg: '#E4F0E6', border: '#2E7D32', color: '#1B5E20' }
+      : { bg: '#2d5243', border: '#2d5243', color: '#e8f2ec' };
   }
-  return { bg: '#3a2f46', border: '#6a5a7a', color: '#f0e6d2' };
+  return day
+    ? { bg: '#EAE2F0', border: '#7A6A8A', color: '#2A2015' }
+    : { bg: '#3a2f46', border: '#6a5a7a', color: '#f0e6d2' };
 }
 
 /**

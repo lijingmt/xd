@@ -370,8 +370,9 @@ export const useGameStore = create((set, get) => ({
   },
 
   /** 一键登录全部角色：为账号下每个未开会话的角色建立会话（顺序，
-   * 容忍单个失败），服务端会在每个登录时自动续跑存档里的挂机状态。 */
-  async loginAllCharacters() {
+   * 容忍单个失败）。mode='afk' 登录后统一开启挂机；'noafk' 统一关闭。
+   * 每号先发 look 触发服务端登录续挂，再按选择显式开/停。 */
+  async loginAllCharacters(mode) {
     const { accountCharacters, sessions, parallelLimit } = get();
     const cap = parallelLimit > 0 ? parallelLimit : PARALLEL_CHARACTER_LIMIT;
     const pending = (accountCharacters || [])
@@ -389,7 +390,19 @@ export const useGameStore = create((set, get) => ({
     for (const id of targets) {
       try {
         const txd = await get().ensureCharacterSession(id);
-        if (txd) ok += 1;
+        if (!txd) continue;
+        try {
+          await api.sendCommand(txd, 'look');
+          if (mode === 'afk') {
+            await api.sendCommand(txd, 'autofight start');
+          } else if (mode === 'noafk') {
+            await api.sendCommand(txd, 'autofight stop');
+          }
+        } catch (cmdErr) {
+          lastError = cmdErr && cmdErr.message
+            ? cmdErr.message : String(cmdErr);
+        }
+        ok += 1;
       } catch (e) {
         lastError = e && e.message ? e.message : String(e);
       }

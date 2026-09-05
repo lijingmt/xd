@@ -15,11 +15,14 @@ export const LineItem = memo(function LineItem({ line, ctx }) {
     </View>
   );
 }, (prev, next) => {
-  /* 精确比较：key变了才重绘，ctx的busy/imageBase/fontScale变了也重绘。 */
+  /* 精确比较：key变了才重绘，ctx的busy/imageBase/fontScale/textColor变了也重绘。 */
   if (prev.ctx.busy !== next.ctx.busy) return false;
   if (prev.ctx.imageBase !== next.ctx.imageBase) return false;
   if (prev.ctx.inputValues !== next.ctx.inputValues) return false;
   if (prev.ctx.fontScale !== next.ctx.fontScale) return false;
+  if (prev.ctx.textColor !== next.ctx.textColor) return false;
+  if (prev.ctx.colorPalette !== next.ctx.colorPalette) return false;
+  if (prev.ctx.themeMode !== next.ctx.themeMode) return false;
   return true; /* line的key由FlatList keyExtractor保证一致性 */
 });
 
@@ -29,16 +32,20 @@ function renderSegments(line, ctx) {
   return segments.map((segment, index) => {
     if (!segment || !segment.type) return null;
     if (segment.type === 'text') {
-      const units = flattenTextParts(segment.parts);
+      const units = flattenTextParts(segment.parts, {
+        palette: ctx.colorPalette,
+        defaultColor: ctx.textColor,
+      });
       return (
         <Text key={index} style={[styles.text, {
           fontSize: Math.round(15 * fontScale),
           lineHeight: Math.round(22 * fontScale),
-        }]}>
+        }, ctx.textColor ? { color: ctx.textColor } : null]}>
           {units.map((unit, unitIndex) => (
             <Text
               key={unitIndex}
-              style={{ color: unit.color, fontWeight: unit.bold ? '700' : '400' }}>
+              style={{ color: unit.color || ctx.textColor,
+                fontWeight: unit.bold ? '700' : '400' }}>
               {unit.text}
             </Text>
           ))}
@@ -46,7 +53,7 @@ function renderSegments(line, ctx) {
       );
     }
     if (segment.type === 'button') {
-      const style = buttonStyleFor(segment);
+      const style = buttonStyleFor(segment, ctx.themeMode);
       return (
         <TouchableOpacity
           key={index}
