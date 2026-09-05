@@ -464,12 +464,13 @@ restart_worker_cluster()
 		log "cluster safe-stop incomplete; forcing full worker shutdown before restart"
 		force_stop_cluster_stragglers
 	fi
+	# 无论start_cluster脚本层是否报成功，新一轮Worker编译都已经启动
+	# 或即将启动；宽限必须无条件重置，否则编译中途又会被判不健康，
+	# 重启在退避窗口内被无谓消耗。
+	SUPERVISOR_GRACE_DEADLINE=$(( SECONDS +
+		MAP_WORKER_STARTUP_STABILIZATION_SECONDS ))
 	if start_cluster; then
 		write_runtime_mode "$traffic_mode"
-		# 重启后的Worker要重新冷编译（约600秒），宽限必须重新武装，
-		# 否则新一轮冷启动又被判不健康，重启梯被无谓烧光。
-		SUPERVISOR_GRACE_DEADLINE=$(( SECONDS +
-			MAP_WORKER_STARTUP_STABILIZATION_SECONDS ))
 		log "multi-worker topology restarted; supervisor keeps watching"
 	else
 		log "cluster restart failed; supervisor will retry after backoff"
