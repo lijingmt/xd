@@ -1686,7 +1686,8 @@ private int pike_gateway_command_is_read_only(string path)
 		has_prefix(path,"/api/battle_status") ||
 		has_prefix(path,"/api/equipment_panel") ||
 		has_prefix(path,"/api/challenge") ||
-		has_prefix(path,"/api/partitions");
+		has_prefix(path,"/api/partitions") ||
+		has_prefix(path,"/api/world_map");
 }
 
 private void pike_gateway_begin_request(void|int read_only)

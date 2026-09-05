@@ -984,6 +984,9 @@ void handle_request(Protocols.HTTP.Server.Request req)
             case "/api/partitions":
                 handle_api_partitions(req);
                 break;
+            case "/api/world_map":
+                handle_api_world_map(req);
+                break;
             case "/api/challenge":
                 handle_api_challenge(req);
                 break;
@@ -2681,6 +2684,33 @@ void handle_api_partitions(Protocols.HTTP.Server.Request req)
         "game_area": getenv("GAME_AREA") || "01",
         "logical_zones": LOGICALZONED->query_public_status()
     ]));
+}
+
+/* 世界地图只读快照：原生客户端无法访问网页静态目录，由网关直接
+ * 下发与 Vue 同源的世界拓扑（构建产物 data/world-map.json）。
+ * 按修改时间缓存，读失败返回503让客户端走重试。 */
+private string world_map_cache = "";
+private int world_map_cache_mtime = 0;
+void handle_api_world_map(Protocols.HTTP.Server.Request req)
+{
+    string path = ROOT+"/web/web_vue/data/world-map.json";
+    int mtime = 0;
+    mixed fs = file_stat(path);
+    if(objectp(fs))
+        mtime = (int)fs->mtime;
+    if(world_map_cache == "" || mtime != world_map_cache_mtime){
+        string raw = Stdio.read_file(path) || "";
+        if(raw == "" || sizeof(raw) < 1000){
+            send_json(req, (["error":"world map unavailable"]),503);
+            return;
+        }
+        world_map_cache = raw;
+        world_map_cache_mtime = mtime;
+    }
+    mapping response = (["type":"application/json; charset=utf-8",
+        "data":world_map_cache,
+        "extra_heads":(["Cache-Control":"public, max-age=300"])]);
+    finish_http_response(req,response);
 }
 
 void handle_api_challenge(Protocols.HTTP.Server.Request req)
