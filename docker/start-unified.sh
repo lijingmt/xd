@@ -21,7 +21,6 @@ SUPERVISOR_CLUSTER_RESTARTS=0
 SUPERVISOR_LAST_RESTART_SECONDS=0
 STARTUP_EMERGENCY_LEGACY=0
 EMERGENCY_LAST_ATTEMPT=0
-SUPERVISOR_MAX_CLUSTER_RESTARTS=5
 # 无预编译冷启时10个Worker的HTTP就绪在600秒上下浮动（与下方1200秒
 # 健康窗口同量级）。宽限若小于冷编译时间，监督者会在冷启动中途判
 # 定不健康并重启集群，又被下一轮冷启动拖垮，形成"每两分钟重启一次"
@@ -431,13 +430,39 @@ initialize_runtime()
 	fi
 }
 
+# 安全停机失败（通常是卡死的协调器拒绝quiesce栅栏）时，重启决策仍然
+# 必须成立：要重启就全部worker一起重启，绝不带着旧世代进程拉新拓扑
+# （残留worker持有脏epoch/在线行，新协调器永远无法收敛到健康）。
+force_stop_cluster_stragglers()
+{
+	local pids
+	pids="$(pgrep -f "lowlib/driver.pike" || true)"
+	if [[ -z "$pids" ]]; then
+		return 0
+	fi
+	log "force-stopping ${pids//$'\n'/ } after incomplete safe stop"
+	kill -TERM $pids 2>/dev/null || true
+	local deadline=$((SECONDS + 20))
+	while (( SECONDS < deadline )); do
+		pgrep -f "lowlib/driver.pike" >/dev/null 2>&1 || return 0
+		sleep 1
+	done
+	pkill -KILL -f "lowlib/driver.pike" 2>/dev/null || true
+	sleep 2
+	if pgrep -f "lowlib/driver.pike" >/dev/null 2>&1; then
+		fail "worker processes survived SIGKILL during forced stop"
+	fi
+	return 0
+}
+
 restart_worker_cluster()
 {
 	local traffic_mode="$1"
 	SUPERVISOR_CLUSTER_RESTARTS=$((SUPERVISOR_CLUSTER_RESTARTS + 1))
 	log "worker cluster unhealthy; restarting multi-worker topology (attempt $SUPERVISOR_CLUSTER_RESTARTS) instead of falling back to legacy"
 	if ! stop_cluster_safely "$traffic_mode"; then
-		log "cluster safe-stop incomplete; attempting topology start anyway"
+		log "cluster safe-stop incomplete; forcing full worker shutdown before restart"
+		force_stop_cluster_stragglers
 	fi
 	if start_cluster; then
 		write_runtime_mode "$traffic_mode"
@@ -474,22 +499,6 @@ attempt_emergency_cluster_recovery()
 	start_legacy_main || fail "legacy main could not restart during topology recovery"
 }
 
-# 集群重启梯耗尽后的兜底：停集群、起应急单进程，交回监督者的应急
-# 恢复梯（attempt_emergency_cluster_recovery）定期重试拉回多worker。
-# 玩家先有可玩的服务器，比无限503重启循环好得多。
-degrade_to_emergency_legacy()
-{
-	local traffic_mode="$1"
-	stop_cluster_safely "$traffic_mode" || true
-	start_legacy_main || fail "legacy main could not start during supervisor degrade"
-	STARTUP_EMERGENCY_LEGACY=1
-	EMERGENCY_LAST_ATTEMPT=$SECONDS
-	write_runtime_mode legacy-fallback
-	SUPERVISOR_CLUSTER_RESTARTS=0
-	SUPERVISOR_HEALTH_FAILURES=0
-	log "emergency legacy main serving; periodic cluster recovery will continue"
-}
-
 supervise_worker_cluster_once()
 {
 	local traffic_mode="$1"
@@ -507,23 +516,11 @@ supervise_worker_cluster_once()
 	SUPERVISOR_HEALTH_FAILURES=$((SUPERVISOR_HEALTH_FAILURES + 1))
 	log "worker health probe failed ($SUPERVISOR_HEALTH_FAILURES/3)"
 	if (( SUPERVISOR_HEALTH_FAILURES >= 3 )); then
-		# 多worker是正式拓扑：崩溃后优先重启集群，不秒降级单进程
-		# （降级后持久化的房间亲和仍指向死worker，每个动作吃满
-		# 控制超时，玩家体感每步卡约10秒）。但重启必须收敛：
-		# 指数退避（60s起、封顶900s）防崩溃循环；连续多轮仍不健
-		# 康时降级应急单进程，保证玩家始终有可玩的服务器，再由
-		# 应急恢复梯定期尝试拉回集群。
-		if (( SUPERVISOR_CLUSTER_RESTARTS >=
-		      SUPERVISOR_MAX_CLUSTER_RESTARTS )); then
-			if [[ "$traffic_mode" == "active" ]]; then
-				log "cluster restarts exhausted ($SUPERVISOR_CLUSTER_RESTARTS); degrading to emergency legacy main"
-				degrade_to_emergency_legacy "$traffic_mode"
-			else
-				log "shadow cluster restarts exhausted ($SUPERVISOR_CLUSTER_RESTARTS); legacy main remains authoritative"
-				SUPERVISOR_CLUSTER_RESTARTS=0
-			fi
-			return 0
-		fi
+		# 多worker是唯一正式拓扑：永不降级单进程（降级后持久化的
+		# 房间亲和仍指向死worker，每个动作吃满控制超时，玩家体感
+		# 每步卡约10秒）。收敛靠三件事：900秒冷启动宽限、每次重
+		# 启后重新武装宽限、指数退避（60s起、封顶900s）。退避计
+		# 数在集群恢复健康时清零，永不健康则每15分钟重试一轮。
 		local backoff=$(( 60 << SUPERVISOR_CLUSTER_RESTARTS ))
 		(( backoff > 900 )) && backoff=900
 		if (( SUPERVISOR_LAST_RESTART_SECONDS > 0 &&
