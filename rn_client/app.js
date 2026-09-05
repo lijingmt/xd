@@ -7,6 +7,8 @@ import LoginScreen from './src/components/LoginScreen.js';
 import CharacterScreen from './src/components/CharacterScreen.js';
 import GameScreen from './src/components/GameScreen.js';
 import ErrorBoundary from './src/components/ErrorBoundary.js';
+import { ThemeProvider } from './src/utils/ThemeContext.js';
+import ToastHost, { toast } from './src/components/Toast.js';
 
 export default function App() {
   const txd = useGameStore(state => state.txd);
@@ -24,6 +26,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
+      <ThemeProvider>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#0d0b0e' }} edges={['top', 'bottom', 'left', 'right']}>
         <StatusBar style="light" />
         {!ready ? (
@@ -45,6 +48,8 @@ export default function App() {
         ) : (txd ? <GameScreen />
           : (accountToken ? <CharacterScreen /> : <LoginScreen />))}
       </SafeAreaView>
+    </ThemeProvider>
+    <ToastHost />
     </SafeAreaProvider>
   );
 }
