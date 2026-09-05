@@ -1347,13 +1347,20 @@ int start(string arg){
 			{
 				me->last_pos = (me->last_pos/"#")[0];
 				string fb_name = "";
-				fb_name = (me->fb_id/"/")[1];
-				me->last_pos="/gamelib/d/"+FBD->query_fb_leave_room(fb_name);
-
-				object last = (object)(ROOT+me->last_pos);
-				if(!last || last->query_room_type() == "fb"){
+				/* fb_id可能未定义：S1/活动等动态房残留写入last_pos时
+				 * 带"#"但不是FBD副本，直接除法会炸掉整个start登录
+				 * 命令。没有合法副本ID就用已截断的静态前缀落点。 */
+				if(stringp(me->fb_id) && sizeof(me->fb_id/"/")>1)
 					fb_name = (me->fb_id/"/")[1];
-					me->last_pos="/gamelib/d/"+FBD->query_fb_leave_room(fb_name);
+				if(fb_name!=""){
+					me->last_pos="/gamelib/d/"+
+						FBD->query_fb_leave_room(fb_name);
+
+					object last = (object)(ROOT+me->last_pos);
+					if(!last || last->query_room_type() == "fb"){
+						me->last_pos="/gamelib/d/"+
+							FBD->query_fb_leave_room(fb_name);
+					}
 				}
 				if(me->last_pos){
 					mixed err=catch{

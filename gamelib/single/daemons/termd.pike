@@ -218,6 +218,14 @@ mapping query_distributed_team_snapshot(string tid)
 	mapping members = mappingp(termMain[tid]) ?
 		copy_value(termMain[tid]) : ([]);
 	array chat = arrayp(termChat[tid]) ? copy_value(termChat[tid]) : ({});
+	// 成员行防御：历史路径可能把非数组值写进termMain[tid][uid]，
+	// 快照生成时强转会炸掉整个term_free/发布链（fight_die中途崩溃
+	// →解散半途而废→关联怪物血量不重置）。非法行直接剔除，快照
+	// 继续用合法成员生成。
+	foreach(indices(members),string bad_uid){
+		if(!arrayp(members[bad_uid]))
+			m_delete(members,bad_uid);
+	}
 	// 队长唯一性自愈：0个或多个队长的快照会被所有Worker以
 	// invalid_team_leader拒绝并按7天TTL无限重试（曾造成318条
 	// 拒绝风暴）。发布/读取前强制把首位成员设为唯一队长。
