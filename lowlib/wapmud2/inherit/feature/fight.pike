@@ -872,6 +872,35 @@ private string query_heart_contribution_tag(object who)
 	return tag+")§r";
 }
 
+/* 难度系数透明化：玩家与NPC互殴时，把个人难度的输出/承伤系数标注在
+ * 伤害播报里，玩家能直接对上"为什么是这个伤害数"。100%不标注。 */
+private string query_difficulty_scale_tag(object attacker,object target)
+{
+	object player;
+	int percent;
+	int incoming;
+	if(!attacker || !target || !functionp(attacker->is) ||
+	   !functionp(target->is))
+		return "";
+	if(attacker->is("player") && target->is("npc")){
+		player=attacker;
+		incoming=0;
+	}
+	else if(attacker->is("npc") && target->is("player")){
+		player=target;
+		incoming=1;
+	}
+	else
+		return "";
+	percent=(int)(incoming ?
+		PERSONAL_DIFFICULTYD->query_incoming_percent(player) :
+		PERSONAL_DIFFICULTYD->query_outgoing_percent(player));
+	if(percent==100)
+		return "";
+	return "§6【难度·"+PERSONAL_DIFFICULTYD->query_current_name(player)+
+		(incoming ? " 承伤"+percent+"%" : " 输出"+percent+"%")+"】§r";
+}
+
 // 群攻在调用死亡回调前锁定本次合法施法者，避免多目标原有仇恨顺序
 // 把任务、掉落、荣誉或自动复苏的击杀者记到其他参战者名下。
 int set_aoe_defeat_credit(object attacker){
@@ -2357,10 +2386,12 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 			target->set_life(target_life-damage);
 		target->flush_targets(caster,damage>0 ? damage : 1);
 		caster->flush_targets(target,damage>0 ? damage : 1);
+		string aoe_difficulty_desc=
+			query_difficulty_scale_tag(caster,target);
 		tell_object(target,caster->query_name_cn()+"施放"+
 			skill->query_name_cn()+"，对你造成"+
 			format_game_number(actual_damage)+
-			"点伤害"+absorb_desc+"。\n");
+			"点伤害"+aoe_difficulty_desc+absorb_desc+"。\n");
 		if(defeated){
 			caster->clean_targets(target);
 			if(target->query_raceId()==caster->query_raceId() &&
@@ -3027,12 +3058,20 @@ void perform(string name,void|int flag){
 								format_game_number(mofachuantou_add)+
 								" 点法术穿透】";
 						}
+						// 个人难度缩放与护盾吸收必须在播报前结算：玩家
+						// 看到的数字要等于怪物实际扣血，否则会出现"显示
+						// 50万但26万血的怪还剩6万"的疑问。
+						attack_fact = enemy->absorb_team_guard_damage(
+							attack_fact);
 						string damage_desc =
-							format_game_number(fact_mofa_a);
+							format_game_number(attack_fact);
+						string difficulty_desc =
+							query_difficulty_scale_tag(
+								this_object(),enemy);
 						s += "造成了 "+damage_desc+" 点伤害！"+
-							absorb_desc+chuantou_desc+query_heart_contribution_tag(this_object())+"\n";
+							difficulty_desc+absorb_desc+chuantou_desc+query_heart_contribution_tag(this_object())+"\n";
 						s1 += "造成了 "+damage_desc+" 点伤害！"+
-							absorb_desc+chuantou_desc+"\n";
+							difficulty_desc+absorb_desc+chuantou_desc+"\n";
 						tell_object(this_object(),s);
 						tell_object(enemy,s1);
 						if(this_object()->query_profeId()=="tianxiang" &&
@@ -3048,9 +3087,8 @@ void perform(string name,void|int flag){
 						enemy->flush_targets(this_object(),hate);
 
 						//熟练度提高,需要对方等级和自己相当，才会提升技能熟练度
-						skills_level_check(f_cur_skill->query_name());	
-						//生命减取 
-						attack_fact = enemy->absorb_team_guard_damage(attack_fact);
+						skills_level_check(f_cur_skill->query_name());
+						//生命减取（山河壁已在播报前结算）
 						int life_damage = enemy->get_cur_life()-attack_fact;
 						apply_shen_taigu_lifesteal(f_cur_skill,
 							attack_fact,enemy);
@@ -3691,17 +3729,24 @@ void boss_perform(string name){
 										enemys[i]->clean_buff("buff2");
 									}
 								}
+								// 难度缩放与护盾吸收先结算再播报，
+								// 显示值必须等于实际扣血。
+								attack_fact = enemys[i]->
+									absorb_team_guard_damage(attack_fact);
+								string multi_difficulty_desc =
+									query_difficulty_scale_tag(
+										this_object(),enemys[i]);
 								s1 += "对你造成了 "+
-									format_game_number(fact_mofa_a)+
-									" 点伤害！"+absorb_desc+"\n";
+									format_game_number(attack_fact)+
+									" 点伤害！"+multi_difficulty_desc+
+									absorb_desc+"\n";
 								tell_object(enemys[i],s1);
 
 								//产生仇恨值
 								int hate=(int)(fact_mofa_a*skills_hate["test"]/100);
 								enemys[i]->flush_targets(this_object(),hate);
 
-								//生命减取 
-								attack_fact = enemys[i]->absorb_team_guard_damage(attack_fact);
+								//生命减取（山河壁已在播报前结算）
 								int life_damage = enemys[i]->get_cur_life()-attack_fact;
 								apply_shen_taigu_lifesteal(f_cur_skill,
 									attack_fact,enemys[i]);
@@ -3804,16 +3849,20 @@ void boss_perform(string name){
 						enemy->clean_buff("buff2");
 					}
 				}
-				s1 += "造成了 "+format_game_number(fact_mofa_a)+
-					" 点伤害！"+absorb_desc+"\n";
+				// 难度缩放与护盾吸收先结算再播报，
+				// 显示值必须等于实际扣血。
+				attack_fact = enemy->absorb_team_guard_damage(attack_fact);
+				string single_difficulty_desc =
+					query_difficulty_scale_tag(this_object(),enemy);
+				s1 += "造成了 "+format_game_number(attack_fact)+
+					" 点伤害！"+single_difficulty_desc+absorb_desc+"\n";
 				tell_object(enemy,s1);
 
 				//产生仇恨值
 				int hate=(int)(fact_mofa_a*skills_hate["test"]/100);
 				enemy->flush_targets(this_object(),hate);
 
-				//生命减取 
-				attack_fact = enemy->absorb_team_guard_damage(attack_fact);
+				//生命减取（山河壁已在播报前结算）
 				int life_damage = enemy->get_cur_life()-attack_fact;
 				apply_shen_taigu_lifesteal(f_cur_skill,
 					attack_fact,enemy);
@@ -4338,6 +4387,8 @@ private void attack(int skill_add,int skill_add_per,string type,
 			// attack_a、后扣护盾，容易让玩家看到“有伤害”但气血不变。
 			attack_fact = enemy->absorb_team_guard_damage(attack_fact);
 			string attack_fact_desc = format_game_number(attack_fact);
+			string difficulty_desc =
+				query_difficulty_scale_tag(this_object(),enemy);
 			//在这里产生威胁值
 			int hate=(int)(attack_fact*skills_hate["test"]/100);
 			if(name_skill && MUD_SKILLSD[name_skill] &&
@@ -4349,25 +4400,25 @@ private void attack(int skill_add,int skill_add_per,string type,
 			////////////////////////战斗描述///////////////////////////////////////////////
 			if(baoji_a==1) {
 				if(skill_name_cn==""){
-					tell_object(this_object(),"你紧握"+fight_action_desc+"，产生暴击效果，对"+enemy->query_name_cn()+"造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+query_heart_contribution_tag(this_object())+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"，对你的攻击产生暴击效果，造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"，产生暴击效果，对"+enemy->query_name_cn()+"造成了"+attack_fact_desc+"点实际伤害"+difficulty_desc+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+query_heart_contribution_tag(this_object())+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"，对你的攻击产生暴击效果，造成了"+attack_fact_desc+"点实际伤害"+difficulty_desc+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
 				}
 				else {
-					tell_object(this_object(),"你紧握"+fight_action_desc+"施展"+skill_name_cn+"，产生暴击效果，对"+enemy->query_name_cn()+"造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"施展"+skill_name_cn+"，对你的攻击产生暴击效果，造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"施展"+skill_name_cn+"，产生暴击效果，对"+enemy->query_name_cn()+"造成了"+attack_fact_desc+"点实际伤害"+difficulty_desc+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"施展"+skill_name_cn+"，对你的攻击产生暴击效果，造成了"+attack_fact_desc+"点实际伤害"+difficulty_desc+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
 					//熟练度提高,需要对方等级和自己相当，才会提升技能熟练度
 					skills_level_check(name_skill);
 				}
 			}
 			else {
 				if(skill_name_cn==""){
-					tell_object(this_object(),"你紧握"+fight_action_desc+"，对"+enemy->query_name_cn()+"造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+query_heart_contribution_tag(this_object())+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"，对你造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"，对"+enemy->query_name_cn()+"造成了"+attack_fact_desc+"点实际伤害"+difficulty_desc+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+query_heart_contribution_tag(this_object())+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+fight_action_desc+"，对你造成了"+attack_fact_desc+"点实际伤害"+difficulty_desc+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
 					//tell_object(enemy,this_object()->query_name_cn()+"紧握"+fight_action_desc+"，对你造成了"+attack_a+"点伤害"+absorb_desc+"\n");
 				}
 				else {
-					tell_object(this_object(),"你紧握"+fight_action_desc+"施展"+skill_name_cn+"，对"+enemy->query_name_cn()+"造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+query_heart_contribution_tag(this_object())+"\n");
-					tell_object(enemy,this_object()->query_name_cn()+"施展"+skill_name_cn+"，对你造成了"+attack_fact_desc+"点实际伤害"+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
+					tell_object(this_object(),"你紧握"+fight_action_desc+"施展"+skill_name_cn+"，对"+enemy->query_name_cn()+"造成了"+attack_fact_desc+"点实际伤害"+difficulty_desc+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+query_heart_contribution_tag(this_object())+"\n");
+					tell_object(enemy,this_object()->query_name_cn()+"施展"+skill_name_cn+"，对你造成了"+attack_fact_desc+"点实际伤害"+difficulty_desc+absorb_desc+""+reflect_desc+chuantou_desc+dodgechuantou_desc+"\n");
 					//熟练度提高,需要对方等级和自己相当，才会提升技能熟练度
 					if(name_skill != "xueranjiangshan")
 						skills_level_check(name_skill);
