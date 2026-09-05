@@ -841,23 +841,35 @@ object query_enemy(){
 private string query_heart_contribution_tag(object who)
 {
 	string profe;
-	int bonus;
+	int hs;
+	int hd;
+	int ht;
 	if(!who || !functionp(who->query_profeId))
 		return "";
 	profe=(string)who->query_profeId();
-	if(profe=="taiji")
-		bonus=(int)who->query_taiji_heart_bonus("str")+
-			(int)who->query_taiji_heart_bonus("dex")+
-			(int)who->query_taiji_heart_bonus("think");
-	else if(profe=="wuxiang")
-		bonus=(int)who->query_wuxiang_heart_bonus("str")+
-			(int)who->query_wuxiang_heart_bonus("dex")+
-			(int)who->query_wuxiang_heart_bonus("think");
+	if(profe=="taiji"){
+		hs=(int)who->query_taiji_heart_bonus("str");
+		hd=(int)who->query_taiji_heart_bonus("dex");
+		ht=(int)who->query_taiji_heart_bonus("think");
+	}
+	else if(profe=="wuxiang"){
+		hs=(int)who->query_wuxiang_heart_bonus("str");
+		hd=(int)who->query_wuxiang_heart_bonus("dex");
+		ht=(int)who->query_wuxiang_heart_bonus("think");
+	}
 	else
 		return "";
-	if(bonus<1000)
+	if(hs+hd+ht<1000)
 		return "";
-	return "§6(含心法+"+(bonus/1000)+"k)§r";
+	/* 分项标注：力/敏/智各自的加成，让玩家看到补了哪条短板 */
+	string tag="§6(心法";
+	if(hs>=1000)
+		tag+=" 力+"+(hs/1000)+"k";
+	if(hd>=1000)
+		tag+=" 敏+"+(hd/1000)+"k";
+	if(ht>=1000)
+		tag+=" 智+"+(ht/1000)+"k";
+	return tag+")§r";
 }
 
 // 群攻在调用死亡回调前锁定本次合法施法者，避免多目标原有仇恨顺序
