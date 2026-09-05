@@ -2,7 +2,7 @@
   "expo": {
     "name": "仙道wapmud",
     "slug": "xiand-client",
-    "version": "0.2.7",
+    "version": "0.2.8",
     "orientation": "any",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0d0b0e",
@@ -11,7 +11,7 @@
     "ios": {
       "bundleIdentifier": "com.wapmud.xiandao",
       "supportsTablet": true,
-      "buildNumber": "19",
+      "buildNumber": "20",
       "config": {
         "usesNonExemptEncryption": false
       },
