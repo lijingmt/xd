@@ -819,6 +819,13 @@
                                 :title="'个人挑战难度：' + playerStats.personal_difficulty.current.name + '；点击查看或切换'">
                             {{ playerStats.personal_difficulty.current.name }}
                         </button>
+                        <button type="button"
+                                class="header-jade-chip"
+                                v-if="playerStats"
+                                @click="showSuiyuRecharge = true"
+                                title="账号碎玉余额；点击充值获取碎玉">
+                            💎 {{ formatGameNumber(playerStats.account_suiyu || 0) }}
+                        </button>
                         <span class="server-info">{{ areaName }}</span>
                         <button type="button"
                                 class="autofight-status-text"
@@ -2603,6 +2610,31 @@
             <div v-else style="color:#5a4a5a;text-align:center;padding:20px;font-size:12px">
                 暂无消费记录
             </div>
+        </div>
+    </div>
+
+    <!-- ===== 碎玉充值说明弹窗 ===== -->
+    <div v-if="showSuiyuRecharge" class="suiyu-log-modal" @click.self="showSuiyuRecharge = false">
+        <div class="suiyu-log-panel">
+            <div class="suiyu-log-header">
+                <span class="suiyu-log-title">💎 碎玉充值</span>
+                <button type="button" @click="showSuiyuRecharge = false"
+                        style="background:none;border:none;color:#6a5a6a;font-size:18px;cursor:pointer">✕</button>
+            </div>
+            <div v-if="playerStats" style="padding:6px 0 10px;color:#ffd700;font-size:15px;text-align:center">
+                当前账号碎玉余额：{{ formatGameNumber(playerStats.account_suiyu || 0) }}
+            </div>
+            <div style="color:#a89aa8;font-size:13px;line-height:1.9;padding:0 4px">
+                碎玉为账号共享货币，账号下所有职业共同消费。<br>
+                · <b style="color:#f0e6d2">iOS 用户</b>：请使用仙道 App，进入游戏后点
+                <b style="color:#f0e6d2">☰ 菜单 → 碎玉充值</b>，通过 App Store 内购充值；<br>
+                · <b style="color:#f0e6d2">安卓/网页用户</b>：请通过官方 APK 客户端或联系客服充值；<br>
+                · 充值遇到问题可在游戏内发送 <b style="color:#f0e6d2">客服</b> 或联系官方渠道。
+            </div>
+            <button type="button" @click="showSuiyuRecharge = false"
+                    style="margin-top:14px;width:100%;min-height:38px;border-radius:999px;border:1px solid #d4af37;background:#2d2410;color:#ffd700;font-size:14px;font-weight:700;cursor:pointer">
+                知道了
+            </button>
         </div>
     </div>
 </template>

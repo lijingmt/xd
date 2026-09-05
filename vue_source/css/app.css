@@ -2772,12 +2772,16 @@ body {
     color: white;
 }
 
+/* 三条资源条压缩为单行三等分：标签+伸缩条+数值，不再整行堆叠。 */
 .player-stats {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 6px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px 10px;
     align-items: center;
-    overflow-x: auto;
+}
+
+.active-buffs {
+    grid-column: 1 / -1;
 }
 
 .stat-item {
@@ -2804,6 +2808,7 @@ body {
     display: flex;
     align-items: center;
     gap: 4px;
+    min-width: 0;
 }
 
 .stat-label {
@@ -2812,8 +2817,13 @@ body {
     white-space: nowrap;
 }
 
+.stat-value {
+    white-space: nowrap;
+}
+
 .bar-container {
-    width: 40px;
+    flex: 1 1 0;
+    min-width: 12px;
     height: 8px;
     background: rgba(0,0,0,0.3);
     border-radius: 4px;
@@ -5812,7 +5822,7 @@ body {
     }
 
     .bar-container {
-        width: 30px;
+        width: auto;
         height: 5px;
     }
 
@@ -5897,7 +5907,7 @@ body {
     }
 
     .bar-container {
-        width: 35px;
+        width: auto;
         height: 6px;
     }
 
@@ -6262,7 +6272,7 @@ body {
     }
 
     .bar-container {
-        width: 30px;
+        width: auto;
         height: 5px;
     }
 
@@ -12584,4 +12594,33 @@ body, .game-container, .modal, .panel, .btn {
         height: 18px;
         font-size: 14px;
     }
+}
+
+/* ===== 碎玉余额 chip：发光呼吸动画，点击充值 ===== */
+.header-jade-chip {
+    background: #231b10;
+    border: 1px solid #8a6d2f;
+    color: #ffd700;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 8px;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    animation: jade-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes jade-glow {
+    0%, 100% {
+        box-shadow: 0 0 3px rgba(212, 175, 55, 0.35);
+        border-color: #8a6d2f;
+    }
+    50% {
+        box-shadow: 0 0 12px rgba(255, 215, 0, 0.85);
+        border-color: #ffd700;
+    }
+}
+
+.header-jade-chip:active {
+    transform: scale(0.96);
 }

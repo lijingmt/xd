@@ -430,6 +430,7 @@ createApp({
             globalSkillEventHistory: {},  // 全服事件ID去重
             patchViewerOpen: false,  // 版本公告查看器
             showSuiyuLog: false,       // 碎玉消费记录
+            showSuiyuRecharge: false,  // 碎玉充值说明
             navigatorOnline: true,      // 网络状态
             suiyuLogData: [],
             savedAccounts: [],         // 快速登录账号列表
