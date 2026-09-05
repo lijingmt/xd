@@ -630,7 +630,7 @@ void test_legacy_html_authenticated_txd_runtime()
 
 void test_worker_failure_legacy_fallback_contract()
 {
-	test_start("worker故障全局熔断并持久回退旧主进程");
+	test_start("worker故障全量重启集群且运行期永不降级单进程");
 	string startup = Stdio.read_file(ROOT+"/docker/start-unified.sh");
 	string cluster = Stdio.read_file(ROOT+"/scripts/map_worker_cluster.sh");
 	int latch_position = -1;
@@ -650,9 +650,22 @@ void test_worker_failure_legacy_fallback_contract()
 	   search(startup,"FALLBACK_LATCH=")!=-1 &&
 	   search(startup,"persistent worker fallback latch found")!=-1 &&
 	   search(startup,"SUPERVISOR_HEALTH_FAILURES >= 3")!=-1 &&
+	   /* 2026-09-05事故后：冷启动宽限必须覆盖约600秒的Worker编译，
+	      且可用环境变量覆盖；60秒硬编码会让监督者在冷启动中途重启集群。 */
 	   search(startup,
-		   "MAP_WORKER_STARTUP_STABILIZATION_SECONDS=60")!=-1 &&
+		   "XIAND_MAP_WORKER_STARTUP_STABILIZATION_SECONDS:-900")!=-1 &&
 	   search(startup,"SECONDS < startup_grace_deadline")!=-1 &&
+	   /* 重启后宽限必须无条件重新武装，否则下一轮编译又被判死。 */
+	   search(startup,"SUPERVISOR_GRACE_DEADLINE=$(( SECONDS +")!=-1 &&
+	   search(startup,"MAP_WORKER_STARTUP_STABILIZATION_SECONDS ))")!=-1 &&
+	   /* 运行期永不降级：重启梯只做全量重启+指数退避，无单进程兜底。 */
+	   search(startup,"60 << SUPERVISOR_CLUSTER_RESTARTS")!=-1 &&
+	   search(startup,"backoff > 900")!=-1 &&
+	   search(startup,"degrade_to_emergency_legacy")==-1 &&
+	   /* 停机不完整时必须强制清零全部残留worker，绝无混合世代启动。 */
+	   search(startup,"force_stop_cluster_stragglers()")!=-1 &&
+	   search(startup,"forcing full worker shutdown before restart")!=-1 &&
+	   search(startup,"pkill -KILL -f \"lowlib/driver.pike\"")!=-1 &&
 	   search(startup,"XIAND_MAP_WORKER_FAILOVER_SHUTDOWN")!=-1 &&
 	   search(cluster,"gateway_failover_quiesce")!=-1 &&
 	   search(cluster,"failover shutdown confirmed absent workers")!=-1 &&
@@ -669,7 +682,7 @@ void test_worker_failure_legacy_fallback_contract()
 	   search(cluster,"runtime_process_running \"$worker_id\"")!=-1)
 		test_pass();
 	else
-		test_fail("active故障可能双写、自动反复切换或未在原端口恢复旧主进程");
+		test_fail("监督者可能在冷启动中途重启、带残留worker重启或运行期降级单进程");
 }
 
 void test_historical_fallback_recovery_contract()

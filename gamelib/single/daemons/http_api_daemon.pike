@@ -727,6 +727,29 @@ private mapping complete_map_worker_arrival(object player,string userid)
     return (["handled":1,"output":output]);
 }
 
+/**
+ * 登录续跑服务器挂机：存档里 autofight=enable 的玩家在掉线/重启后
+ * 重新进入时自动恢复挂机tick。带"tick未激活"门禁——在线玩家的每条
+ * 命令都会经过这里，已激活时必须是零副作用，否则会反复重置休息、
+ * 寻路等临时状态。跨地图到达路径的恢复见 complete_map_worker_arrival。
+ */
+private void resume_login_server_autofight(object player)
+{
+    int resumed;
+    mixed resume_err;
+    if(!functionp(player->query_autofight) ||
+       player->query_autofight()!="enable" ||
+       AUTOFIGHTD->query_server_autofight_tick_active(player))
+        return;
+    resume_err = catch {
+        resumed = AUTOFIGHTD->resume_worker_handoff(player);
+    };
+    if(resume_err || !resumed)
+        werror("[LOGIN_AFK_RESUME_FAILED] userid=%s error=%s\n",
+            functionp(player->query_name) ? (string)player->query_name() : "?",
+            resume_err ? describe_error(resume_err) : "false");
+}
+
 /** A newly loaded player must match the gateway's authoritative account lock. */
 private int map_worker_player_account_authorized(object player,string userid)
 {
@@ -779,6 +802,7 @@ string execute_command_sync(string userid, string password, string cmd)
             if(functionp(player->consume_worker_summon_handoff) &&
                !player->consume_worker_summon_handoff())
                 return "{\"error\":\"跨地图召唤状态恢复失败，请重试\"}";
+            resume_login_server_autofight(player);
             return execute_internal_command(player, cmd);
         }
 
@@ -824,6 +848,7 @@ string execute_command_sync(string userid, string password, string cmd)
         if(functionp(player->consume_worker_summon_handoff) &&
            !player->consume_worker_summon_handoff())
             return "{\"error\":\"跨地图召唤状态恢复失败，请重试\"}";
+        resume_login_server_autofight(player);
 
         return execute_internal_command(player, cmd);
     };
