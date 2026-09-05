@@ -78,6 +78,33 @@ int reload_config()
 		return 0;
 	}
 	timed_event_config = copy_value(decoded);
+	config_loaded_mtime = config_file_mtime();
+	return 1;
+}
+
+private int config_file_mtime()
+{
+	mixed fs = file_stat(TIMED_EVENT_CONFIG_FILE);
+	return objectp(fs) ? (int)fs->mtime : 0;
+}
+
+/* 活动时间热调整：调度tick检查配置mtime，变化即重载（校验失败
+ * 保留旧配置而不是回默认，避免误写坏文件打乱在线场次）。
+ * owner与普通worker都要执行：页面时间窗与集结判定用的是本进程
+ * 的配置副本。 */
+int maybe_reload_config()
+{
+	int mtime = config_file_mtime();
+	if(mtime<=0 || mtime==config_loaded_mtime)
+		return 0;
+	int previous_mtime = config_loaded_mtime;
+	if(!reload_config()){
+		/* 重载失败：回退成默认值是reload_config的行为，此处恢复
+		 * 旧mtime避免每tick重试刷屏；配置下次变化再试。 */
+		config_loaded_mtime = previous_mtime;
+		return 0;
+	}
+	werror("[TIMED_EVENTD] 配置已热重载。\n");
 	return 1;
 }
 

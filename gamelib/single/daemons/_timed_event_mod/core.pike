@@ -286,6 +286,10 @@ private void prune_old_sessions(int now)
 private void tick_sessions()
 {
 	int now = time();
+	/* 配置热重载必须覆盖所有节点：非owner的worker也要用它渲染活动
+	 * 页时间窗与集结判定（2026-09-05实测：只让owner重载，其他worker
+	 * 的旧配置把开放中的集结判成"不在集结时段"）。 */
+	maybe_reload_config();
 	if(MAP_WORKERD->query_node_role()=="worker" &&
 	   !local_timed_event_owner()){
 		event_scheduler_started = 0;

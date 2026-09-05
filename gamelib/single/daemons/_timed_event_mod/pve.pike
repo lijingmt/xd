@@ -119,8 +119,14 @@ private void finish_jiuyao(mapping session,string result,string reason)
 			prepare_participant_reward(session,user_id,
 				(int)participant["alive"] ? result : "participation",0);
 		if(player){
-			return_player_from_event(player,participant);
-			claim_participant_reward(session,user_id,player);
+			/* 单人回迁失败不中断结算循环（同pvp：防全员滞留死房）。 */
+			mixed settle_err = catch {
+				return_player_from_event(player,participant);
+				claim_participant_reward(session,user_id,player);
+			};
+			if(settle_err)
+				werror("[TIMED_EVENT_SETTLE] user=%s error=%s\n",
+					user_id,describe_error(settle_err)[..180]);
 		}
 	}
 	session["phase"] = "finished";
@@ -143,9 +149,14 @@ private void eliminate_jiuyao(mapping session,string user_id,string reason)
 	session["elimination_order"] += ({user_id});
 	prepare_participant_reward(session,user_id,"participation",0);
 	if(player){
-		clean_event_fight(player);
-		return_player_from_event(player,participant);
-		claim_participant_reward(session,user_id,player);
+		mixed settle_err = catch {
+			clean_event_fight(player);
+			return_player_from_event(player,participant);
+			claim_participant_reward(session,user_id,player);
+		};
+		if(settle_err)
+			werror("[TIMED_EVENT_SETTLE] user=%s error=%s\n",
+				user_id,describe_error(settle_err)[..180]);
 		tell_object(player,"你已被渊息送离九曜镇渊，今日不能再次入场。\n");
 	}
 	if(count_alive(session)<=0)

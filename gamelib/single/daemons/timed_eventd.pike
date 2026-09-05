@@ -24,6 +24,7 @@ inherit LOW_DAEMON;
 #define PLAYER_EVENT_ROOT "/plus/timed_event"
 
 private mapping(string:mixed) timed_event_config = ([]);
+private int config_loaded_mtime;
 private mapping(string:mapping(string:mixed)) sessions = ([]);
 private mapping(string:mapping(string:object)) runtime_rooms = ([]);
 private mapping(string:array(object)) runtime_npcs = ([]);
@@ -82,6 +83,10 @@ private void refresh_readonly_event_snapshot()
 	   last_readonly_refresh+2>time())
 		return;
 	last_readonly_refresh = time();
+	/* 非owner的worker不跑tick_sessions（走owner探测循环），配置
+	 * 热重载挂在这里才能覆盖所有服务节点（2026-09-05实测：非owner
+	 * 的旧配置把开放中的集结判成"未开放"）。 */
+	maybe_reload_config();
 	load_event_state(0);
 }
 

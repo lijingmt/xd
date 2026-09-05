@@ -157,8 +157,16 @@ private void finish_tianheng(mapping session,string reason)
 			prepare_participant_reward(session,user_id,"finished",
 				(int)participant["rank"]);
 		if(player){
-			return_player_from_event(player,participant);
-			claim_participant_reward(session,user_id,player);
+			/* 单个玩家的回迁/发奖失败绝不能中断整个结算循环，
+			 * 否则其余玩家会被困在已销毁的活动动态房里（本地
+			 * 多worker天衡实测：结算途中崩溃→全员黑屏滞留）。 */
+			mixed settle_err = catch {
+				return_player_from_event(player,participant);
+				claim_participant_reward(session,user_id,player);
+			};
+			if(settle_err)
+				werror("[TIMED_EVENT_SETTLE] user=%s error=%s\n",
+					user_id,describe_error(settle_err)[..180]);
 		}
 	}
 	session["phase"] = "finished";

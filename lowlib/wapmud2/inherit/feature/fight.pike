@@ -4714,7 +4714,7 @@ private void heart_beat_action(){
 			//判定时间
 			if((this_object()->timeCount%this_object()->attack_speed_main)==0&&(this_object()->timeCount%this_object()->attack_speed_other)==0){
 				attack(0,0,"single_main","");
-				if(enemy!=0)
+				if(enemy && objectp(enemy))
 					attack(0,0,"other","");
 			}
 			else if((this_object()->timeCount==1)||((this_object()->timeCount%this_object()->attack_speed_main)==0)){
@@ -4742,7 +4742,11 @@ private void heart_beat_action(){
 		else if(this_object()->weapon_type=="none"){
 			attack(0,0,"single_main","");
 		}
-		if(enemy && environment(this_object())==environment(enemy))
+		/* 尾部再引用全局enemy前必须重新做析构守卫：上面的attack连段
+		 * 可能在心跳中途击杀并析构对手（2026-09-05本地多worker天衡
+		 * 结算实测崩溃点），头部的一次性快照盖不住这里。 */
+		if(enemy && objectp(enemy) &&
+		   environment(this_object())==environment(enemy))
 			if(enemy->first_fight == 0 || !enemy->in_combat){
 				enemy->_fight(this_object());
 				enemy->first_fight = 1;

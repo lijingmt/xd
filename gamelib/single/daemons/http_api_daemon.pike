@@ -857,6 +857,28 @@ string execute_command_sync(string userid, string password, string cmd)
     clear_http_api_login_pending(userid);
 
     if(err) {
+        /* 活动结算竞态的最终防线：跨worker回迁与动态房销毁赛跑时，
+         * 玩家下一次命令会撞上死重定向（MAP_WORKER_REDIRECT）而拿到
+         * 空响应黑屏。这里强制活动遣返（回默认落点+存档）并重试
+         * 一次原命令，玩家永远不该被留在无出口的活动残房里。
+         * player在catch块内声明，此处重新取连接对象。 */
+        object stranded_player = get_player_from_connection(userid);
+        object|zero event_daemon = 0;
+        mixed probe_err = catch {
+            event_daemon = (object)(ROOT+
+                "/gamelib/single/daemons/timed_eventd.pike");
+        };
+        if(stranded_player && event_daemon &&
+           search(describe_error(err),"MAP_WORKER_REDIRECT")!=-1 &&
+           functionp(event_daemon->evacuate_stranded_event_player) &&
+           event_daemon->evacuate_stranded_event_player(stranded_player)){
+            mixed retry_err = catch {
+                return execute_internal_command(stranded_player, cmd);
+            };
+            if(!retry_err)
+                return "{\"error\":\"命令执行失败\"}";
+            err = retry_err;
+        }
         // Keep credentials out of logs, but retain the Pike source location;
         // a generic line made first-login failures impossible to diagnose.
         http_werror(" execute_command_sync error: %s\n",

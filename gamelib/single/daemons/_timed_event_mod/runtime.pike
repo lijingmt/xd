@@ -480,6 +480,32 @@ private void return_player_from_event(object player,mapping participant)
 	player->set_mofa(player->query_mofa_max());
 }
 
+/** 活动残房强制遣返（HTTP命令层死重定向防线调用）：
+ * 先清掉指向已销毁动态房的滞留重定向，再送回默认落点、恢复状态
+ * 并原子存档。返回1表示已成功遣返可安全重试原命令。 */
+int evacuate_stranded_event_player(object player)
+{
+	mixed err;
+	if(!player || !functionp(player->query_name))
+		return 0;
+	err = catch {
+		if(functionp(MAP_WORKERD->clear_local_move_redirect))
+			MAP_WORKERD->clear_local_move_redirect(
+				player->query_name());
+		return_player_from_event(player,([]));
+		if(functionp(player->save_with_result))
+			player->save_with_result();
+	};
+	if(err){
+		werror("[TIMED_EVENT_EVAC] user=%s error=%s\n",
+			player->query_name(),describe_error(err)[..180]);
+		return 0;
+	}
+	werror("[TIMED_EVENT_EVAC] user=%s evacuated to default return path\n",
+		player->query_name());
+	return 1;
+}
+
 /** 外部登录流程查询：该玩家当前是否仍有进行中的活动会话。 */
 int query_user_has_active_session(string user_id)
 {
