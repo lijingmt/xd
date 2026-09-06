@@ -1,0 +1,32 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_JEWELRY;
+/* 心渊套装（无心专属隐藏套装）：仅无心可穿、禁交易、
+ * 只由boss击杀与天衡/九曜活动奖励经ITEMSD定向发放。 */
+string xinyuan_suit_slot = "jewelry_bangle";
+string query_xinyuan_suit_slot(){ return xinyuan_suit_slot; }
+int is_xinyuan_suit_piece(){ return 1; }
+protected void create(){
+	name=object_name(this_object());
+	name_cn="心渊镯";
+	unit="只";
+	picture="wuxin_logo";
+	desc="心渊套装·手镯：无心渡尽万难后凝成的手镯，仅无心可佩。\n";
+	item_cur_dura=2000;
+	item_dura=2000;
+	set_item_type("jewelry");
+	set_item_kind("jewelry_bangle");
+	set_item_canEquip(1);
+	set_item_canDrop(0);
+	set_item_canGet(1);
+	set_item_canTrade(0);
+	set_item_canSend(0);
+	set_item_canStorage(1);
+	set_item_profeLimit("wuxin");
+	set_item_canLevel(300);
+	set_str_add(1200);
+	set_dex_add(1200);
+	set_think_add(1200);
+	set_attack_power(300);
+	set_speed_power(0);
+}

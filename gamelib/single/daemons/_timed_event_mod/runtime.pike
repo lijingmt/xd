@@ -400,6 +400,22 @@ private int claim_participant_reward(mapping session,string user_id,
 		else
 			state["jiuyao_tokens"] = (int)state["jiuyao_tokens"]+
 				(int)reward["tokens"];
+		if((int)participant["xinyuan_suit_drop"] &&
+		   functionp(player->query_profeId) &&
+		   (string)player->query_profeId()=="wuxin" &&
+		   functionp(ITEMSD->award_xinyuan_suit_piece)){
+			array(string) suit_slots = ({
+				"single_main_weapon","armor_head","armor_cloth",
+				"armor_thou","armor_hand","armor_shoes",
+				"armor_waste","jewelry_ring","jewelry_neck",
+				"jewelry_bangle"});
+			mapping suit_result = ITEMSD->award_xinyuan_suit_piece(
+				player,suit_slots[random(sizeof(suit_slots))],
+				"event:"+(string)session["event_id"]);
+			if((int)suit_result["ok"])
+				tell_object(player,
+					"【心渊共鸣】活动中凝出一件心渊套装部件。\n");
+		}
 		receipt = (["created_at":time(),"actual_exp":actual_exp]);
 		claims[claim_id] = receipt;
 		while(sizeof(claims)>64){

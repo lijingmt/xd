@@ -1,0 +1,33 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_WEAPON;
+/* 心渊套装（无心专属隐藏套装）：仅无心可穿、禁交易、
+ * 只由boss击杀与天衡/九曜活动奖励经ITEMSD定向发放。 */
+string xinyuan_suit_slot = "single_main_weapon";
+string query_xinyuan_suit_slot(){ return xinyuan_suit_slot; }
+int is_xinyuan_suit_piece(){ return 1; }
+protected void create(){
+	name=object_name(this_object());
+	name_cn="心渊剑";
+	unit="把";
+	picture="wuxin_logo";
+	desc="心渊套装·主手武器：无心渡尽万难后凝成的主手武器，仅无心可佩。\n";
+	item_cur_dura=2000;
+	item_dura=2000;
+	set_item_type("weapon");
+	set_item_kind("single_main_weapon");
+	set_item_canEquip(1);
+	set_item_canDrop(0);
+	set_item_canGet(1);
+	set_item_canTrade(0);
+	set_item_canSend(0);
+	set_item_canStorage(1);
+	set_item_profeLimit("wuxin");
+	set_item_canLevel(300);
+	set_str_add(1500);
+	set_dex_add(1500);
+	set_think_add(1500);
+	set_attack_power(1500);
+	set_speed_power(30);
+	set_item_weapon_type("jian");
+}

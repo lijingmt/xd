@@ -2764,6 +2764,64 @@ private string new_newmoon_binding_id(object item,object player,
  * Return 2 for a new binding, 1 for non-New-Moon/already same-account, and 0
  * for invalid input or an ownership conflict.
  */
+/* 心渊套装（无心专属）：boss击杀与限时活动奖励定向发放。
+ * 发放即绑定无心角色；非无心角色一律拒绝，防误发。 */
+string query_xinyuan_suit_piece_path(string slot)
+{
+	foreach(({"jian","guan","pao","ku","shou","xue","wan","jie","lian",
+		"zhuo"}),string suffix){
+		string path = ROOT+"/gamelib/clone/item/wuxinsuit/xinyuan"+
+			suffix;
+		string src = Stdio.read_file(path) || "";
+		if(search(src,"xinyuan_suit_slot = \""+slot+"\";")!=-1)
+			return path;
+	}
+	return "";
+}
+
+mapping(string:mixed) award_xinyuan_suit_piece(object player,
+	string slot,void|string source)
+{
+	object piece;
+	string path;
+	if(!player || !functionp(player->query_profeId) ||
+	   (string)player->query_profeId()!="wuxin")
+		return (["ok":0,"code":"not_wuxin"]);
+	path = slot=="" ? "" : query_xinyuan_suit_piece_path(slot);
+	if(path=="")
+		return (["ok":0,"code":"unknown_slot"]);
+	/* 同槽已拥有则不再发放（背包+已穿戴都算），防刷。 */
+	foreach(all_inventory(player),object ob){
+		if(ob && functionp(ob->is_xinyuan_suit_piece) &&
+		   ob->is_xinyuan_suit_piece() &&
+		   ob->query_xinyuan_suit_slot()==slot)
+			return (["ok":0,"code":"already_owned"]);
+	}
+	if(functionp(player->query_equip)){
+		mapping worn = player->query_equip();
+		if(mappingp(worn)){
+			foreach(values(worn),object ob){
+				if(ob && functionp(ob->is_xinyuan_suit_piece) &&
+				   ob->is_xinyuan_suit_piece() &&
+				   ob->query_xinyuan_suit_slot()==slot)
+					return (["ok":0,"code":"already_owned"]);
+			}
+		}
+	}
+	piece = clone(path);
+	if(!piece)
+		return (["ok":0,"code":"clone_failed"]);
+	if(!piece->move(player)){
+		destruct(piece);
+		return (["ok":0,"code":"move_failed"]);
+	}
+	if(functionp(player->save_with_result))
+		player->save_with_result();
+	werror("[XINYUAN_SUIT] awarded user=%s slot=%s source=%s\n",
+		player->query_name(),slot,source || "boss");
+	return (["ok":1,"item":piece]);
+}
+
 int bind_newmoon_item_to_player(object item,object player,string reason)
 {
 	string owner;
