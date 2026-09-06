@@ -58,7 +58,7 @@ export async function selectCharacter(token, characterId, fetchImpl) {
  * 返回 {character:{id,...}}；失败抛服务端 error。
  */
 export async function createCharacter(token, form, fetchImpl) {
-  return postJson('/api/account/characters/create', {
+  const payload = {
     token,
     realm_type: form.realm_type || 'eternal',
     race_id: form.race_id,
@@ -66,7 +66,21 @@ export async function createCharacter(token, form, fetchImpl) {
     name_cn: String(form.name_cn || '').trim(),
     sex: form.sex || 'male',
     avatar_id: form.avatar_id,
-  }, fetchImpl);
+  };
+  /* 隐藏职业（无极/无心）购买资格需要幂等键：同一键重复提交只扣一次费。 */
+  if (form.profession_id === 'wuji' || form.profession_id === 'wuxin') {
+    payload.request_id = form.request_id || generateRequestId();
+  }
+  return postJson('/api/account/characters/create', payload, fetchImpl);
+}
+
+function generateRequestId() {
+  const chars = 'abcdef0123456789';
+  let id = '';
+  for (let i = 0; i < 64; i += 1) {
+    id += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return id;
 }
 
 /** 角色卡的展示归一化：把服务端字段压成仪表盘需要的最小集。 */
