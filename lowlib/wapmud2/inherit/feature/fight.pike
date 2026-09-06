@@ -2357,6 +2357,8 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 		defend += target->query_equip_add("all_mofa_defend");
 		damage = query_balanced_magic_damage(raw_attack,defend,penetration)*
 			power_percent/100;
+		if(target->is("player"))
+			damage = query_wuxin_pvp_damage(damage,caster);
 		if(damage<1)
 			damage = 1;
 		target_life = target->get_cur_life();

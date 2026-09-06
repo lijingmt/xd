@@ -720,6 +720,25 @@ mapping(string:mixed) record_account_level_cap_400(string account_id)
 	return (["ok":saved?1:0]);
 }
 
+void record_wuxin_entitlement_for_test(string account_id)
+{
+	object key;
+	mapping record;
+	if(search(account_id,"testunit")==-1)
+		return;
+	key = account_character_lock->lock();
+	record = load_persisted_record_unlocked(account_id,1);
+	if(!record){
+		destruct(key);
+		return;
+	}
+	record["wuxin_entitlement"] = (["unlocked":1,
+		"cost_suiyu":WUXIN_CREATION_COST,"test":1]);
+	record["revision"] = (int)record["revision"]+1;
+	save_record_unlocked(record);
+	destruct(key);
+}
+
 /** 购买无心创建资格：无极全难度通关后一次性支付，幂等不重复扣费。 */
 mapping(string:mixed) purchase_wuxin_entitlement(string account_id,
 	string request_id,void|object payer)

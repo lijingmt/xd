@@ -159,6 +159,27 @@ private void check_level(){
 		levelFlag = 0;
 }
 
+void query_if_levelup_trigger_for_test()
+{
+	if(query_level()>=300 &&
+	   functionp(this_object()->query_profeId) &&
+	   this_object()->query_profeId()=="wuxin" &&
+	   functionp(this_object()->query_account_owner)){
+		mixed cap_err = catch {
+			string cap_account =
+				(string)this_object()->query_account_owner();
+			if(cap_account!="" &&
+			   functionp(ACCOUNT_CHARACTERD->
+				record_account_level_cap_400))
+				ACCOUNT_CHARACTERD->
+					record_account_level_cap_400(cap_account);
+		};
+		if(cap_err)
+			werror("[WUXIN_LEVEL_CAP_TEST] %s\n",
+				describe_error(cap_err)[..160]);
+	}
+}
+
 //根据玩家升级或降级的后的等级设置玩家的基本属性
 void set_att_by_level(){
 	int level_now = level - 1;
