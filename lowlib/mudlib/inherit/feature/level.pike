@@ -75,6 +75,24 @@ int query_need_exp(){
 void query_if_levelup(){
 	int before_level=query_level();
 	check_level();
+	/* 无心300级里程碑：解锁全账号400级上限（幂等账号级flag）。 */
+	if(query_level()>=300 && query_level()!=before_level &&
+	   functionp(this_object()->query_profeId) &&
+	   this_object()->query_profeId()=="wuxin" &&
+	   functionp(this_object()->query_account_owner)){
+		mixed cap_err = catch {
+			string cap_account =
+				(string)this_object()->query_account_owner();
+			if(cap_account!="" &&
+			   functionp(ACCOUNT_CHARACTERD->
+				record_account_level_cap_400))
+				ACCOUNT_CHARACTERD->
+					record_account_level_cap_400(cap_account);
+		};
+		if(cap_err)
+			werror("[WUXIN_LEVEL_CAP] %s\n",
+				describe_error(cap_err)[..160]);
+	}
 	// 经验变化远比真实升级频繁；只在等级发生变化时扫描装备栏。
 	// 登录和底层 wear/wield 仍各自执行独立保护。
 	if(query_level()!=before_level &&

@@ -672,6 +672,54 @@ mapping(string:mixed) record_wuxin_difficulty_maxed(string account_id)
 	return (["ok":saved?1:0]);
 }
 
+/** 无心300级解锁全账号400级上限：触发与查询（带内存缓存）。 */
+private mapping(string:int) account_level_cap_400_cache = ([]);
+
+int query_account_level_cap_400(string account_id)
+{
+	int cached;
+	if(!valid_userid(account_id))
+		return 0;
+	cached = account_level_cap_400_cache[account_id];
+	if(cached)
+		return 1;
+	{
+		mapping record = load_persisted_record_unlocked(account_id);
+		if(mappingp(record) && (int)record["level_cap_400"]==1){
+			account_level_cap_400_cache[account_id] = 1;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+mapping(string:mixed) record_account_level_cap_400(string account_id)
+{
+	mapping(string:mixed) record;
+	object key;
+	if(!valid_userid(account_id))
+		return (["ok":0]);
+	key = account_character_lock->lock();
+	record = load_persisted_record_unlocked(account_id);
+	if(!record){
+		destruct(key);
+		return (["ok":0]);
+	}
+	if((int)record["level_cap_400"]==1){
+		destruct(key);
+		account_level_cap_400_cache[account_id] = 1;
+		return (["ok":1,"already":1]);
+	}
+	record["level_cap_400"] = 1;
+	record["level_cap_400_at"] = time();
+	record["revision"] = (int)record["revision"]+1;
+	int saved = save_record_unlocked(record);
+	destruct(key);
+	if(saved)
+		account_level_cap_400_cache[account_id] = 1;
+	return (["ok":saved?1:0]);
+}
+
 /** 购买无心创建资格：无极全难度通关后一次性支付，幂等不重复扣费。 */
 mapping(string:mixed) purchase_wuxin_entitlement(string account_id,
 	string request_id,void|object payer)
@@ -1902,6 +1950,7 @@ mapping(string:mixed) query_account_characters(string requested_id,
 			mappingp(record["wuxin_entitlement"]) &&
 			(int)record["wuxin_entitlement"]["unlocked"]==1;
 		result["wuxin_creation_cost"] = WUXIN_CREATION_COST;
+		result["level_cap_400"] = (int)record["level_cap_400"]==1;
 		mapping s1_hidden = query_s1_hidden_unlock_from_summary(result,
 			valid_illusion_id((string)illusion_id) ?
 			(string)illusion_id : "S1");
