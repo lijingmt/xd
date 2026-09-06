@@ -39,7 +39,8 @@ int main()
 		seeder->save_with_result();
 		destruct(seeder);
 		mapping seeded = ACCOUNT_CHARACTERD->create_character(
-			account_id,"human","jianxian","测四级","male","h_male1");
+			account_id,"human","jianxian",
+			"测四级"+time()%100000,"male","h_male1");
 		check("测试账号索引就绪",((int)seeded["ok"])==1,
 			sprintf("%O",seeded));
 		/* 账号flag：默认关 */
