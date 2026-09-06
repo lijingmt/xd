@@ -1,0 +1,12 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【心】无心击"; picture="wuxinji_logo";
+	desc="无极重击，力道胜太极三成";
+	s_type="zhudong"; s_skill_type="phy"; s_delayTime=4;
+	performs_attack[1]=272; performs_attack[2]=676; performs_attack[3]=1352; performs_attack[4]=2366; performs_attack[5]=3718;
+	performs_cast[1]=18; performs_cast[2]=30; performs_cast[3]=45; performs_cast[4]=63; performs_cast[5]=83;
+	skill_type+=({"wuxin"});
+	performs_level_limit[1]=58; performs_level_limit[2]=61; performs_level_limit[3]=64; performs_level_limit[4]=67; performs_level_limit[5]=70;
+}

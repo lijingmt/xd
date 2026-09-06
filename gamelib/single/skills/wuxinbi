@@ -1,0 +1,12 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【心】无心壁"; picture="wuxinbi_logo";
+	desc="无极壁垒，守护全队，坚胜太极三成";
+	s_type="zhudong"; s_skill_type="balanced_team_guard"; s_delayTime=4; s_lasttime=10;
+	performs_attack[1]=406; performs_attack[2]=1014; performs_attack[3]=1860; performs_attack[4]=3042; performs_attack[5]=4732;
+	performs_cast[1]=23; performs_cast[2]=38; performs_cast[3]=57; performs_cast[4]=83; performs_cast[5]=113;
+	skill_type+=({"wuxin"});
+	performs_level_limit[1]=38; performs_level_limit[2]=41; performs_level_limit[3]=44; performs_level_limit[4]=47; performs_level_limit[5]=50;
+}

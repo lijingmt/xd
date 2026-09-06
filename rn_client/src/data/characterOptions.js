@@ -22,6 +22,8 @@ export const PROFESSION_OPTIONS = [
   { race_id: 'third', profession_id: 'wuxiang', name: '无相', icon: '🔆', desc: '【隐藏】全职业补位；十职业均达120级后解锁', hidden: 'wuxiang' },
   { race_id: 'third', profession_id: 'taiji', name: '太极', icon: '☯️', desc: '【最高隐藏】生死轮转；十职与无相均达200级后解锁', hidden: 'taiji' },
   { race_id: 'third', profession_id: 'zhaoming', name: '照命', icon: '🌙', desc: '【S1隐藏】同账号5个不同赛季职业完成81章并达120级', hidden: 'zhaoming' },
+  { race_id: 'third', profession_id: 'wuji', name: '无极', icon: '💠', desc: '【终极隐藏】照命300级+1万碎玉；三系成长胜太极三成', hidden: 'wuji' },
+  { race_id: 'third', profession_id: 'wuxin', name: '无心', icon: '🦋', desc: '【账号终极】无极通关全难度+2万碎玉；心法85%、对怪双倍伤害；300级解锁全账号400级', hidden: 'wuxin' },
 ];
 
 /**
@@ -35,6 +37,10 @@ export function visibleProfessions(unlocks, realmType) {
     if (option.hidden === 'taiji' && !flags.taiji) return false;
     if (option.hidden === 'zhaoming' &&
         (!flags.zhaoming || realmType !== 'illusion')) return false;
+    if (option.hidden === 'wuji' && !flags.wuji_entitled) return false;
+    if (option.hidden === 'wuxin' &&
+        !(flags.wuxin_entitled && flags.wuxin_difficulty_ready))
+      return false;
     return true;
   });
 }
@@ -51,7 +57,8 @@ export function avatarChoicesFor(raceId, professionId, sex) {
   const choices = [];
   if (raceId === 'human' || raceId === 'third') {
     if (raceId === 'third' &&
-        ['zhenyue', 'tianxiang', 'lingyi', 'wuxiang', 'taiji']
+        ['zhenyue', 'tianxiang', 'lingyi', 'wuxiang', 'taiji',
+         'wuji', 'wuxin']
           .includes(professionId)) {
       choices.push(`${professionId}_${sex}`);
     }

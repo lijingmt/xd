@@ -210,6 +210,33 @@ void setup_player(string rid, string pid){
 			if(tj_jian)
 				catch { tj_jian->move(this_object()); };
 		}
+		else if(pid&&pid=="wuji"){
+			// 无极：太极之上的终极隐藏职业（照命300+碎玉资格解锁）。
+			// 此前 setup_player 缺失该分支导致无极建角后无基础三维。
+			kind_cn = "中立";
+			unit = "位";
+			// 30% > 太极(156/104/10)：life 202/mofa 135/三系各 13。
+			this_object()->set_life(202);
+			this_object()->set_mofa(135);
+			this_object()->set_str(13);
+			this_object()->set_dex(13);
+			this_object()->set_think(13);
+			this_object()->set_lunck(0);
+		}
+		else if(pid&&pid=="wuxin"){
+			// 无心：无极之上的账号终极隐藏职业（无极全难度通关+2万碎玉）。
+			// 「无心诀」被动：最高属性 85% 加成另外两系；技能对怪物伤害
+			// 翻倍（PVP 回落至无极水准，见 fight.pike wuxin_pvp_adjust）。
+			kind_cn = "中立";
+			unit = "位";
+			// 沿用隐藏链 +30% 惯例 > 无极(202/135/13)：life 262/mofa 175/三系 16。
+			this_object()->set_life(262);
+			this_object()->set_mofa(175);
+			this_object()->set_str(16);
+			this_object()->set_dex(16);
+			this_object()->set_think(16);
+			this_object()->set_lunck(0);
+		}
 	}
 }
 //每次调用reconnect将会传回密码字段进行验证

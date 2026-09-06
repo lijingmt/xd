@@ -219,6 +219,13 @@ void set_att_by_level(){
 		this_object()->set_dex(13+(int)(level_now*2.6));
 		this_object()->set_think(13+(int)(level_now*2.6));
 	}
+	if(this_object()->query_profeId()=="wuxin"){//无心 - 无极之上账号终极隐藏
+		// 沿用隐藏链 +30% 惯例 > 无极(13+2.6L)：起点 16、每级 +3.2；
+		// 技能伤害另有无心专属 PVE 翻倍，不叠在成长线上。
+		this_object()->set_str(16+(int)(level_now*3.2));
+		this_object()->set_dex(16+(int)(level_now*3.2));
+		this_object()->set_think(16+(int)(level_now*3.2));
+	}
 	//升级重置生命和魔法
 	this_object()->set_life(this_object()->query_life_max());
 	this_object()->set_mofa(this_object()->query_mofa_max());

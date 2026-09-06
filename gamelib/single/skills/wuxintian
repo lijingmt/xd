@@ -1,0 +1,13 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【心】无心天雷"; picture="wuxinyan_logo";
+	desc="无极天雷群杀，九天雷罚覆盖全场敌对目标";
+	s_type="zhudong"; s_skill_type="balanced_aoe"; s_delayTime=3;
+	performs_mofa_attack[1]=({118,186}); performs_mofa_attack[2]=({286,406}); performs_mofa_attack[3]=({576,744}); performs_mofa_attack[4]=({948,1218}); performs_mofa_attack[5]=({1420,1826});
+	performs_cast[1]=18; performs_cast[2]=30; performs_cast[3]=48; performs_cast[4]=69; performs_cast[5]=93;
+	skill_type+=({"wuxin"});
+	performs_level_limit[1]=1; performs_level_limit[2]=21; performs_level_limit[3]=41; performs_level_limit[4]=61; performs_level_limit[5]=81;
+	performs_desc[1]="造成92至144点法术伤害，消耗法力18点"; performs_desc[2]="造成222至312点法术伤害，消耗法力30点"; performs_desc[3]="造成442至572点法术伤害，消耗法力48点"; performs_desc[4]="造成728至936点法术伤害，消耗法力69点"; performs_desc[5]="造成1092至1404点法术伤害，消耗法力93点";
+}
