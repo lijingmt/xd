@@ -54,10 +54,10 @@ vm.runInNewContext(appSource, sandbox, { filename: 'app.js' });
 assert(componentOptions, 'Vue component should register');
 const client = Object.assign(componentOptions.data(), componentOptions.methods);
 
-assert.strictEqual(client.professionOptions.length, 13);
+assert.strictEqual(client.professionOptions.length, 15);
 assert.deepStrictEqual(
   [...new Set(client.professionOptions.map(option => option.profession_id))].length,
-  13
+  15
 );
 assert(client.professionOptions.some(option => option.profession_id === 'fangshi'));
 assert(client.professionOptions.some(option => option.profession_id === 'lingyi'));
