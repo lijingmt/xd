@@ -1,0 +1,5 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_BOOK;
+protected void create(){ name=object_name(this_object()); name_cn="【心】无心净"; unit="本"; picture=name; desc="无心净化\n"; set_item_canDrop(1); set_item_canGet(1); set_item_canTrade(1); set_item_canSend(1); set_item_canStorage(1); value=1400; skill_bname="wuxinjing"; level_limit=40; profe_read_limit="无心"; need_yushi=30; need_money=1400; }
+int read(){ int result=::read(); if(read_flag==0) remove(); return result; }
