@@ -48,7 +48,7 @@ private mapping(string:array(string)) valid_professions = ([
 	"human":({"jianxian","yushi","zhuxian"}),
 	"monst":({"kuangyao","wuyao","yinggui"}),
 	"third":({"fangshi","zhenyue","tianxiang","lingyi","wuxiang","taiji",
-		"zhaoming","wuji"}),
+		"zhaoming","wuji","wuxin"}),
 ]);
 
 private mapping(string:string) race_names = ([
@@ -72,6 +72,7 @@ private mapping(string:string) profession_names = ([
 	"taiji":"太极",
 	"zhaoming":"照命",
 	"wuji":"无极",
+	"wuxin":"无心",
 ]);
 
 int query_character_limit()
@@ -379,6 +380,7 @@ int query_taiji_unlocked_from_summary(mapping(string:mixed) data,
 // 无极是太极之上的终极隐藏职业，技能强度胜太极三成并附带群杀群奶。
 #define WUJI_REQUIRED_LEVEL 300
 #define WUJI_CREATION_COST 10000
+#define WUXIN_CREATION_COST 20000
 
 int query_wuji_unlocked_from_summary(mapping(string:mixed) data)
 {
@@ -628,6 +630,192 @@ mapping(string:mixed) purchase_wuji_entitlement(string account_id,
 	destruct(key);
 	return (["ok":1,
 		"message":"已支付"+WUJI_CREATION_COST+"碎玉，获得无极创建资格。"]);
+}
+
+/** 无心解锁条件：账号下任一无极角色个人难度全部通关。
+ * 难度进度存在人物存档里，由 record_wuxin_difficulty_maxed 在
+ * 无极角色登录/达标时回填到账号索引（幂等），这里只读索引标志。 */
+int query_wuxin_unlocked_from_summary(mapping(string:mixed) data)
+{
+	if(!data || (int)data["ok"] != 1)
+		return 0;
+	return (int)data["wuxin_difficulty_ready"]==1;
+}
+
+int query_wuxin_creation_cost()
+{
+	return WUXIN_CREATION_COST;
+}
+
+/** 无极角色难度通关达标回填（幂等，登录/切档后调用）。 */
+mapping(string:mixed) record_wuxin_difficulty_maxed(string account_id)
+{
+	mapping(string:mixed) record;
+	object key;
+	if(!valid_userid(account_id))
+		return (["ok":0]);
+	key = account_character_lock->lock();
+	record = load_persisted_record_unlocked(account_id);
+	if(!record){
+		destruct(key);
+		return (["ok":0]);
+	}
+	if((int)record["wuxin_difficulty_ready"]==1){
+		destruct(key);
+		return (["ok":1,"already":1]);
+	}
+	record["wuxin_difficulty_ready"] = 1;
+	record["wuxin_difficulty_at"] = time();
+	record["revision"] = (int)record["revision"]+1;
+	int saved = save_record_unlocked(record);
+	destruct(key);
+	return (["ok":saved?1:0]);
+}
+
+/** 无心300级解锁全账号400级上限：触发与查询（带内存缓存）。 */
+private mapping(string:int) account_level_cap_400_cache = ([]);
+
+int query_account_level_cap_400(string account_id)
+{
+	int cached;
+	if(!valid_userid(account_id))
+		return 0;
+	cached = account_level_cap_400_cache[account_id];
+	if(cached)
+		return 1;
+	{
+		mapping record = load_persisted_record_unlocked(account_id);
+		if(mappingp(record) && (int)record["level_cap_400"]==1){
+			account_level_cap_400_cache[account_id] = 1;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+mapping(string:mixed) record_account_level_cap_400(string account_id)
+{
+	mapping(string:mixed) record;
+	object key;
+	if(!valid_userid(account_id))
+		return (["ok":0]);
+	key = account_character_lock->lock();
+	record = load_persisted_record_unlocked(account_id);
+	if(!record){
+		destruct(key);
+		return (["ok":0]);
+	}
+	if((int)record["level_cap_400"]==1){
+		destruct(key);
+		account_level_cap_400_cache[account_id] = 1;
+		return (["ok":1,"already":1]);
+	}
+	record["level_cap_400"] = 1;
+	record["level_cap_400_at"] = time();
+	record["revision"] = (int)record["revision"]+1;
+	int saved = save_record_unlocked(record);
+	destruct(key);
+	if(saved)
+		account_level_cap_400_cache[account_id] = 1;
+	return (["ok":saved?1:0]);
+}
+
+void record_wuxin_entitlement_for_test(string account_id)
+{
+	object key;
+	mapping record;
+	if(search(account_id,"testunit")==-1)
+		return;
+	key = account_character_lock->lock();
+	record = load_persisted_record_unlocked(account_id,1);
+	if(!record){
+		destruct(key);
+		return;
+	}
+	record["wuxin_entitlement"] = (["unlocked":1,
+		"cost_suiyu":WUXIN_CREATION_COST,"test":1]);
+	record["revision"] = (int)record["revision"]+1;
+	save_record_unlocked(record);
+	destruct(key);
+}
+
+/** 购买无心创建资格：无极全难度通关后一次性支付，幂等不重复扣费。 */
+mapping(string:mixed) purchase_wuxin_entitlement(string account_id,
+	string request_id,void|object payer)
+{
+	mapping(string:mixed) record;
+	mapping(string:mixed) payment;
+	object key;
+	if(!valid_userid(account_id) || !valid_sha256_hex(request_id))
+		return (["ok":0,"message":"无心资格购买请求无效。"]);
+	key = account_character_lock->lock();
+	record = load_persisted_record_unlocked(account_id);
+	if(!record){
+		destruct(key);
+		return (["ok":0,"message":"账号索引暂不可用，本次未扣款。"]);
+	}
+	if(mappingp(record["wuxin_entitlement"]) &&
+	   (int)record["wuxin_entitlement"]["unlocked"]==1){
+		destruct(key);
+		return (["ok":1,"already":1,
+			"message":"已持有无心创建资格。"]);
+	}
+	if((int)record["wuxin_difficulty_ready"]!=1){
+		destruct(key);
+		return (["ok":0,"message":"【无心·未解锁】需要账号下无极角色通关全部个人挑战难度。"]);
+	}
+	destruct(key);
+	payment = YUSHID->pay_account_expansion(payer,account_id,
+		WUXIN_CREATION_COST,"无心人物创建资格",request_id);
+	if(!(int)payment["ok"])
+		return (["ok":0,"message":(string)payment["message"]]);
+	key = account_character_lock->lock();
+	record = load_persisted_record_unlocked(account_id,1);
+	if(mappingp(record["wuxin_entitlement"]) &&
+	   (int)record["wuxin_entitlement"]["unlocked"]==1){
+		destruct(key);
+		if(!YUSHID->refund_account_expansion(payer,account_id,
+			(int)payment["paid_wallet"],(int)payment["paid_physical"],
+			"wuxin_entitlement_duplicate",request_id))
+			werror("[ACCOUNT_CHARACTERD] 无心资格重复退款异常: %s\n",
+				account_id);
+		return (["ok":1,"already":1,
+			"message":"已持有资格，重复扣款已退回。"]);
+	}
+	if(!record){
+		destruct(key);
+		if(!YUSHID->refund_account_expansion(payer,account_id,
+			(int)payment["paid_wallet"],(int)payment["paid_physical"],
+			"wuxin_entitlement_failed",request_id))
+			werror("[ACCOUNT_CHARACTERD] 无心资格退款异常: %s\n",
+				account_id);
+		return (["ok":0,"message":"账号索引暂不可用，本次扣款已退回。"]);
+	}
+	if((int)record["wuxin_difficulty_ready"]!=1){
+		destruct(key);
+		if(!YUSHID->refund_account_expansion(payer,account_id,
+			(int)payment["paid_wallet"],(int)payment["paid_physical"],
+			"wuxin_entitlement_not_ready",request_id))
+			werror("[ACCOUNT_CHARACTERD] 无心资格未解锁退款异常: %s\n",
+				account_id);
+		return (["ok":0,"message":"解锁条件已失效，本次扣款已退回。"]);
+	}
+	record["wuxin_entitlement"] = (["unlocked":1,
+		"cost_suiyu":WUXIN_CREATION_COST,
+		"request_id":request_id,"created_at":time()]);
+	record["revision"] = (int)record["revision"]+1;
+	if(!save_record_unlocked(record)){
+		destruct(key);
+		if(!YUSHID->refund_account_expansion(payer,account_id,
+			(int)payment["paid_wallet"],(int)payment["paid_physical"],
+			"wuxin_entitlement_save_failed",request_id))
+			werror("[ACCOUNT_CHARACTERD] 无心资格保存退款异常: %s\n",
+				account_id);
+		return (["ok":0,"message":"资格保存失败，本次扣款已退回。"]);
+	}
+	destruct(key);
+	return (["ok":1,
+		"message":"已支付"+WUXIN_CREATION_COST+"碎玉，获得无心创建资格。"]);
 }
 
 mapping(string:mixed) purchase_online_capacity_expansion(
@@ -1775,6 +1963,13 @@ mapping(string:mixed) query_account_characters(string requested_id,
 			mappingp(record["wuji_entitlement"]) &&
 			(int)record["wuji_entitlement"]["unlocked"]==1;
 		result["wuji_creation_cost"] = WUJI_CREATION_COST;
+		result["wuxin_difficulty_ready"] =
+			(int)record["wuxin_difficulty_ready"]==1;
+		result["wuxin_entitled"] =
+			mappingp(record["wuxin_entitlement"]) &&
+			(int)record["wuxin_entitlement"]["unlocked"]==1;
+		result["wuxin_creation_cost"] = WUXIN_CREATION_COST;
+		result["level_cap_400"] = (int)record["level_cap_400"]==1;
 		mapping s1_hidden = query_s1_hidden_unlock_from_summary(result,
 			valid_illusion_id((string)illusion_id) ?
 			(string)illusion_id : "S1");
@@ -3031,7 +3226,8 @@ array(string) query_creation_avatar_choices(string race_id,
 		return choices;
 	if(race_id=="human" || race_id=="third"){
 		if(race_id=="third" &&
-		   has_value(({"zhenyue","tianxiang","lingyi","wuxiang","taiji","wuji"}),
+		   has_value(({"zhenyue","tianxiang","lingyi","wuxiang","taiji",
+			"wuji","wuxin"}),
 			profession_id))
 			choices += ({profession_id+"_"+sex});
 		prefix = sex=="male" ? "h_male" : "h_female";
@@ -3226,6 +3422,20 @@ mapping(string:mixed) create_character(string requested_id,
 		if(!(int)wj_data["wuji_entitled"]){
 			result["message"] = "【无极·未付费】创建无极需先支付"+
 				WUJI_CREATION_COST+"碎玉购买创建资格。";
+			return result;
+		}
+	}
+	// 无心是账号终极隐藏职业：无极全难度通关且已购买创建资格。
+	if(profession_id=="wuxin" && account_id!=""){
+		mapping xn_data = query_account_characters(account_id);
+		if(!query_wuxin_unlocked_from_summary(
+			mappingp(xn_data) ? xn_data : (["ok":0]))){
+			result["message"] = "【无心·未解锁】需要账号下无极角色通关全部个人挑战难度。";
+			return result;
+		}
+		if(!(int)xn_data["wuxin_entitled"]){
+			result["message"] = "【无心·未付费】创建无心需先支付"+
+				WUXIN_CREATION_COST+"碎玉购买创建资格。";
 			return result;
 		}
 	}

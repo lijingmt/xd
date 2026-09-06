@@ -871,6 +871,44 @@ int query_taiji_heart_bonus(string attr){
 		return 0;
 	return highest*heart_percent/100;
 }
+// 无心诀（被动）：基于基础三系属性，让最高项的 85% 加成给非最高项
+// （vs 太极 65%）。只在结算时即时计算，不参与装备/技能前置。
+int query_wuxin_heart_bonus(string attr){
+	int s_v;
+	int d_v;
+	int t_v;
+	int highest;
+	int current;
+	int heart_percent = 85+query_balanced_heart_boost_percent();
+
+	if(!functionp(this_object()->query_profeId) ||
+	   this_object()->query_profeId()!="wuxin")
+		return 0;
+	s_v = query_heart_effective_stat("str");
+	d_v = query_heart_effective_stat("dex");
+	t_v = query_heart_effective_stat("think");
+	highest = s_v;
+	if(d_v > highest)
+		highest = d_v;
+	if(t_v > highest)
+		highest = t_v;
+	if(highest <= 0)
+		return 0;
+	// 无心同样三项同步成长；完全相等时按对称心法结算三项。
+	if(s_v==d_v && d_v==t_v)
+		return highest*heart_percent/100;
+	if(attr=="str")
+		current = s_v;
+	else if(attr=="dex")
+		current = d_v;
+	else if(attr=="think")
+		current = t_v;
+	else
+		return 0;
+	if(current >= highest)
+		return 0;
+	return highest*heart_percent/100;
+}
 string query_wuxiang_avatar_day_key()
 {
 	string now = ctime(time());
@@ -1614,7 +1652,8 @@ int query_str(){
 			result=0;
 	}
 	result += query_base_str()+query_base_all()+
-		query_wuxiang_heart_bonus("str")+query_taiji_heart_bonus("str");
+		query_wuxiang_heart_bonus("str")+query_taiji_heart_bonus("str")+
+		query_wuxin_heart_bonus("str");
 
 	return result+query_balanced_attr_bonus(result);
 }
@@ -1645,7 +1684,8 @@ int query_think(){
 			result=0;
 	}
 	result += query_base_think()+query_base_all()+
-		query_wuxiang_heart_bonus("think")+query_taiji_heart_bonus("think");
+		query_wuxiang_heart_bonus("think")+query_taiji_heart_bonus("think")+
+		query_wuxin_heart_bonus("think");
 	return result+query_balanced_attr_bonus(result);
 }
 void set_dex(int dex){
@@ -1675,7 +1715,8 @@ int query_dex(){
 			result=0;
 	}
 	result += query_base_dex()+query_base_all()+
-		query_wuxiang_heart_bonus("dex")+query_taiji_heart_bonus("dex");
+		query_wuxiang_heart_bonus("dex")+query_taiji_heart_bonus("dex")+
+		query_wuxin_heart_bonus("dex");
 	return result+query_balanced_attr_bonus(result);
 }
 //add by calvin 0409/////////////////////////////////////////

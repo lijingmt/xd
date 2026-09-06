@@ -175,7 +175,25 @@ int query_vip_level_limit(int vip_level)
 
 int query_player_level_limit(object player)
 {
-	return query_vip_level_limit(query_active_vip_level(player));
+	int vip_limit = query_vip_level_limit(query_active_vip_level(player));
+	/* 无心300级解锁：账号级flag把全账号上限从300提到400。
+	 * 只在已达VIP上限(300)时才检查账号flag，普通VIP路径零开销。 */
+	if(vip_limit>=300 && player &&
+	   functionp(player->query_account_owner)){
+		mixed cap_err = catch {
+			string cap_account = (string)player->query_account_owner();
+			if(cap_account!="" &&
+			   functionp(ACCOUNT_CHARACTERD->
+				query_account_level_cap_400) &&
+			   ACCOUNT_CHARACTERD->
+				query_account_level_cap_400(cap_account))
+				return 400;
+		};
+		if(cap_err)
+			werror("[VIPD] level cap 400 check failed: %s\n",
+				describe_error(cap_err)[..120]);
+	}
+	return vip_limit;
 }
 
 string get_level_limit_des(object player)
@@ -187,6 +205,8 @@ string get_level_limit_des(object player)
 	string re = "等级突破：普通玩家上限"+NORMAL_MAX_LEVEL+
 		"级，每提高一级有效VIP，上限增加"+
 		VIP_LEVEL_LIMIT_STEP+"级。\n";
+	if(level_limit>=400)
+		re += "【账号突破】无心已达300级，本账号全员等级上限提升至400级。\n";
 	if(vip_level>0){
 		re += "当前VIP"+vip_level+"有效，当前等级上限为"+
 			level_limit+"级。\n";

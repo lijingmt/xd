@@ -1,0 +1,13 @@
+#include <globals.h>
+#include <gamelib/include/gamelib.h>
+inherit WAP_SKILL;
+protected void create(){
+	name=object_name(this_object()); name_cn="【心】无心医"; picture="wuxinyi_logo";
+	desc="无极自愈心法，回血胜太极三成";
+	s_type="zhudong"; s_skill_type="balanced_self_heal"; s_delayTime=3;
+	performs_mofa_attack[1]=({170,272}); performs_mofa_attack[2]=({406,542}); performs_mofa_attack[3]=({744,948}); performs_mofa_attack[4]=({1286,1556}); performs_mofa_attack[5]=({1894,2300});
+	performs_cast[1]=9; performs_cast[2]=15; performs_cast[3]=23; performs_cast[4]=33; performs_cast[5]=45;
+	skill_type+=({"wuxin"});
+	performs_level_limit[1]=1; performs_level_limit[2]=21; performs_level_limit[3]=41; performs_level_limit[4]=61; performs_level_limit[5]=81;
+	performs_desc[1]="恢复100至160点生命，消耗法力9点"; performs_desc[2]="恢复240至320点生命，消耗法力15点"; performs_desc[3]="恢复440至560点生命，消耗法力23点"; performs_desc[4]="恢复760至920点生命，消耗法力33点"; performs_desc[5]="恢复1120至1360点生命，消耗法力45点";
+}

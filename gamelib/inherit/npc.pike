@@ -654,6 +654,39 @@ void fight_die()
 					}
 				}
 			}
+			// 心渊套装（无心专属隐藏套装）：boss击杀时，若击杀者
+			// 队伍里有无心角色且其缺件，低概率定向发放缺失部位。
+			if(this_object()->_boss &&
+			   functionp(ITEMSD->award_xinyuan_suit_piece)){
+				foreach(indices(map_term),string wuxin_uid){
+					object wuxin_member = find_player(wuxin_uid);
+					if(wuxin_member &&
+					   functionp(wuxin_member->query_profeId) &&
+					   (string)wuxin_member->query_profeId()=="wuxin" &&
+					   environment(this_object())->query_name() ==
+					   environment(wuxin_member)->query_name() &&
+					   can_receive_logical_reward(
+						logical_drop_owner,wuxin_member) &&
+					   random(100)<8){
+						array(string) suit_slots = ({
+							"single_main_weapon","armor_head",
+							"armor_cloth","armor_thou","armor_hand",
+							"armor_shoes","armor_waste",
+							"jewelry_ring","jewelry_neck",
+							"jewelry_bangle"});
+						mapping award_result =
+							ITEMSD->
+							award_xinyuan_suit_piece(
+								wuxin_member,
+								suit_slots[random(
+									sizeof(suit_slots))],
+								"boss:"+this_object()->query_name());
+						if((int)award_result["ok"])
+							tell_object(wuxin_member,
+								"【心渊共鸣】你从首领的遗蜕中感应到一件心渊套装部件落入掌心。\n");
+					}
+				}
+			}
 			//掉落装备
 			int count = this_object()->_boss;
 			for(int i = 0;i<count;i++){

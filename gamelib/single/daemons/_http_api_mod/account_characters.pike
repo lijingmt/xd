@@ -517,6 +517,24 @@ void handle_api_account_character_create(Protocols.HTTP.Server.Request req)
 		send_json(req,(["error":"请完整选择人物姓名、性别和头像"]),400);
 		return;
 	}
+	// 无心：先购买创建资格再走常规建角。
+	if(profession_id=="wuxin"){
+		string wuxin_request_id = lower_case(String.trim_all_whites(
+			(string)(params["request_id"] || "")));
+		if(wuxin_request_id==""){
+			send_json(req,(["error":
+				"创建无心需要提供request_id"]),400);
+			return;
+		}
+		mapping wuxin_purchase = ACCOUNT_CHARACTERD->
+			purchase_wuxin_entitlement(account_id,wuxin_request_id,
+				resolve_expansion_payer(params,account_id));
+		if(!(int)wuxin_purchase["ok"]){
+			send_json(req,(["error":wuxin_purchase["message"] ||
+				"无心资格购买失败"]),409);
+			return;
+		}
+	}
 	// 无极：先购买创建资格再走常规建角。
 	if(profession_id=="wuji"){
 		string wuji_request_id = lower_case(String.trim_all_whites(

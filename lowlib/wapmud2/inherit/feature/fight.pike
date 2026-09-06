@@ -546,6 +546,18 @@ private void broadcast_room_skill_manifestation(object skill,object|zero target,
 }
 
 // 韧性只削减暴击的额外 50% 部分，不能让暴击伤害低于普通伤害。
+/* 无心PVP平衡：无心技能/成长数值按无极×2 生成，仅对怪物生效。
+ * 目标是玩家时在这里统一减回无极水准（×0.5），保证 PVP 公平。
+ * 只在明确知道目标为玩家的伤害落点调用。 */
+private int query_wuxin_pvp_damage(int damage,object caster)
+{
+	if(damage<=0 || !caster ||
+	   !functionp(caster->query_profeId) ||
+	   (string)caster->query_profeId()!="wuxin")
+		return damage;
+	return damage/2;
+}
+
 int query_balanced_critical_damage(int raw_attack,int renxing)
 {
 	int bonus_reduce_percent;
@@ -851,6 +863,11 @@ private string query_heart_contribution_tag(object who)
 		hs=(int)who->query_taiji_heart_bonus("str");
 		hd=(int)who->query_taiji_heart_bonus("dex");
 		ht=(int)who->query_taiji_heart_bonus("think");
+	}
+	else if(profe=="wuxin"){
+		hs=(int)who->query_wuxin_heart_bonus("str");
+		hd=(int)who->query_wuxin_heart_bonus("dex");
+		ht=(int)who->query_wuxin_heart_bonus("think");
 	}
 	else if(profe=="wuxiang"){
 		hs=(int)who->query_wuxiang_heart_bonus("str");
@@ -2340,6 +2357,8 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 		defend += target->query_equip_add("all_mofa_defend");
 		damage = query_balanced_magic_damage(raw_attack,defend,penetration)*
 			power_percent/100;
+		if(target->is("player"))
+			damage = query_wuxin_pvp_damage(damage,caster);
 		if(damage<1)
 			damage = 1;
 		target_life = target->get_cur_life();
@@ -3016,6 +3035,9 @@ void perform(string name,void|int flag){
 						//在这儿加入buff的魔法盾吸收伤害liaocheng 07/4/9
 						int attack_fact = PERSONAL_DIFFICULTYD->
 							scale_pve_damage(this_object(),enemy,fact_mofa_a);
+				if(enemy->is("player"))
+					attack_fact = query_wuxin_pvp_damage(
+						attack_fact,this_object());
 						string absorb_desc = "";
 						if(enemy->query_buff("buff",0)=="absorb"){
 							if((int)enemy->query_buff("buff",1) >= attack_fact){
@@ -3686,6 +3708,9 @@ void boss_perform(string name){
 								int attack_fact = PERSONAL_DIFFICULTYD->
 									scale_pve_damage(this_object(),enemys[i],
 										fact_mofa_a);
+								if(enemys[i]->is("player"))
+									attack_fact = query_wuxin_pvp_damage(
+										attack_fact,this_object());
 
 								// 跨区管理员测试账号一击必杀。
 								if(MANAGERD->is_cross_zone_admin(this_object()->query_name())){
@@ -4337,6 +4362,9 @@ private void attack(int skill_add,int skill_add_per,string type,
 			//在这儿加入buff的魔法盾吸收伤害liaocheng 07/4/9
 			attack_fact = PERSONAL_DIFFICULTYD->scale_pve_damage(
 				this_object(),enemy,attack_a);
+			if(enemy->is("player"))
+				attack_fact = query_wuxin_pvp_damage(
+					attack_fact,this_object());
 
 			// 跨区管理员测试账号一击必杀。
 			if(MANAGERD->is_cross_zone_admin(this_object()->query_name())){

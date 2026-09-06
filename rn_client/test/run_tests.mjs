@@ -576,7 +576,7 @@ await check('种族过滤与头像ID生成与Vue一致', () => {
   assert.deepEqual(
     avatarChoicesFor('third', 'zhenyue', 'female')[0], 'zhenyue_female');
   assert.equal(avatarChoicesFor('', 'jianxian', 'male').length, 0);
-  assert.equal(PROFESSION_OPTIONS.length, 13);
+  assert.equal(PROFESSION_OPTIONS.length, 15);
 });
 
 /* ---------- 建角：API 与 store ---------- */

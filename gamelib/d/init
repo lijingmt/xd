@@ -60,9 +60,13 @@ string query_desc(){
 		//加上随机的提示
 		//desc += TIPSD->query_tips()+"\n";
 		desc += "§6【更新提示】§r\n";
-		desc += "一、新区开放，经典最高70级\n";
-		desc += "二、新区取消捐赠倍速，回归经典\n";
-		desc += "三、团队硬 Boss 试炼已开放：归墟魔君需4人，万象妖皇最低2人且有效同房队员越多队伍总经验越高；掉落试炼武勋可兑换高级装备和隐藏传承\n";
+		desc += "一、终极隐藏职业「无极」已开放：照命达300级后可花1万碎玉解锁创建资格\n";
+		desc += "二、账号终极隐藏职业「无心」震撼登场：无极通关全部个人挑战难度后，花2万碎玉解锁；无心诀心法85%，技能对怪物双倍伤害，无心达300级解锁全账号400级上限！专属隐藏套装「心渊」可从首领与天衡/九曜活动中获得\n";
+		desc += "三、伤害显示已透明化：战斗数字即怪物实际扣血，并标注个人难度系数（如【难度·破境 输出25%】）\n";
+		desc += "四、掉线/重启后重新进入角色，之前开着自动挂机的会自动恢复挂机，不用再手动开\n";
+		desc += "五、APP端新增「全部登录」：一键登录账号下所有角色并自动挂机（多开党福音）\n";
+		desc += "六、队伍解散/组队战斗异常、活动结束后卡屏黑屏等稳定性问题已修复\n";
+		desc += "七、团队硬 Boss 试炼已开放：归墟魔君需4人，万象妖皇最低2人且有效同房队员越多队伍总经验越高；掉落试炼武勋可兑换高级装备和隐藏传承\n";
 		desc += "以上活动详情请咨询客服\n";
 		desc += "§5(QQ客服1811117272)§r\n";
 
@@ -613,7 +617,7 @@ int choice_profe(string arg){
 		//初始化新角色职业值
 		array(string) arr = arg/"/";
 		// 无相始终在候选池里：未解锁时下面会拦截并给出具体缺口。
-		array(string) third_pool = ({"fangshi","zhenyue","tianxiang","lingyi","wuxiang","taiji","zhaoming"});
+		array(string) third_pool = ({"fangshi","zhenyue","tianxiang","lingyi","wuxiang","taiji","zhaoming","wuji","wuxin"});
 		mapping(string:array(string)) valid_professions = ([
 			"human":({"jianxian","yushi","zhuxian"}),
 			"monst":({"kuangyao","wuyao","yinggui"}),
@@ -647,6 +651,35 @@ int choice_profe(string arg){
 			write((string)hidden_status["message"]+"\n");
 			write("[返回阵营选择:choice_race]\n");
 			return 1;
+		}
+		// 无极/无心的服务端防绕过闸门：账号级资格再校验一次。
+		if((string)arr[1]=="wuji" || (string)arr[1]=="wuxin"){
+			string gate_account = me->query_account_owner ?
+				(string)me->query_account_owner() : "";
+			if(gate_account!=""){
+				mapping gate_data = ACCOUNT_CHARACTERD->
+					query_account_characters(gate_account);
+				if(arr[1]=="wuji" &&
+				   !(int)(mappingp(gate_data) ? gate_data : (["ok":0]))
+					["wuji_entitled"]){
+					write("【无极·未付费】请先在人物面板支付碎玉购买无极创建资格。\n");
+					write("[返回阵营选择:choice_race]\n");
+					return 1;
+				}
+				if(arr[1]=="wuxin"){
+					if(!mappingp(gate_data) ||
+					   !(int)gate_data["wuxin_difficulty_ready"]){
+						write("【无心·未解锁】需要账号下无极角色通关全部个人挑战难度。\n");
+						write("[返回阵营选择:choice_race]\n");
+						return 1;
+					}
+					if(!(int)gate_data["wuxin_entitled"]){
+						write("【无心·未付费】请先在人物面板支付20000碎玉购买无心创建资格。\n");
+						write("[返回阵营选择:choice_race]\n");
+						return 1;
+					}
+				}
+			}
 		}
 		// API 新建人物已在账号锁内校验一次；旧 JSP/历史空白档仍可
 		// 直接到达 choice_profe，因此这里必须再做服务端防绕过校验。
@@ -814,6 +847,31 @@ int choice_profe(string arg){
 			s += "好，你选择了太极作为中立阵营的最高隐藏职业。\n";
 			s += "太极是生死轮转的化身，可被动复活自己，亦可主动复活同房队友；\n";
 			s += "比无相综合实力再强 30%，心法加成 65%。\n";
+			s += "从 1 级开始正常成长；后续技能通过教师与掉落获取。\n";
+			s += "[进入游戏:start third]\n";
+			if(!me->mobile || me->mobile == "")
+				s +="[手机绑定:tieToMobile]\n";
+		}
+		else if(u_p=="wuji"){
+			// 无极：照命300级+碎玉资格（上游已闸门，这里补齐bootstrap缺失的分支）。
+			me->setup_player("third",u_p);
+			if(me->skills["wujijue"]==0)
+				me->skills["wujijue"]=({1,0});
+			s += "好，你选择了无极作为中立阵营的终极隐藏职业。\n";
+			s += "无极是太极之上的存在，三系成长胜太极三成；\n";
+			s += "从 1 级开始正常成长；后续技能通过教师与掉落获取。\n";
+			s += "[进入游戏:start third]\n";
+			if(!me->mobile || me->mobile == "")
+				s +="[手机绑定:tieToMobile]\n";
+		}
+		else if(u_p=="wuxin"){
+			// 无心：无极全难度通关+2万碎玉资格（上游已闸门）。
+			me->setup_player("third",u_p);
+			if(me->skills["wuxinjue"]==0)
+				me->skills["wuxinjue"]=({1,0});
+			s += "好，你选择了无心——账号的终极隐藏职业。\n";
+			s += "无心诀心法加成 85%；技能对怪物造成双倍伤害（对玩家与无极持平）；\n";
+			s += "无心达到 300 级后，将解锁账号下所有角色的 400 级上限。\n";
 			s += "从 1 级开始正常成长；后续技能通过教师与掉落获取。\n";
 			s += "[进入游戏:start third]\n";
 			if(!me->mobile || me->mobile == "")
@@ -1079,6 +1137,30 @@ int start(string arg){
 		me->skills["taijiquan"]=({1,0});
 	if(me->query_profeId()=="zhaoming" && !me->skills["zhaomingjue"])
 		me->skills["zhaomingjue"]=({1,0});
+	if(me->query_profeId()=="wuji" && !me->skills["wujijue"])
+		me->skills["wujijue"]=({1,0});
+	if(me->query_profeId()=="wuxin" && !me->skills["wuxinjue"])
+		me->skills["wuxinjue"]=({1,0});
+	// 无心解锁回填：无极角色每次登录检查个人难度是否全部通关，
+	// 达标则幂等写入账号索引（wuxin_difficulty_ready）。
+	if(me->query_profeId()=="wuji" &&
+	   functionp(me->query_account_owner)){
+		mixed wuxin_fill_err = catch {
+			mapping pd_status = PERSONAL_DIFFICULTYD->
+				query_status(me);
+			if(mappingp(pd_status) && (int)pd_status["maxed"]){
+				string wuxin_account =
+					(string)me->query_account_owner();
+				if(wuxin_account!="")
+					ACCOUNT_CHARACTERD->
+						record_wuxin_difficulty_maxed(
+							wuxin_account);
+			}
+		};
+		if(wuxin_fill_err)
+			werror("[WUXIN_UNLOCK_FILL] %s\n",
+				describe_error(wuxin_fill_err)[..160]);
+	}
 
 	//领取标识的初始化
         if(!me->get_gift)                                                                                         
