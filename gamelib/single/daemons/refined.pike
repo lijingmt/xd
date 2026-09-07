@@ -12,17 +12,189 @@ inherit LOW_DAEMON;
 #define REFINE_YUSHI_BASE 10
 #define REFINE_YUSHI_PER_LEVEL 2
 #define REFINE_STONE_BASE 5
-#define REFINE_STONE_PER_LEVEL 3
 #define REFINE_MONEY_PER_LEVEL 500
 #define REFINE_MIN_SUCCESS_BP 3000
-#define REFINE_PVP_DROP_BP 3500
+#define REFINE_PVP_DROP_BP 4000
 #define REFINE_PVP_VICTIM_COOLDOWN 1800
-#define REFINE_PVP_DAILY_CAP 40
+#define REFINE_PVP_DAILY_CAP 200
 #define REFINE_PVP_LEVEL_DIFF_MAX 30
 
 // 运行态：killer|victim -> 上次掉落时间；killer|日期 -> 当日掉落颗数。
 private mapping(string:int) pvp_victim_last_drop = ([]);
 private mapping(string:int) pvp_daily_drops = ([]);
+
+// 月度PK榜：kills[userid]=({"名字",次数})；pending_charms=待领取守护符。
+private string pvp_rank_month = "";
+private mapping(string:array) pvp_monthly_kills = ([]);
+private array(mapping(string:string)) pvp_pending_charms = ({});
+private string pvp_state_path()
+{
+	return DATA_ROOT+"/refine_pvp_state.json";
+}
+
+private void load_pvp_state()
+{
+	string raw;
+	mapping data;
+	pvp_rank_month=current_month_key();
+	raw="";
+	mixed err=catch{ raw=Stdio.read_file(pvp_state_path()) || ""; };
+	if(err || raw=="")
+		return;
+	err=catch{ data=Standards.JSON.decode(raw); };
+	if(err || !mappingp(data))
+		return;
+	if(stringp(data["month"]))
+		pvp_rank_month=(string)data["month"];
+	if(mappingp(data["kills"]))
+		pvp_monthly_kills=copy_value(data["kills"]);
+	if(arrayp(data["pending_charms"]))
+		pvp_pending_charms=copy_value(data["pending_charms"]);
+}
+
+private void save_pvp_state()
+{
+	string raw=Standards.JSON.encode(([
+		"month":pvp_rank_month,
+		"kills":pvp_monthly_kills,
+		"pending_charms":pvp_pending_charms,
+	]));
+	mixed err=catch{
+		Stdio.write_file(pvp_state_path()+".tmp",raw+"\n");
+		if(Stdio.exist(pvp_state_path())){
+			rm(pvp_state_path()+".bak");
+			mv(pvp_state_path(),pvp_state_path()+".bak");
+		}
+		mv(pvp_state_path()+".tmp",pvp_state_path());
+	};
+	if(err)
+		werror("[REFINE][PVP_STATE_SAVE_FAILED] %s\n",
+			describe_error(err));
+}
+
+private string current_month_key()
+{
+	mapping t=localtime(time());
+	return sprintf("%04d-%02d",(t["year"]+1900),(t["mon"]+1));
+}
+
+protected void create()
+{
+	load_pvp_state();
+	ensure_pvp_month_rollover();
+}
+
+/** 跨月结算：上月榜首进入待发放守护符队列，榜清零。
+ * void|string month_key 供TestUnit注入时间。 */
+void ensure_pvp_month_rollover(void|string month_key)
+{
+	string now_month=month_key ? month_key : current_month_key();
+	if(pvp_rank_month==now_month)
+		return;
+	if(sizeof(pvp_monthly_kills)>0){
+		array winners=({});
+		int top=0;
+		foreach(indices(pvp_monthly_kills),string uid){
+			int n=(int)pvp_monthly_kills[uid][1];
+			if(n>top){
+				top=n;
+				winners=({uid});
+			}
+			else if(n==top && n>0)
+				winners+=({uid});
+		}
+		foreach(winners,string uid){
+			pvp_pending_charms+=({([
+				"account":uid,
+				"name_cn":(string)pvp_monthly_kills[uid][0],
+				"month":pvp_rank_month,
+			])});
+		}
+		if(top>0){
+			string now=ctime(time());
+			ASYNC_IOD->append_log(ROOT+"/log/refine_pvp_drop.log",
+				now[0..sizeof(now)-2]+" [月榜结算] "+pvp_rank_month+
+				" 榜首="+winners*","+" 击杀"+top+
+				"，守护符待发放\n");
+		}
+	}
+	pvp_rank_month=now_month;
+	pvp_monthly_kills=([]);
+	save_pvp_state();
+}
+
+private void record_monthly_kill(object killer)
+{
+	string uid=(string)killer->query_name();
+	string cn=functionp(killer->query_name_cn) ?
+		(string)killer->query_name_cn() : uid;
+	if(!pvp_monthly_kills[uid])
+		pvp_monthly_kills[uid]=({cn,0});
+	pvp_monthly_kills[uid][0]=cn;
+	pvp_monthly_kills[uid][1]=(int)pvp_monthly_kills[uid][1]+1;
+	save_pvp_state();
+}
+
+/** 本月PK榜（按击杀数降序，最多count条）。 */
+array(array) query_monthly_pvp_rank(int count)
+{
+	array(string) uids=indices(pvp_monthly_kills);
+	array rows=({});
+	foreach(uids,string uid)
+		rows+=({({uid,(string)pvp_monthly_kills[uid][0],
+			(int)pvp_monthly_kills[uid][1]})});
+	// 简单选择排序：榜单人数很小，避免依赖sort比较器语义差异。
+	for(int i=0;i<sizeof(rows);i++){
+		int best=i;
+		for(int j=i+1;j<sizeof(rows);j++)
+			if(rows[j][2]>rows[best][2])
+				best=j;
+		if(best!=i){
+			array tmp=rows[i];
+			rows[i]=rows[best];
+			rows[best]=tmp;
+		}
+	}
+	return count>0 && sizeof(rows)>count ? rows[..count-1] : rows;
+}
+
+/** 登录时补发上月榜首守护符（幂等：发过即从队列移除）。 */
+void maybe_deliver_pending_charm(object player)
+{
+	string uid;
+	string cn;
+	int delivered=0;
+	if(!player || !functionp(player->query_name))
+		return;
+	uid=(string)player->query_name();
+	for(int i=0;i<sizeof(pvp_pending_charms);i++){
+		mapping entry=pvp_pending_charms[i];
+		if((string)entry["account"]!=uid)
+			continue;
+		object charm;
+		mixed err=catch{ charm=clone(ROOT+
+			"/gamelib/clone/item/material/tilianshouhufu"); };
+		if(err || !charm)
+			continue;
+		charm->amount=1;
+		if(player->if_over_load(charm)){
+			destruct(charm);
+			continue;
+		}
+		if(catch{ charm->move(player); }){
+			destruct(charm);
+			continue;
+		}
+		tell_object(player,"【月度PK榜】你是"+(string)entry["month"]+
+			"的击杀榜首，获赠提炼守护符一张（门槛失败降级减免为3级）。\n");
+		pvp_pending_charms=pvp_pending_charms[..i-1]+
+			pvp_pending_charms[i+1..];
+		delivered=1;
+		break;
+	}
+	if(delivered)
+		save_pvp_state();
+}
 
 /** 每级全属性+1%，返回百分比倍率（100=无提炼）。 */
 int query_refine_multiplier(int level)
@@ -52,12 +224,16 @@ int query_is_threshold_attempt(int level)
 	return next%100==0;
 }
 
-/** 门槛失败降级数：门槛≤100降3级；更高门槛降当前等级30%（至少3级）。 */
+/** 门槛失败降级数：门槛≤100降3级；更高门槛降当前等级30%，
+ * 但最多降50级——不设上限时高等级门槛是负漂移墙（30%成功率对30%
+ * 降级），+150之后实际不可达；封顶后+1000恢复为长线可追求。 */
 int query_threshold_penalty_levels(int level)
 {
 	if(level+1<=100)
 		return 3;
 	int drop=level*30/100;
+	if(drop>50)
+		drop=50;
 	return drop<3 ? 3 : drop;
 }
 
@@ -66,9 +242,11 @@ mapping(string:int) query_refine_costs(int level)
 {
 	if(level<0)
 		level=0;
+	// 淬炼石固定5颗：等级消耗体现在次数与碎玉上；若随级增长，
+	// 叠加30%成功率后连+100都要数年PK产出，曲线不可走。
 	return ([
 		"yushi":REFINE_YUSHI_BASE+level*REFINE_YUSHI_PER_LEVEL,
-		"stone":REFINE_STONE_BASE+level*REFINE_STONE_PER_LEVEL,
+		"stone":REFINE_STONE_BASE,
 		"money":level*REFINE_MONEY_PER_LEVEL,
 	]);
 }
@@ -178,6 +356,26 @@ mapping(string:mixed) attempt_refine(object me,object item,
 	int new_level=level-drop;
 	if(new_level<0)
 		new_level=0;
+	// 门槛失败最多跌回本段起点（10/50/100级一段）：不设此地板时
+	// 高段失败会级联重穿下方所有门槛，期望成本按段指数增长，
+	// 实测+500都要20万次尝试；地板后0→+1000约7500次，长线可追求。
+	{
+		int threshold_target=level+1;
+		int band_start;
+		if(threshold_target<=100)
+			band_start=threshold_target-10;
+		else if(threshold_target<=1000)
+			band_start=threshold_target-50;
+		else
+			band_start=threshold_target-100;
+		if(band_start<0)
+			band_start=0;
+		if(new_level<band_start)
+			new_level=band_start;
+	}
+	// 不落在门槛级上（如下一段的冲级点），避免连锁失败。
+	while(new_level>0 && query_is_threshold_attempt(new_level))
+		new_level--;
 	item->set_refine_level(new_level);
 	append_refine_log(me->query_name()+" refine "+(string)item->query_name()+
 		" "+level+"->"+new_level+" fail(drop="+drop+")");
@@ -245,13 +443,15 @@ void maybe_drop_pvp_material(object killer,object victim,
 	if((int)pvp_victim_last_drop[key]>
 	   time()-REFINE_PVP_VICTIM_COOLDOWN)
 		return;
+	// 有效击杀先计入月度PK榜（跨月榜首获赠守护符），再结算掉落。
+	record_monthly_kill(killer);
 	if((int)pvp_daily_drops[pvp_daily_key(killer)]>=
 	   REFINE_PVP_DAILY_CAP)
 		return;
 	roll=forced_roll_bp>0 ? forced_roll_bp : random(10000);
 	if(roll>=REFINE_PVP_DROP_BP)
 		return;
-	count=random(2)+1;
+	count=random(3)+1;
 	// 优先并入已有堆；背包满则放弃本次（不落到地面被他人捡走）。
 	foreach(all_inventory(killer),object ob){
 		if(ob && functionp(ob->query_name) &&

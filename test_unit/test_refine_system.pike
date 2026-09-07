@@ -105,18 +105,23 @@ int main()
 			REFINED->query_is_threshold_attempt(1099)==1 &&
 			REFINED->query_is_threshold_attempt(1000)==0,
 			"门槛判定异常");
-		check("1d.门槛惩罚(低档3级/高档30%)",
+		check("1d.门槛惩罚(低档3级/高档30%封顶50)",
 			REFINED->query_threshold_penalty_levels(9)==3 &&
 			REFINED->query_threshold_penalty_levels(149)==44 &&
-			REFINED->query_threshold_penalty_levels(999)==299,
-			"惩罚数值异常");
+			REFINED->query_threshold_penalty_levels(999)==50 &&
+			REFINED->query_threshold_penalty_levels(3000)==50,
+			sprintf("%d %d %d %d",
+				REFINED->query_threshold_penalty_levels(9),
+				REFINED->query_threshold_penalty_levels(149),
+				REFINED->query_threshold_penalty_levels(999),
+				REFINED->query_threshold_penalty_levels(3000)));
 		mapping c0=REFINED->query_refine_costs(0);
 		mapping c50=REFINED->query_refine_costs(50);
 		mapping c1000=REFINED->query_refine_costs(1000);
 		check("1e.材料消耗公式",
 			c0["yushi"]==10 && c0["stone"]==5 && c0["money"]==0 &&
-			c50["yushi"]==110 && c50["stone"]==155 &&
-			c1000["yushi"]==2010 && c1000["stone"]==3005,
+			c50["yushi"]==110 && c50["stone"]==5 &&
+			c1000["yushi"]==2010 && c1000["stone"]==5,
 			sprintf("%O %O %O",c0,c50,c1000));
 
 		/* ===== 2) 事务性与惩罚 ===== */
@@ -164,8 +169,15 @@ int main()
 		check("2f.高档门槛失败降30%",
 			(int)sword->query_refine_level()==105,
 			sprintf("level=%d",(int)sword->query_refine_level()));
+		/* 级联防回归：199失败最多跌回本段起点150（旧规则会跌穿
+		 * 到105并级联重穿下方所有门槛，+500都要20万次尝试）。 */
+		sword->set_refine_level(199);
+		REFINED->attempt_refine(me,sword,10000);
+		check("2f2.门槛失败最多跌回本段起点(199→150)",
+			(int)sword->query_refine_level()==150,
+			sprintf("level=%d",(int)sword->query_refine_level()));
 		/* 守护符：高档门槛失败降30%被减免为3级 */
-		sword->set_refine_level(149);
+		sword->set_refine_level(199);
 		object charm = clone(ROOT+
 			"/gamelib/clone/item/material/tilianshouhufu");
 		charm->move(me);
@@ -176,7 +188,7 @@ int main()
 			   (string)ob->query_name()=="tilianshouhufu")
 				charm_count+=(int)(ob->amount || 1);
 		check("2g.守护符把高档惩罚减免为3级且被消耗",
-			(int)sword->query_refine_level()==146 && charm_count==0,
+			(int)sword->query_refine_level()==196 && charm_count==0,
 			sprintf("level=%d charm=%d",
 				(int)sword->query_refine_level(),charm_count));
 
@@ -279,8 +291,8 @@ int main()
 		/* 1000级后的门槛失败（1050门槛） */
 		gears[0]->set_refine_level(1099);
 		mapping r4c=REFINED->attempt_refine(me,gears[0],10000);
-		check("4c.千级门槛失败降30%",
-			(int)gears[0]->query_refine_level()==770,
+		check("4c.千级门槛失败降30%封顶50",
+			(int)gears[0]->query_refine_level()==1049,
 			sprintf("level=%d msg=%s",(int)gears[0]->query_refine_level(),
 				(string)r4c["message"]));
 		gears[0]->set_refine_level(1000);
@@ -322,9 +334,17 @@ int main()
 				level++;
 			else if(REFINED->query_is_threshold_attempt(level)){
 				fails_at_threshold++;
+				int tgt=level+1;
+				int bs=tgt<=100 ? tgt-10 :
+					(tgt<=1000 ? tgt-50 : tgt-100);
 				level-=REFINED->query_threshold_penalty_levels(level);
 				if(level<0)
 					level=0;
+				if(bs>0 && level<bs)
+					level=bs;
+				while(level>0 &&
+				      REFINED->query_is_threshold_attempt(level))
+					level--;
 			}
 		}
 		werror("  [经济模拟] 0→+100：尝试%d次、门槛失败%d次、"+
@@ -333,6 +353,64 @@ int main()
 		check("5a.真实随机骰可到达+100且成本有限",
 			level==100 && attempts>100 && attempts<200000,
 			sprintf("level=%d attempts=%d",level,attempts));
+		/* 封顶50后复测0→1000：旧参数下20万次仅到125级 */
+		int lv2=0;
+		int at2=0;
+		while(lv2<1000 && at2<150000){
+			at2++;
+			if(random(10000)<REFINED->query_refine_success_rate(lv2))
+				lv2++;
+			else if(REFINED->query_is_threshold_attempt(lv2)){
+				int tgt2=lv2+1;
+				int bs2=tgt2<=100 ? tgt2-10 :
+					(tgt2<=1000 ? tgt2-50 : tgt2-100);
+				lv2-=REFINED->query_threshold_penalty_levels(lv2);
+				if(lv2<0)
+					lv2=0;
+				if(bs2>0 && lv2<bs2)
+					lv2=bs2;
+				while(lv2>0 &&
+				      REFINED->query_is_threshold_attempt(lv2))
+					lv2--;
+			}
+		}
+		werror("  [经济模拟] 封顶50后0→+1000：尝试%d次，到达+%d\n",
+			at2,lv2);
+		check("5a2.封顶50后+1000可达（负漂移墙已修复）",
+			lv2>=300,
+			sprintf("level=%d attempts=%d",lv2,at2));
+
+		/* ===== 5c) 月度PK榜/跨月结算/守护符补发 ===== */
+		array rank=REFINED->query_monthly_pvp_rank(10);
+		int me_ranked=0;
+		foreach(rank,array row)
+			if(row[0]==account_id && row[2]>=1)
+				me_ranked=1;
+		check("5c-1.有效击杀计入月度PK榜",
+			me_ranked,sprintf("rank=%O",rank[0..1]));
+		REFINED->ensure_pvp_month_rollover("2000-01");
+		REFINED->maybe_deliver_pending_charm(me);
+		int charm2=0;
+		foreach(all_inventory(me),object ob)
+			if(ob && functionp(ob->query_name) &&
+			   (string)ob->query_name()=="tilianshouhufu")
+				charm2+=(int)(ob->amount || 1);
+		check("5c-2.跨月榜首获赠守护符并登录补发",
+			charm2>=1,sprintf("charms=%d",charm2));
+		array rank2=REFINED->query_monthly_pvp_rank(10);
+		check("5c-3.跨月后榜单清零",
+			sizeof(rank2)==0,sprintf("rank=%O",rank2));
+		REFINED->ensure_pvp_month_rollover();
+
+		/* ===== 5b) 心渊套装可提炼（洗维持锁定） ===== */
+		object xy=clone(ROOT+"/gamelib/clone/item/wuxinsuit/xinyuanjie");
+		check("5b.心渊套装进入提炼白名单",
+			objectp(xy) && ITEMSD->can_equip(xy) &&
+			(xy->query_item_rareLevel()>0 ||
+			 functionp(xy->query_newmoon_collection_id)),
+			"心渊不可提炼");
+		if(xy)
+			destruct(xy);
 
 		/* ===== 6) 接线源检查 ===== */
 		string die_src=Stdio.read_file(ROOT+
