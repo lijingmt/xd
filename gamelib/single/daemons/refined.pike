@@ -125,6 +125,7 @@ void ensure_pvp_month_rollover(void|string month_key)
 
 private void record_monthly_kill(object killer)
 {
+	ensure_pvp_month_rollover();
 	string uid=(string)killer->query_name();
 	string cn=functionp(killer->query_name_cn) ?
 		(string)killer->query_name_cn() : uid;
@@ -138,6 +139,7 @@ private void record_monthly_kill(object killer)
 /** 本月PK榜（按击杀数降序，最多count条）。 */
 array(array) query_monthly_pvp_rank(int count)
 {
+	ensure_pvp_month_rollover();
 	array(string) uids=indices(pvp_monthly_kills);
 	array rows=({});
 	foreach(uids,string uid)
@@ -166,6 +168,7 @@ void maybe_deliver_pending_charm(object player)
 	int delivered=0;
 	if(!player || !functionp(player->query_name))
 		return;
+	ensure_pvp_month_rollover();
 	uid=(string)player->query_name();
 	for(int i=0;i<sizeof(pvp_pending_charms);i++){
 		mapping entry=pvp_pending_charms[i];
