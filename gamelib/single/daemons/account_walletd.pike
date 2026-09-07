@@ -578,6 +578,12 @@ private void log_wallet(string account_id,string character_id,string type,
 		" character="+character_id+" type="+type+
 		" amount="+amount+" balance="+balance+
 		" operator="+(operator || "system")+"\n");
+	// 唯一充值入账日志点：同步累计月度捐赠榜（守护符月度发放依据）。
+	if(type=="recharge" && amount>0){
+		catch{
+			REFINED->record_donation(account_id,character_id,amount);
+		};
+	}
 }
 
 mapping(string:mixed) query_wallet(object player)

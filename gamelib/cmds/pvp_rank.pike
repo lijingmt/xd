@@ -18,7 +18,7 @@ int main(string|zero arg)
 		for(int i=0;i<sizeof(rows);i++)
 			s+=sprintf("第%d名 %s(%s) 击杀%d\n",
 				i+1,rows[i][1],rows[i][0],rows[i][2]);
-		s+="月末榜首将获赠：提炼守护符×1（提炼门槛失败降级减免为3级）。\n";
+		s+="守护符每月发给捐赠（充值）月榜榜首，PK榜为荣誉展示。\n";
 	}
 	s+="[提炼装备:refine]|[返回游戏:look]\n";
 	write(s);

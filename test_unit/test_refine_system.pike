@@ -380,7 +380,7 @@ int main()
 			lv2>=300,
 			sprintf("level=%d attempts=%d",lv2,at2));
 
-		/* ===== 5c) 月度PK榜/跨月结算/守护符补发 ===== */
+		/* ===== 5c) PK榜纯展示 + 捐赠月榜守护符 ===== */
 		array rank=REFINED->query_monthly_pvp_rank(10);
 		int me_ranked=0;
 		foreach(rank,array row)
@@ -388,19 +388,43 @@ int main()
 				me_ranked=1;
 		check("5c-1.有效击杀计入月度PK榜",
 			me_ranked,sprintf("rank=%O",rank[0..1]));
-		REFINED->ensure_pvp_month_rollover("2000-01");
-		REFINED->maybe_deliver_pending_charm(me);
 		int charm2=0;
 		foreach(all_inventory(me),object ob)
 			if(ob && functionp(ob->query_name) &&
 			   (string)ob->query_name()=="tilianshouhufu")
 				charm2+=(int)(ob->amount || 1);
-		check("5c-2.跨月榜首获赠守护符并登录补发",
-			charm2>=1,sprintf("charms=%d",charm2));
+		REFINED->ensure_pvp_month_rollover("2000-01");
+		REFINED->maybe_deliver_pending_charm(me);
+		int charm3=0;
+		foreach(all_inventory(me),object ob)
+			if(ob && functionp(ob->query_name) &&
+			   (string)ob->query_name()=="tilianshouhufu")
+				charm3+=(int)(ob->amount || 1);
+		check("5c-2.PK榜跨月不结算守护符",
+			charm3==charm2,sprintf("before=%d after=%d",charm2,charm3));
 		array rank2=REFINED->query_monthly_pvp_rank(10);
-		check("5c-3.跨月后榜单清零",
+		check("5c-3.跨月后PK榜清零",
 			sizeof(rank2)==0,sprintf("rank=%O",rank2));
+		REFINED->record_donation(account_id,"提炼测试",5000);
+		array drank=REFINED->query_monthly_donation_rank(10);
+		check("5c-4.充值计入捐赠月榜",
+			sizeof(drank)==1 && drank[0][0]==account_id &&
+			drank[0][2]==5000,
+			sprintf("drank=%O",drank));
+		REFINED->ensure_pvp_month_rollover("2001-01");
+		REFINED->maybe_deliver_pending_charm(me);
+		int charm4=0;
+		foreach(all_inventory(me),object ob)
+			if(ob && functionp(ob->query_name) &&
+			   (string)ob->query_name()=="tilianshouhufu")
+				charm4+=(int)(ob->amount || 1);
+		check("5c-5.捐赠月榜榜首跨月获赠守护符",
+			charm4>charm3,sprintf("before=%d after=%d",charm3,charm4));
 		REFINED->ensure_pvp_month_rollover();
+		string wallet_src=Stdio.read_file(ROOT+
+			"/gamelib/single/daemons/account_walletd.pike") || "";
+		check("5c-6.钱包充值入口累计捐赠",
+			search(wallet_src,"record_donation")!=-1,"钩子缺失");
 
 		/* ===== 5b) 心渊套装可提炼（洗维持锁定） ===== */
 		object xy=clone(ROOT+"/gamelib/clone/item/wuxinsuit/xinyuanjie");

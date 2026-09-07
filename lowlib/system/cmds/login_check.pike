@@ -287,8 +287,6 @@ int main(string arg)
 					int setup_ok = 0;
 					mixed setup_result = catch { setup_ok = me->setup(lgpswd); };
 					if(setup_result==0 && setup_ok){
-						// 月度PK榜首的守护符补发（幂等，失败不影响登录）。
-						catch { REFINED->maybe_deliver_pending_charm(me); };
 						// HTTP API 模式检测：检查全局标记
 						int is_http_api = is_http_api_login(user_name);
 						if(is_http_api) {

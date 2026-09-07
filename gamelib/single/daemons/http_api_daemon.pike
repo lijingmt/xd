@@ -802,7 +802,8 @@ string execute_command_sync(string userid, string password, string cmd)
             if(functionp(player->consume_worker_summon_handoff) &&
                !player->consume_worker_summon_handoff())
                 return "{\"error\":\"跨地图召唤状态恢复失败，请重试\"}";
-            resume_login_server_autofight(player);
+            catch { REFINED->maybe_deliver_pending_charm(player); };
+        resume_login_server_autofight(player);
             return execute_internal_command(player, cmd);
         }
 
@@ -848,6 +849,7 @@ string execute_command_sync(string userid, string password, string cmd)
         if(functionp(player->consume_worker_summon_handoff) &&
            !player->consume_worker_summon_handoff())
             return "{\"error\":\"跨地图召唤状态恢复失败，请重试\"}";
+        catch { REFINED->maybe_deliver_pending_charm(player); };
         resume_login_server_autofight(player);
 
         return execute_internal_command(player, cmd);

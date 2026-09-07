@@ -23,9 +23,11 @@ inherit LOW_DAEMON;
 private mapping(string:int) pvp_victim_last_drop = ([]);
 private mapping(string:int) pvp_daily_drops = ([]);
 
-// 月度PK榜：kills[userid]=({"名字",次数})；pending_charms=待领取守护符。
+// 月度PK榜：kills[userid]=({"名字",次数})；月度捐赠榜：donations[账号]=
+// ({"名字",碎玉额})；pending_charms=待领取守护符（捐赠月榜榜首）。
 private string pvp_rank_month = "";
 private mapping(string:array) pvp_monthly_kills = ([]);
+private mapping(string:array) donation_monthly = ([]);
 private array(mapping(string:string)) pvp_pending_charms = ({});
 private string pvp_state_path()
 {
@@ -50,6 +52,8 @@ private void load_pvp_state()
 		pvp_monthly_kills=copy_value(data["kills"]);
 	if(arrayp(data["pending_charms"]))
 		pvp_pending_charms=copy_value(data["pending_charms"]);
+	if(mappingp(data["donations"]))
+		donation_monthly=copy_value(data["donations"]);
 }
 
 private void save_pvp_state()
@@ -57,6 +61,7 @@ private void save_pvp_state()
 	string raw=Standards.JSON.encode(([
 		"month":pvp_rank_month,
 		"kills":pvp_monthly_kills,
+		"donations":donation_monthly,
 		"pending_charms":pvp_pending_charms,
 	]));
 	mixed err=catch{
@@ -91,35 +96,36 @@ void ensure_pvp_month_rollover(void|string month_key)
 	string now_month=month_key ? month_key : current_month_key();
 	if(pvp_rank_month==now_month)
 		return;
-	if(sizeof(pvp_monthly_kills)>0){
-		array winners=({});
+	// 守护符按用户拍板改为发给捐赠（充值）月榜榜首；PK榜只做
+	// 月度展示，不结算任何奖励。
+	if(sizeof(donation_monthly)>0){
+		string winner="";
+		string winner_cn="";
 		int top=0;
-		foreach(indices(pvp_monthly_kills),string uid){
-			int n=(int)pvp_monthly_kills[uid][1];
+		foreach(indices(donation_monthly),string uid){
+			int n=(int)donation_monthly[uid][1];
 			if(n>top){
 				top=n;
-				winners=({uid});
+				winner=uid;
+				winner_cn=(string)donation_monthly[uid][0];
 			}
-			else if(n==top && n>0)
-				winners+=({uid});
 		}
-		foreach(winners,string uid){
+		if(winner!="" && top>0){
 			pvp_pending_charms+=({([
-				"account":uid,
-				"name_cn":(string)pvp_monthly_kills[uid][0],
+				"account":winner,
+				"name_cn":winner_cn,
 				"month":pvp_rank_month,
 			])});
-		}
-		if(top>0){
 			string now=ctime(time());
 			ASYNC_IOD->append_log(ROOT+"/log/refine_pvp_drop.log",
-				now[0..sizeof(now)-2]+" [月榜结算] "+pvp_rank_month+
-				" 榜首="+winners*","+" 击杀"+top+
-				"，守护符待发放\n");
+				now[0..sizeof(now)-2]+" [捐赠月榜结算] "+pvp_rank_month+
+				" 榜首="+winner+"("+winner_cn+") 捐赠"+top+
+				"碎玉，守护符待发放\n");
 		}
 	}
 	pvp_rank_month=now_month;
 	pvp_monthly_kills=([]);
+	donation_monthly=([]);
 	save_pvp_state();
 }
 
@@ -134,6 +140,42 @@ private void record_monthly_kill(object killer)
 	pvp_monthly_kills[uid][0]=cn;
 	pvp_monthly_kills[uid][1]=(int)pvp_monthly_kills[uid][1]+1;
 	save_pvp_state();
+}
+
+/** 钱包充值入账时累计月度捐赠（account_walletd log_wallet 唯一
+ * 充值日志点调用；amount为碎玉额）。 */
+void record_donation(string account_id,string name_cn,int amount)
+{
+	if(account_id=="" || amount<=0)
+		return;
+	ensure_pvp_month_rollover();
+	if(!donation_monthly[account_id])
+		donation_monthly[account_id]=({name_cn,0});
+	donation_monthly[account_id][0]=name_cn;
+	donation_monthly[account_id][1]=(int)donation_monthly[account_id][1]+amount;
+	save_pvp_state();
+}
+
+/** 本月捐赠榜（按碎玉额降序，最多count条）。 */
+array(array) query_monthly_donation_rank(int count)
+{
+	ensure_pvp_month_rollover();
+	array rows=({});
+	foreach(indices(donation_monthly),string uid)
+		rows+=({({uid,(string)donation_monthly[uid][0],
+			(int)donation_monthly[uid][1]})});
+	for(int i=0;i<sizeof(rows);i++){
+		int best=i;
+		for(int j=i+1;j<sizeof(rows);j++)
+			if(rows[j][2]>rows[best][2])
+				best=j;
+		if(best!=i){
+			array tmp=rows[i];
+			rows[i]=rows[best];
+			rows[best]=tmp;
+		}
+	}
+	return count>0 && sizeof(rows)>count ? rows[..count-1] : rows;
 }
 
 /** 本月PK榜（按击杀数降序，最多count条）。 */
@@ -175,6 +217,7 @@ void maybe_deliver_pending_charm(object player)
 		if((string)entry["account"]!=uid)
 			continue;
 		object charm;
+		int moved=0;
 		mixed err=catch{ charm=clone(ROOT+
 			"/gamelib/clone/item/material/tilianshouhufu"); };
 		if(err || !charm)
@@ -184,12 +227,19 @@ void maybe_deliver_pending_charm(object player)
 			destruct(charm);
 			continue;
 		}
-		if(catch{ charm->move(player); }){
+		// move()静默失败只返回0：必须检查返回值，否则队列被消费
+		// 而奖励凭空丢失（登录早期玩家尚未入世时就会这样）。
+		moved=0;
+		err=catch{ moved=charm->move(player); };
+		if(err || !moved){
 			destruct(charm);
 			continue;
 		}
-		tell_object(player,"【月度PK榜】你是"+(string)entry["month"]+
-			"的击杀榜首，获赠提炼守护符一张（门槛失败降级减免为3级）。\n");
+		tell_object(player,"【捐赠月榜】你是"+(string)entry["month"]+
+			"的捐赠榜首，获赠提炼守护符一张（门槛失败降级减免为3级）。\n");
+		// 立即持久化人物存档：发放点可能早于任何后续存档。
+		if(functionp(player->save_with_result))
+			player->save_with_result();
 		pvp_pending_charms=pvp_pending_charms[..i-1]+
 			pvp_pending_charms[i+1..];
 		delivered=1;
