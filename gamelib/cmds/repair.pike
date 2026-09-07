@@ -12,7 +12,7 @@ int main(string|zero arg)
 		object tmp;
 		array arr = all_inventory(me);
 		foreach(arr,tmp){
-			if(tmp->is("equip")&&(tmp->query_item_type()=="weapon"||tmp->query_item_type()=="single_weapon"||tmp->query_item_type()=="double_weapon"||tmp->query_item_type()=="armor")){
+			if(tmp->is("equip")&&(tmp->query_item_type()=="weapon"||tmp->query_item_type()=="single_weapon"||tmp->query_item_type()=="double_weapon"||tmp->query_item_type()=="armor"||tmp->query_item_type()=="jewelry"||tmp->query_item_type()=="decorate")){
 				int r_m = 0;
 				if(tmp->item_cur_dura != tmp->item_dura){
 					float a = (float)tmp->query_item_canLevel();//1级;
@@ -43,7 +43,7 @@ int main(string|zero arg)
 	s = "";
 	sscanf(arg,"%s %d",name,count);
 	object ob = present(name,me,count);
-	if(ob->is("equip")&&(ob->query_item_type()=="weapon"||ob->query_item_type()=="single_weapon"||ob->query_item_type()=="double_weapon"||ob->query_item_type()=="armor")){
+	if(ob->is("equip")&&(ob->query_item_type()=="weapon"||ob->query_item_type()=="single_weapon"||ob->query_item_type()=="double_weapon"||ob->query_item_type()=="armor"||ob->query_item_type()=="jewelry"||ob->query_item_type()=="decorate")){
 		if(!ob){
 			s+="请确认你身上有这样的物品。\n";
 			write("[返回:repair]\n");
