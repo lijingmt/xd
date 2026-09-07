@@ -55,7 +55,7 @@ int main(string|zero arg)
 		}
 		if(!listed)
 			s+="身上没有可提炼的装备。\n";
-		s+="[PK月榜·守护符:pvp_rank]\n";
+		s+="[月度榜单:pvp_rank]\n";
 		s+="[返回游戏:look]\n";
 		write(s);
 		return 1;

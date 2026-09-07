@@ -1,6 +1,6 @@
 #include <command.h>
 #include <gamelib/include/gamelib.h>
-// 月度PK排行榜：榜首每月获赠提炼守护符一张（门槛失败降级减免为3级）。
+// 月度PK排行榜：纯荣誉展示。守护符按捐赠月榜发放（见守护符提示行）。
 
 int main(string|zero arg)
 {
