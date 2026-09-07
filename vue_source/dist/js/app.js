@@ -3137,6 +3137,12 @@ createApp({
             })).filter(r => r.delta !== 0);
         },
 
+        /* 公告中心：右上角菜单入口，历史公告可反复查看。 */
+        async openNotices() {
+            this.headerMenuOpen = false;
+            await this.sendJsonCommand('notices');
+        },
+
         async smartEquip() {
             if (this.equipmentActionBusy) return;
             this.equipmentActionBusy = 'smart_equip';

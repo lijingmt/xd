@@ -22,10 +22,10 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1788785613516">
-    <link rel="stylesheet" href="css/app.css?v=v1788785613516">
-    <link rel="stylesheet" href="css/realm.css?v=v1788785613516">
-    <link rel="stylesheet" href="css/pc.css?v=v1788785613516">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1788801348885">
+    <link rel="stylesheet" href="css/app.css?v=v1788801348885">
+    <link rel="stylesheet" href="css/realm.css?v=v1788801348885">
+    <link rel="stylesheet" href="css/pc.css?v=v1788801348885">
 </head>
 <body>
     <div id="app">
@@ -941,6 +941,10 @@
                             <button type="button" class="menu-item" @click="toggleTheme(); headerMenuOpen = false;">
                                 <span class="menu-icon">{{ theme === 'classic' ? '🌙' : (theme === 'dark' ? '☀️' : '🏜️') }}</span>
                                 <span>{{ theme === 'classic' ? '暗色模式' : (theme === 'dark' ? '浅色模式' : '经典模式') }}</span>
+                            </button>
+                            <button type="button" class="menu-item" @click="openNotices">
+                                <span class="menu-icon">📣</span>
+                                <span>游戏公告</span>
                             </button>
                             <div class="menu-divider"></div>
                             <div class="menu-item language-item">
@@ -2654,19 +2658,19 @@
                         </aside>
 </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1788785613516"></script>
-    <script src="vendor/canvas-confetti.js?v=v1788785613516"></script>
-    <script src="vendor/howler.core.min.js?v=v1788785613516"></script>
-    <script src="vendor/driver.iife.js?v=v1788785613516"></script>
-    <script src="../includes/game-number-format.js?v=v1788785613516" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1788801348885"></script>
+    <script src="vendor/canvas-confetti.js?v=v1788801348885"></script>
+    <script src="vendor/howler.core.min.js?v=v1788801348885"></script>
+    <script src="vendor/driver.iife.js?v=v1788801348885"></script>
+    <script src="../includes/game-number-format.js?v=v1788801348885" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1788785613516';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1788801348885';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1788785613516"></script>
+    <script src="js/app.js?v=v1788801348885"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1788785613516"></script>
+    <script src="../includes/translate.js?v=v1788801348885"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

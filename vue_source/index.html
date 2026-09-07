@@ -941,6 +941,10 @@
                                 <span class="menu-icon">{{ theme === 'classic' ? '🌙' : (theme === 'dark' ? '☀️' : '🏜️') }}</span>
                                 <span>{{ theme === 'classic' ? '暗色模式' : (theme === 'dark' ? '浅色模式' : '经典模式') }}</span>
                             </button>
+                            <button type="button" class="menu-item" @click="openNotices">
+                                <span class="menu-icon">📣</span>
+                                <span>游戏公告</span>
+                            </button>
                             <div class="menu-divider"></div>
                             <div class="menu-item language-item">
                                 <span class="menu-icon">🌐</span>

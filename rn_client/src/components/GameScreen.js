@@ -38,6 +38,7 @@ import { LineItem } from './LineItem.js';
 
 /* 与 Vue quick-actions 同一份功能表（命令直发）。 */
 const QUICK_TOOLS = [
+  { icon: '📣', label: '公告', cmd: 'notices' },
   { icon: '📅', label: '每日修行', cmd: 'daily' },
   { icon: '🗺️', label: '地图', cmd: 'map_display' },
   { icon: '📜', label: '任务', cmd: 'mytasks' },
