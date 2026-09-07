@@ -1297,6 +1297,9 @@ void fight_die()
 			gain_honer = WAP_HONERD->honer_killed(enemy,me);
 			gain_lunhui = WAP_HONERD->lunhui_killed(enemy,me);
 		}
+		// 提炼材料：PK击杀随机掉淬炼石给击杀者（含挂机目标），
+		// 同账号/同IP/等级差/受害者冷却/日上限由守护进程防刷。
+		catch { REFINED->maybe_drop_pvp_material(enemy,me); };
 		//在这里也加入帮战获得霸气的值，由liaocheng于08/08/30 添加 
 		if(enemy->bangid && me->bangid){
 			if(BANGZHAND->is_in_bangzhan(enemy->bangid,me->bangid)){

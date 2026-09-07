@@ -27,7 +27,7 @@ int main(string|zero arg)
 		   ob->query_catchup_equipment())
 			continue;
 		//if(ob && ob->query_item_rareLevel()>0 && !ob["equiped"]){
-		if(ob && ITEMSD->can_equip(ob) &&((ob->query_item_rareLevel()>0)||(ob->query_item_canLevel()>=1&&(sizeof(ob->query_name_cn()/"】"))==1))){
+		if(ob && ITEMSD->can_equip(ob) &&((ob->query_item_rareLevel()>0)||(ob->query_item_canLevel()>=1&&(sizeof(ob->query_name_cn()/"】"))==1)||(functionp(ob->query_newmoon_collection_id)&&(string)ob->query_newmoon_collection_id()!=""))){
 			if(ob->query_name() == item_name){
 				can_convert = 1;
 				item = ob;

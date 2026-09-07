@@ -268,6 +268,9 @@ createApp({
 			},
             wuxiangUnlocked: false,
             taijiUnlocked: false,
+            wujiEntitled: false,
+            wuxinEntitled: false,
+            wuxinDifficultyReady: false,
             zhaomingUnlocked: false,
 			hiddenProfessionLimits: {
 				wuxiang: {
@@ -323,7 +326,9 @@ createApp({
                 { race_id: 'third', profession_id: 'lingyi', name: '灵医', race: '中立', icon: '🌿', desc: '群体治疗，净化复生' },
                 { race_id: 'third', profession_id: 'wuxiang', name: '无相', race: '中立', icon: '🔆', desc: '【隐藏】全职业补位；10职业均达120级，或共享账号累计捐赠3000元解锁' },
                 { race_id: 'third', profession_id: 'taiji', name: '太极', race: '中立', icon: '☯️', desc: '【最高隐藏】生死轮转；10职+无相均达200级，或共享账号累计捐赠10000元解锁' },
-                { race_id: 'third', profession_id: 'zhaoming', name: '照命', race: '中立', icon: '🌙', desc: '【S1隐藏】同账号5个不同赛季职业各自完成81章并达到120级' }
+                { race_id: 'third', profession_id: 'zhaoming', name: '照命', race: '中立', icon: '🌙', desc: '【S1隐藏】同账号5个不同赛季职业各自完成81章并达到120级' },
+                { race_id: 'third', profession_id: 'wuji', name: '无极', race: '中立', icon: '💠', desc: '【终极隐藏】照命300级+1万碎玉；三系成长胜太极三成' },
+                { race_id: 'third', profession_id: 'wuxin', name: '无心', race: '中立', icon: '🦋', desc: '【账号终极】无极通关全难度+2万碎玉；心法85%对怪双倍；300级解锁全账号400级' }
             ],
             isLoggingIn: false,
             isRegistering: false,
@@ -430,6 +435,7 @@ createApp({
             globalSkillEventHistory: {},  // 全服事件ID去重
             patchViewerOpen: false,  // 版本公告查看器
             showSuiyuLog: false,       // 碎玉消费记录
+            showSuiyuRecharge: false,  // 碎玉充值说明
             navigatorOnline: true,      // 网络状态
             suiyuLogData: [],
             savedAccounts: [],         // 快速登录账号列表
@@ -1969,6 +1975,9 @@ createApp({
             this.wuxiangUnlocked = !!data.wuxiang_unlocked;
             this.taijiUnlocked = !!data.taiji_unlocked;
             this.zhaomingUnlocked = !!data.zhaoming_unlocked;
+            this.wujiEntitled = !!data.wuji_entitled;
+            this.wuxinEntitled = !!data.wuxin_entitled;
+            this.wuxinDifficultyReady = !!data.wuxin_difficulty_ready;
 			if (data.hidden_profession_limits &&
 				typeof data.hidden_profession_limits === 'object') {
 				this.hiddenProfessionLimits = Object.assign({},
@@ -2456,7 +2465,7 @@ createApp({
             const choices = [];
             if (raceId === 'human' || raceId === 'third') {
                 if (raceId === 'third' &&
-                    ['zhenyue', 'tianxiang', 'lingyi', 'wuxiang', 'taiji'].includes(professionId)) {
+                    ['zhenyue', 'tianxiang', 'lingyi', 'wuxiang', 'taiji', 'wuji', 'wuxin'].includes(professionId)) {
                     choices.push(`${professionId}_${sex}`);
                 }
                 const count = sex === 'male' ? 11 : 12;
@@ -3134,6 +3143,30 @@ createApp({
             try {
                 await this.sendJsonCommand('auto_equip smart');
                 await this.fetchEquipmentPanel();
+            } finally {
+                this.equipmentActionBusy = '';
+            }
+        },
+
+        /* 七彩八卦炉：炼化洗装（转化/增加属性），不依赖地点，幻境也可用。 */
+        async openEquipConvert() {
+            if (this.equipmentActionBusy) return;
+            this.equipmentActionBusy = 'convert_equip';
+            try {
+                await this.sendJsonCommand('convert_equip_list');
+                this.closeEquipmentPanel();
+            } finally {
+                this.equipmentActionBusy = '';
+            }
+        },
+
+        /* 提炼炉：+1级全属性+1%，淬炼石由PK获得。 */
+        async openEquipRefine() {
+            if (this.equipmentActionBusy) return;
+            this.equipmentActionBusy = 'refine';
+            try {
+                await this.sendJsonCommand('refine');
+                this.closeEquipmentPanel();
             } finally {
                 this.equipmentActionBusy = '';
             }
@@ -7186,6 +7219,13 @@ createApp({
         visibleProfessionOptions() {
             // 无相/太极未解锁时分别隐藏对应入口，避免玩家点击后才看到具体缺口。
             return this.professionOptions.filter((option) => {
+                if (option.profession_id === 'wuji' && !this.wujiEntitled) {
+                    return false;
+                }
+                if (option.profession_id === 'wuxin' &&
+                    !(this.wuxinEntitled && this.wuxinDifficultyReady)) {
+                    return false;
+                }
                 if (option.profession_id === 'wuxiang' && !this.wuxiangUnlocked) {
                     return false;
                 }

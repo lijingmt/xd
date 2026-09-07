@@ -12364,6 +12364,26 @@ body {
     transform: scale(0.97);
 }
 
+.equipment-convert-btn {
+    border-color: #5a4a8a;
+    background: #191326;
+    color: #b9a6ff;
+}
+
+.equipment-convert-btn:not(:disabled):active {
+    background: #241b38;
+}
+
+.equipment-refine-btn {
+    border-color: #8a4a2f;
+    background: #26150e;
+    color: #ffb37a;
+}
+
+.equipment-refine-btn:not(:disabled):active {
+    background: #382012;
+}
+
 .equipment-attr-diff {
     display: flex;
     flex-wrap: wrap;

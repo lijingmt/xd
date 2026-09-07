@@ -174,9 +174,22 @@ private string apply_newmoon_collection_display(string display_name)
 		profession_cn+"】"+display_name;
 }
 
+/** 提炼等级后缀：+N 只做展示装饰，不改动原始名称。 */
+protected string apply_refine_level_display(string display_name)
+{
+	int level;
+	if(!functionp(this_object()->query_refine_level))
+		return display_name;
+	level=(int)this_object()->query_refine_level();
+	if(level<=0)
+		return display_name;
+	return display_name+"+"+level;
+}
+
 string query_name_cn()
 {
-	return apply_newmoon_collection_display(::query_name_cn());
+	return apply_refine_level_display(
+		apply_newmoon_collection_display(::query_name_cn()));
 }
 
 protected int add_luck = 0;//增加的幸运值，锻造时宝石需用这个
@@ -199,7 +212,8 @@ string query_short(){
 			display_name = prefix + display_name;
 		}
 	}
-	display_name=apply_newmoon_collection_display(display_name);
+	display_name=apply_refine_level_display(
+		apply_newmoon_collection_display(display_name));
 	return "一"+unit+display_name+s;
 }
 void remove(void|int judgement){

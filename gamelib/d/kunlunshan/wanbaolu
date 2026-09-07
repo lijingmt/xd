@@ -14,7 +14,7 @@ protected void create(){
 	links+="[修理所有装备:repair_all]\n";
 	links+="[赌装备:dubo]\n";  
 	links+="[锻造:viceskill_duanzao_list m_weapon]|[熔解:viceskill_rongjie_list]|[熔炼:viceskill_ronglian_list 0]\n";
-	links+="[七彩八卦炉:convert_equip_list]\n";
+	links+="[七彩八卦炉:convert_equip_list]\n";links+="[提炼炉:refine]\n";
 	links += "[镶嵌宝石:equip_xiangqian_list]\n";
 	links += "[神秘商店:list_spec]\n";
 }

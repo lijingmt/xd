@@ -2320,6 +2320,7 @@ int main()
 			search(supply_source,"xinshoulanyao")!=-1 &&
 			search(supply_source,"xinshouhongyao")!=-1 &&
 			search(supply_source,"repair")!=-1 &&
+			search(supply_source,"convert_equip_list")!=-1 &&
 			search(realm_source2,"[幻境补给:illusion_supply]")!=-1,
 			"幻境缺少药品补给或修理入口");
 		string spec_list=Stdio.read_file(ROOT+

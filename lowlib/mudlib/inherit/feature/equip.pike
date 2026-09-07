@@ -4,11 +4,11 @@
 //中所有然木剑生成的object都具有这个属性，没必要存储起来
 //除非属于该物品装备状态的特殊属性是会变化，而且需要存储，比如磨损程度等
 private int attack_power=0;//武器伤害基础值
-int query_attack_power(){ return scale_newmoon_collection_base(attack_power);}
+int query_attack_power(){ return refine_scale(scale_newmoon_collection_base(attack_power));}
 void set_attack_power(int a){ attack_power=a;}
 
 private int attack_power_limit=0;//武器伤害上限值
-int query_attack_power_limit(){ return scale_newmoon_collection_base(attack_power_limit);}
+int query_attack_power_limit(){ return refine_scale(scale_newmoon_collection_base(attack_power_limit));}
 void set_attack_power_limit(int a){ attack_power_limit=a;}
 
 private int speed_power=0;//武器攻击速度,可能会变化，需要存储
@@ -16,7 +16,7 @@ int query_speed_power(){ return speed_power;}
 void set_speed_power(int a){ speed_power=a;}
 
 private int equip_defend=0;//防具的防御力
-int query_equip_defend(){ return scale_newmoon_collection_base(equip_defend)+
+int query_equip_defend(){ return refine_scale(scale_newmoon_collection_base(equip_defend))+
 	(query_defend_add()==0?0:query_defend_add());}
 void set_equip_defend(int a){ equip_defend=a;}
 
@@ -25,6 +25,26 @@ void set_equip_defend(int a){ equip_defend=a;}
 // 的 equiped 等字段错位。没有共鸣数据的全部旧装备始终返回 0 加成。
 #define NEWMOON_RESONANCE_ROOT "/item_newmoon/resonance"
 #define NEWMOON_BINDING_ROOT "/item_newmoon/binding"
+
+// 提炼等级同样走 dbase 扩展区（同上布局约束）。每级全属性+1%，
+// 只在属性出口乘算，不碰伤害公式与持久化布局。
+#define REFINE_LEVEL_KEY "/item_refine/level"
+
+int query_refine_level()
+{
+	return (int)(this_object()[REFINE_LEVEL_KEY] || 0);
+}
+
+void set_refine_level(int level)
+{
+	this_object()[REFINE_LEVEL_KEY]=level>0?level:0;
+}
+
+protected int refine_scale(int value)
+{
+	int level=query_refine_level();
+	return level>0 && value>0 ? value*(100+level)/100 : value;
+}
 
 int is_newmoon_collection_id(string collection_id)
 {
@@ -645,166 +665,166 @@ string query_newmoon_resonance_bonus_text()
 }
 
 private int str_add=0;//物品附带力量增加属性
-int query_str_add(){ return str_add+query_newmoon_resonance_value("str");}
+int query_str_add(){ return refine_scale(str_add+query_newmoon_resonance_value("str"));}
 void set_str_add(int a){ str_add=a;}
 
 private int dex_add=0;//物品附带敏捷增加属性
-int query_dex_add(){ return dex_add+query_newmoon_resonance_value("dex");}
+int query_dex_add(){ return refine_scale(dex_add+query_newmoon_resonance_value("dex"));}
 void set_dex_add(int a){ dex_add=a;}
 
 private int think_add=0;//物品附带智力增加属性
-int query_think_add(){ return think_add+query_newmoon_resonance_value("think");}
+int query_think_add(){ return refine_scale(think_add+query_newmoon_resonance_value("think"));}
 void set_think_add(int a){ think_add=a;}
 
 private int life_add=0;//生命附加
-int query_life_add(){ return (life_add+query_newmoon_resonance_value("life"))*10;}
+int query_life_add(){ return refine_scale((life_add+query_newmoon_resonance_value("life"))*10);}
 void set_life_add(int a){ life_add=a;}
 
 private int mofa_add=0;//法力附加
-int query_mofa_add(){ return (mofa_add+query_newmoon_resonance_value("mofa"))*10;}
+int query_mofa_add(){ return refine_scale((mofa_add+query_newmoon_resonance_value("mofa"))*10);}
 void set_mofa_add(int a){ mofa_add=a;}
 
 private int lunck_add=0;//幸运附加
-int query_lunck_add(){ return lunck_add+query_newmoon_set_extra_value("lunck");}
+int query_lunck_add(){ return refine_scale(lunck_add+query_newmoon_set_extra_value("lunck"));}
 void set_lunck_add(int a){ lunck_add=a;}
 
 private int appear_add=0;//容貌附加
-int query_appear_add(){ return appear_add;}
+int query_appear_add(){ return refine_scale(appear_add);}
 void set_appear_add(int a){ appear_add=a;}
 
 //附加攻击，防御，闪避，命中，暴击属性
 private int attack_add=0;//附加攻击
-int query_attack_add(){ return attack_add;}
+int query_attack_add(){ return refine_scale(attack_add);}
 void set_attack_add(int a){ attack_add=a;}
 
 private int defend_add=0;//附加防御
-int query_defend_add(){ return (defend_add+query_newmoon_set_extra_value("defend"))*10;}
+int query_defend_add(){ return refine_scale((defend_add+query_newmoon_set_extra_value("defend"))*10);}
 void set_defend_add(int a){ defend_add=a;}
 
 private int dodge_add=0;//附加闪避
-int query_dodge_add(){ return dodge_add+query_newmoon_set_extra_value("dodge");}
+int query_dodge_add(){ return refine_scale(dodge_add+query_newmoon_set_extra_value("dodge"));}
 void set_dodge_add(int a){ dodge_add=a;}
 
 private int hitte_add=0;//附加命中
-int query_hitte_add(){ return hitte_add+query_newmoon_set_extra_value("hitte");}
+int query_hitte_add(){ return refine_scale(hitte_add+query_newmoon_set_extra_value("hitte"));}
 void set_hitte_add(int a){ hitte_add=a;}
 
 private int doub_add=0;//附加暴击
-int query_doub_add(){ return doub_add+query_newmoon_set_extra_value("doub");}
+int query_doub_add(){ return refine_scale(doub_add+query_newmoon_set_extra_value("doub"));}
 void set_doub_add(int a){ doub_add=a;}
 //新属性2024//////////////////////////////////
 private int wulichuantou_add=0;//物理穿透转为有上限的无视防御伤害
-int query_wulichuantou_add(){ return wulichuantou_add;}
+int query_wulichuantou_add(){ return refine_scale(wulichuantou_add);}
 void set_wulichuantou_add(int a){ wulichuantou_add=a;}
 
 private int mofachuantou_add=0;//法术穿透转为有上限的无视防御伤害
-int query_mofachuantou_add(){ return mofachuantou_add;}
+int query_mofachuantou_add(){ return refine_scale(mofachuantou_add);}
 void set_mofachuantou_add(int a){ mofachuantou_add=a;}
 
 private int dodgechuantou_add=0;//闪避穿透按千分点保存，10点等于1%
 /* 封顶600千分点（60%），与物理穿透同规三端一致。 */
-int query_dodgechuantou_add(){ return min(600,dodgechuantou_add);}
+int query_dodgechuantou_add(){ return refine_scale(min(600,dodgechuantou_add));}
 void set_dodgechuantou_add(int a){ dodgechuantou_add=a;}
 
 //新属性0121//////////////////////////////////
 private int all_add=0;//物品附加全属性
-int query_all_add(){ return all_add+query_newmoon_set_extra_value("all");}
+int query_all_add(){ return refine_scale(all_add+query_newmoon_set_extra_value("all"));}
 void set_all_add(int a){ all_add=a;}
 
 private int recive_add=0;//物品附加吸收伤害
-int query_recive_add(){ return recive_add;}
+int query_recive_add(){ return refine_scale(recive_add);}
 void set_recive_add(int a){ recive_add=a;}
 
 private int back_add=0;//物品附加反弹伤害
-int query_back_add(){ return back_add;}
+int query_back_add(){ return refine_scale(back_add);}
 void set_back_add(int a){ back_add=a;}
 
 private int weapon_attack_add=0;//物品附加武器攻击力增加百分比
-int query_weapon_attack_add(){ return weapon_attack_add;}
+int query_weapon_attack_add(){ return refine_scale(weapon_attack_add);}
 void set_weapon_attack_add(int a){ weapon_attack_add=a;}
 
 private int dura_add=0;//物品附加耐久度
-int query_dura_add(){ return dura_add*10;}
+int query_dura_add(){ return refine_scale(dura_add*10);}
 void set_dura_add(int a){ dura_add=a;}
 
 private int rase_life_add=0;//物品附加生命恢复增加
-int query_rase_life_add(){ return rase_life_add+
-	query_newmoon_set_extra_value("rase_life_add");}
+int query_rase_life_add(){ return refine_scale(rase_life_add+
+	query_newmoon_set_extra_value("rase_life_add"));}
 void set_rase_life_add(int a){ rase_life_add=a;}
 
 private int rase_mofa_add=0;//物品附加法力恢复增加
-int query_rase_mofa_add(){ return rase_mofa_add+
-	query_newmoon_set_extra_value("rase_mofa_add");}
+int query_rase_mofa_add(){ return refine_scale(rase_mofa_add+
+	query_newmoon_set_extra_value("rase_mofa_add"));}
 void set_rase_mofa_add(int a){ rase_mofa_add=a;}
 
 private int huo_mofa_attack_add=0;//物品附加火系法术伤害
-int query_huo_mofa_attack_add(){ return huo_mofa_attack_add;}
+int query_huo_mofa_attack_add(){ return refine_scale(huo_mofa_attack_add);}
 void set_huo_mofa_attack_add(int a){ huo_mofa_attack_add=a;}
 
 private int bing_mofa_attack_add=0;//物品附加冰系法术伤害
-int query_bing_mofa_attack_add(){ return bing_mofa_attack_add;}
+int query_bing_mofa_attack_add(){ return refine_scale(bing_mofa_attack_add);}
 void set_bing_mofa_attack_add(int a){ bing_mofa_attack_add=a;}
 
 private int feng_mofa_attack_add=0;//物品附加风系法术伤害
-int query_feng_mofa_attack_add(){ return feng_mofa_attack_add;}
+int query_feng_mofa_attack_add(){ return refine_scale(feng_mofa_attack_add);}
 void set_feng_mofa_attack_add(int a){ feng_mofa_attack_add=a;}
 
 private int du_mofa_attack_add=0;//物品附加毒系法术伤害
-int query_du_mofa_attack_add(){ return du_mofa_attack_add;}
+int query_du_mofa_attack_add(){ return refine_scale(du_mofa_attack_add);}
 void set_du_mofa_attack_add(int a){ du_mofa_attack_add=a;}
 
 private int spec_mofa_attack_add=0;//物品附加特殊法术伤害
-int query_spec_mofa_attack_add(){ return spec_mofa_attack_add;}
+int query_spec_mofa_attack_add(){ return refine_scale(spec_mofa_attack_add);}
 void set_spec_mofa_attack_add(int a){ spec_mofa_attack_add=a;}
 
 private int mofa_all_add=0;//物品附加全系法术伤害
-int query_mofa_all_add(){ return mofa_all_add+
-	query_newmoon_set_extra_value("mofa_all");}
+int query_mofa_all_add(){ return refine_scale(mofa_all_add+
+	query_newmoon_set_extra_value("mofa_all"));}
 void set_mofa_all_add(int a){ mofa_all_add=a;}
 
 private int attack_huoyan_add=0;//物品附加火焰攻击力
-int query_attack_huoyan_add(){ return attack_huoyan_add;}
+int query_attack_huoyan_add(){ return refine_scale(attack_huoyan_add);}
 void set_attack_huoyan_add(int a){ attack_huoyan_add=a;}
 
 private int attack_bingshuang_add=0;//物品附加冰霜攻击力
-int query_attack_bingshuang_add(){ return attack_bingshuang_add;}
+int query_attack_bingshuang_add(){ return refine_scale(attack_bingshuang_add);}
 void set_attack_bingshuang_add(int a){ attack_bingshuang_add=a;}
 
 private int attack_fengren_add=0;//物品附加风刃攻击力
-int query_attack_fengren_add(){ return attack_fengren_add;}
+int query_attack_fengren_add(){ return refine_scale(attack_fengren_add);}
 void set_attack_fengren_add(int a){ attack_fengren_add=a;}
 
 private int attack_dusu_add=0;//物品附加毒素攻击力
-int query_attack_dusu_add(){ return attack_dusu_add;}
+int query_attack_dusu_add(){ return refine_scale(attack_dusu_add);}
 void set_attack_dusu_add(int a){ attack_dusu_add=a;}
 
 private int attack_spec_add=0;//物品附加特殊攻击力
-int query_attack_spec_add(){ return attack_spec_add;}
+int query_attack_spec_add(){ return refine_scale(attack_spec_add);}
 void set_attack_spec_add(int a){ attack_spec_add=a;}
 
 private int attack_all_add=0;//物品附加全系物理伤害
-int query_attack_all_add(){ return attack_all_add;}
+int query_attack_all_add(){ return refine_scale(attack_all_add);}
 void set_attack_all_add(int a){ attack_all_add=a;}
 
 private int huoyan_defend_add=0;//物品附加火焰抗性
-int query_huoyan_defend_add(){ return huoyan_defend_add;}
+int query_huoyan_defend_add(){ return refine_scale(huoyan_defend_add);}
 void set_huoyan_defend_add(int a){ huoyan_defend_add=a;}
 
 private int bingshuang_defend_add=0;//物品附加冰霜抗性
-int query_bingshuang_defend_add(){ return bingshuang_defend_add;}
+int query_bingshuang_defend_add(){ return refine_scale(bingshuang_defend_add);}
 void set_bingshuang_defend_add(int a){ bingshuang_defend_add=a;}
 
 private int fengren_defend_add=0;//物品附加风刃抗性
-int query_fengren_defend_add(){ return fengren_defend_add;}
+int query_fengren_defend_add(){ return refine_scale(fengren_defend_add);}
 void set_fengren_defend_add(int a){ fengren_defend_add=a;}
 
 private int dusu_defend_add=0;//物品附加毒素抗性
-int query_dusu_defend_add(){ return dusu_defend_add;}
+int query_dusu_defend_add(){ return refine_scale(dusu_defend_add);}
 void set_dusu_defend_add(int a){ dusu_defend_add=a;}
 
 private int all_mofa_defend_add=0;//物品附加全法术抗性
-int query_all_mofa_defend_add(){ return all_mofa_defend_add+
-	query_newmoon_set_extra_value("all_mofa_defend");}
+int query_all_mofa_defend_add(){ return refine_scale(all_mofa_defend_add+
+	query_newmoon_set_extra_value("all_mofa_defend"));}
 void set_all_mofa_defend_add(int a){ all_mofa_defend_add=a;}
 
 //新属性0121//////////////////////////////////

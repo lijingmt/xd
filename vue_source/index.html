@@ -2179,6 +2179,18 @@
                                 {{ equipmentActionBusy === 'smart_equip' ? '⏳ 穿装中...' : '⚡ 一键智能穿装' }}
                             </button>
                             <button type="button"
+                                    class="equipment-smart-btn equipment-convert-btn"
+                                    :disabled="!!equipmentActionBusy"
+                                    @click="openEquipConvert">
+                                🔮 洗装备
+                            </button>
+                            <button type="button"
+                                    class="equipment-smart-btn equipment-refine-btn"
+                                    :disabled="!!equipmentActionBusy"
+                                    @click="openEquipRefine">
+                                🔥 提炼
+                            </button>
+                            <button type="button"
                                     class="equipment-panel-close"
                                     @click="closeEquipmentPanel"
                                     aria-label="关闭装备面板">✕</button>

@@ -49,7 +49,7 @@ int main(string|zero arg)
 		   ob->query_catchup_equipment())
 			continue;
 		//if(ob && ob->query_item_rareLevel()>0 && !ob["equiped"])
-		if(ob && ITEMSD->can_equip(ob) &&((ob->query_item_rareLevel()>0)||(ob->query_item_canLevel()>=1&&(sizeof(ob->query_name_cn()/"】"))==1))){
+		if(ob && ITEMSD->can_equip(ob) &&((ob->query_item_rareLevel()>0)||(ob->query_item_canLevel()>=1&&(sizeof(ob->query_name_cn()/"】"))==1)||(functionp(ob->query_newmoon_collection_id)&&(string)ob->query_newmoon_collection_id()!=""))){
 			if(ob->query_name() == item_name){
 				can_convert = 1;
 				item = ob;
@@ -294,6 +294,11 @@ int main(string|zero arg)
 			if(new_item){
 				int newmoon_bind_status=0;
 				string newmoon_binding_id="";
+				// 洗装重掷底版不能吞掉玩家的提炼等级。
+				if(functionp(new_item->set_refine_level) &&
+				   functionp(item->query_refine_level))
+					new_item->set_refine_level(
+						(int)item->query_refine_level());
 				new_item_name = new_item->query_name();
 				mapping(string:mixed) special_removal=(["ok":1]);
 				string special_name="";

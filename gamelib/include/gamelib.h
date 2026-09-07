@@ -89,6 +89,8 @@
 #define GIFTD ((object)(ROOT "/gamelib/single/daemons/giftd"))
 //玉石系统模块
 #define YUSHID ((object)(ROOT "/gamelib/single/daemons/yushid"))
+//装备提炼模块
+#define REFINED ((object)(ROOT "/gamelib/single/daemons/refined.pike"))
 //付费赌装模块
 #define DUBOD ((object)(ROOT "/gamelib/single/daemons/dubod"))
 //名字管理模块

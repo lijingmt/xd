@@ -68,6 +68,8 @@ int main(string|zero arg)
 		s+="[买红药10瓶:illusion_supply red 10]|[买红药50瓶:illusion_supply red 50]\n";
 		s+="[买凝神露10瓶:illusion_supply blue 10]|[买凝神露50瓶:illusion_supply blue 50]\n";
 		s+="[修理全部装备:illusion_supply repair]\n";
+		s+="[七彩八卦炉·炼化洗装:convert_equip_list]\n";
+		s+="[提炼炉·装备提炼:refine]\n";
 		s+="[返回幻境任务:illusion_realm]|[返回游戏:look]\n";
 		write(s);
 		return 1;

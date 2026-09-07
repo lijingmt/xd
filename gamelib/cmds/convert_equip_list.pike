@@ -42,7 +42,9 @@ int main(string|zero arg)
 		if(!(ob && ITEMSD->can_equip(ob) &&
 		   ((ob->query_item_rareLevel()>0)||
 		    (ob->query_item_canLevel()>=1 &&
-		     (sizeof(ob->query_name_cn()/"】"))==1))))
+		     (sizeof(ob->query_name_cn()/"】"))==1)||
+		    (functionp(ob->query_newmoon_collection_id)&&
+		     (string)ob->query_newmoon_collection_id()!=""))))
 			continue;
 		if(filter!="all" &&
 		   (string)ob->query_item_kind()!=filter)

@@ -3148,6 +3148,30 @@ createApp({
             }
         },
 
+        /* 七彩八卦炉：炼化洗装（转化/增加属性），不依赖地点，幻境也可用。 */
+        async openEquipConvert() {
+            if (this.equipmentActionBusy) return;
+            this.equipmentActionBusy = 'convert_equip';
+            try {
+                await this.sendJsonCommand('convert_equip_list');
+                this.closeEquipmentPanel();
+            } finally {
+                this.equipmentActionBusy = '';
+            }
+        },
+
+        /* 提炼炉：+1级全属性+1%，淬炼石由PK获得。 */
+        async openEquipRefine() {
+            if (this.equipmentActionBusy) return;
+            this.equipmentActionBusy = 'refine';
+            try {
+                await this.sendJsonCommand('refine');
+                this.closeEquipmentPanel();
+            } finally {
+                this.equipmentActionBusy = '';
+            }
+        },
+
         getEquipmentCandidates(slot) {
             const candidates = this.equipmentPanel?.candidates?.[slot];
             if (!Array.isArray(candidates)) return [];

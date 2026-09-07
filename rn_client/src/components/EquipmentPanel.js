@@ -152,6 +152,18 @@ export default function EquipmentPanel({ visible, onClose }) {
     }, 1100);
   };
 
+  /* 七彩八卦炉：炼化洗装（转化/增加属性），不依赖地点，幻境也可用。 */
+  const openConvert = () => {
+    command('convert_equip_list');
+    onClose();
+  };
+
+  /* 提炼炉：+1级全属性+1%，可无限提炼；淬炼石由PK获得。 */
+  const openRefine = () => {
+    command('refine');
+    onClose();
+  };
+
   const player = (model && model.player) || {};
   const slots = (model && model.slots) || [];
   const selectedSlot = slots.find(s => s.slot === selected) || null;
@@ -228,6 +240,24 @@ export default function EquipmentPanel({ visible, onClose }) {
               </Text>
               <Text style={styles.smartBtnHint}>
                 自动补空位 · 换更强普通装备（强化/稀有装备不动）
+              </Text>
+            </TouchableOpacity>
+
+            {/* 七彩八卦炉：任何地点可洗装（含幻境S1） */}
+            <TouchableOpacity style={styles.convertBtn}
+              activeOpacity={0.7} onPress={openConvert}>
+              <Text style={styles.convertBtnText}>🔮 洗装备（七彩八卦炉）</Text>
+              <Text style={styles.smartBtnHint}>
+                转化/增加属性 · 任何地点可用
+              </Text>
+            </TouchableOpacity>
+
+            {/* 提炼炉：+1级全属性+1% */}
+            <TouchableOpacity style={styles.refineBtn}
+              activeOpacity={0.7} onPress={openRefine}>
+              <Text style={styles.refineBtnText}>🔥 提炼装备</Text>
+              <Text style={styles.smartBtnHint}>
+                每级全属性+1% · 碎玉+淬炼石（PK掉落）+金币
               </Text>
             </TouchableOpacity>
 
@@ -544,6 +574,18 @@ const styles = StyleSheet.create({
   },
   smartBtnText: { color: '#ffd700', fontSize: 15, fontWeight: '800' },
   smartBtnHint: { color: '#8a7a8a', fontSize: 10 },
+  convertBtn: {
+    borderRadius: 12, borderWidth: 1, borderColor: '#5a4a8a',
+    backgroundColor: '#191326', alignItems: 'center',
+    paddingVertical: 10, marginBottom: 10, gap: 2,
+  },
+  convertBtnText: { color: '#b9a6ff', fontSize: 15, fontWeight: '800' },
+  refineBtn: {
+    borderRadius: 12, borderWidth: 1, borderColor: '#8a4a2f',
+    backgroundColor: '#26150e', alignItems: 'center',
+    paddingVertical: 10, marginBottom: 10, gap: 2,
+  },
+  refineBtnText: { color: '#ffb37a', fontSize: 15, fontWeight: '800' },
   candidateEmpty: {
     color: '#6a5a6a', fontSize: 11, textAlign: 'center', paddingVertical: 8,
   },
