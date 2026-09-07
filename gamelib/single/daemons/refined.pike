@@ -317,6 +317,26 @@ int query_threshold_penalty_levels(int level)
 	return drop<3 ? 3 : drop;
 }
 
+/** 幸运加成：每点幸运+0.01%（1bp）成功率，封顶+20%。
+ * 堆幸运是极限冲级的正路，但不设封顶会击穿30%成功率底线的
+ * 长线节奏设计。 */
+int query_refine_luck_bonus(int luck)
+{
+	if(luck<=0)
+		return 0;
+	return luck>2000 ? 2000 : luck;
+}
+
+/** 含幸运的实际成功率（万分比，永不超100%）。 */
+int query_luck_adjusted_rate(object me,int level)
+{
+	int rate=query_refine_success_rate(level);
+	if(!me || !functionp(me->query_lunck))
+		return rate;
+	rate+=query_refine_luck_bonus((int)me->query_lunck());
+	return rate>10000 ? 10000 : rate;
+}
+
 /** 指定等级再提炼一次的材料消耗。 */
 mapping(string:int) query_refine_costs(int level)
 {
@@ -419,7 +439,7 @@ mapping(string:mixed) attempt_refine(object me,object item,
 		return (["ok":0,"message":"淬炼石不足。"]);
 	}
 	threshold=query_is_threshold_attempt(level);
-	rate=query_refine_success_rate(level);
+	rate=query_luck_adjusted_rate(me,level);
 	roll=forced_roll_bp>0 ? forced_roll_bp : random(10000);
 	if(roll<rate){
 		item->set_refine_level(level+1);

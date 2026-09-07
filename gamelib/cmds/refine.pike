@@ -43,11 +43,14 @@ int main(string|zero arg)
 				continue;
 			int level=(int)ob->query_refine_level();
 			mapping costs=REFINED->query_refine_costs(level);
-			int rate=REFINED->query_refine_success_rate(level);
+			int base_rate=REFINED->query_refine_success_rate(level);
+			int rate=REFINED->query_luck_adjusted_rate(me,level);
+			int luck_gain=rate-base_rate;
 			int threshold=REFINED->query_is_threshold_attempt(level);
 			s+="[+"+level+" "+ob->query_name_cn()+":refine "+
-				ob->query_name()+"]("+success_desc(rate)+"/"+
-				costs["yushi"]+"玉+"+costs["stone"]+"石)";
+				ob->query_name()+"]("+success_desc(rate)+
+				(luck_gain>0 ? "(幸运+"+success_desc(luck_gain)+")" : "")+
+				"/"+costs["yushi"]+"玉+"+costs["stone"]+"石)";
 			if(threshold)
 				s+="⚠门槛";
 			s+="\n";

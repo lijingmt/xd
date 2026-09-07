@@ -124,6 +124,15 @@ int main()
 			c1000["yushi"]==2010 && c1000["stone"]==5,
 			sprintf("%O %O %O",c0,c50,c1000));
 
+		/* ===== 1f) 幸运影响成功率 ===== */
+		check("1f-1.幸运加成线性且封顶2000bp",
+			REFINED->query_refine_luck_bonus(0)==0 &&
+			REFINED->query_refine_luck_bonus(1000)==1000 &&
+			REFINED->query_refine_luck_bonus(5000)==2000,
+			sprintf("%d %d %d",
+				REFINED->query_refine_luck_bonus(0),
+				REFINED->query_refine_luck_bonus(1000),
+				REFINED->query_refine_luck_bonus(5000)));
 		/* ===== 2) 事务性与惩罚 ===== */
 		me = create_saved_player(account_id,"refine88","10.0.0.1");
 		object sword = clone(ROOT+
@@ -146,6 +155,16 @@ int main()
 			has_suffix((string)sword->query_name_cn(),"+1"),
 			sprintf("level=%d name=%s",(int)sword->query_refine_level(),
 				(string)sword->query_name_cn()));
+		me->set_lunck(800);
+		check("2b2.幸运计入实际成功率(130级底线30%→38%)",
+			REFINED->query_luck_adjusted_rate(me,130)==3800,
+			sprintf("rate=%d",
+				REFINED->query_luck_adjusted_rate(me,130)));
+		check("2b3.幸运不越过100%上限",
+			REFINED->query_luck_adjusted_rate(me,0)==10000,
+			sprintf("rate=%d",
+				REFINED->query_luck_adjusted_rate(me,0)));
+		me->set_lunck(0);
 		int base_attack=(int)sword->query_attack_power();
 		sword->set_refine_level(0);
 		int raw_attack=(int)sword->query_attack_power();
@@ -379,6 +398,48 @@ int main()
 		check("5a2.封顶50后+1000可达（负漂移墙已修复）",
 			lv2>=300,
 			sprintf("level=%d attempts=%d",lv2,at2));
+		/* 幸运压力对比：幸运0/1000/2000 三档 0→+1000 */
+		int luck_total_stones=0;
+		array(int) luck_attempts=({});
+		foreach(({0,1000,2000}),int luck_val){
+			int lv3=0;
+			int at3=0;
+			int stones3=0;
+			while(lv3<1000 && at3<150000){
+				at3++;
+				stones3+=5;
+				int r3=REFINED->query_refine_success_rate(lv3)+
+					REFINED->query_refine_luck_bonus(luck_val);
+				if(r3>10000)
+					r3=10000;
+				if(random(10000)<r3)
+					lv3++;
+				else if(REFINED->query_is_threshold_attempt(lv3)){
+					int tgt3=lv3+1;
+					int bs3=tgt3<=100 ? tgt3-10 :
+						(tgt3<=1000 ? tgt3-50 : tgt3-100);
+					lv3-=REFINED->query_threshold_penalty_levels(lv3);
+					if(lv3<0)
+						lv3=0;
+					if(bs3>0 && lv3<bs3)
+						lv3=bs3;
+					while(lv3>0 &&
+					      REFINED->query_is_threshold_attempt(lv3))
+						lv3--;
+				}
+			}
+			werror("  [幸运压力] 幸运%d：0→+1000 尝试%d次 淬炼石%d 到达+%d\n",
+				luck_val,at3,stones3,lv3);
+			luck_attempts+=({at3});
+			if(luck_val==2000)
+				luck_total_stones=stones3;
+		}
+		check("5a3.幸运压力测试完成且封顶档材料显著下降",
+			sizeof(luck_attempts)==3 && luck_attempts[2]>=1000 &&
+			luck_attempts[2]<luck_attempts[0] &&
+			luck_total_stones>0,
+			sprintf("attempts=%O stones=%d",luck_attempts,
+				luck_total_stones));
 
 		/* ===== 5c) PK榜纯展示 + 捐赠月榜守护符 ===== */
 		array rank=REFINED->query_monthly_pvp_rank(10);
