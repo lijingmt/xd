@@ -26,6 +26,9 @@ inherit LOW_DAEMON;
 #define AUTOFIGHT_SERVER_PRESSURE_PENDING 32
 #define AUTOFIGHT_SERVER_SEVERE_PENDING 64
 #define AUTOFIGHT_SERVER_INFLIGHT_TIMEOUT 30
+// 额度耗尽/背包满等自停后，会话仅保活的时长：继续刷新HTTP虚拟连接，
+// 避免后台挂机玩家在停止战斗1-2小时后被空闲清理踢下线（玩家感知掉线）。
+#define AUTOFIGHT_SESSION_HOLD_SECONDS (6*60*60)
 #define AUTOFIGHT_FINAL_VIEW_SECONDS 30
 #define AUTOFIGHT_VIEW_MAX_BYTES (512*1024)
 #define AUTOFIGHT_PUBLIC_ROOM_CAPACITY 4
@@ -259,14 +262,38 @@ private void finish_server_autofight_tick(string output,string userid,
 	me = HTTP_APID->get_player_from_connection(userid,0);
 	active = server_autofight_epochs[userid]==epoch && me &&
 		functionp(me->query_autofight) &&
-		me->query_autofight()=="enable";
+		(me->query_autofight()=="enable" ||
+		 query_session_hold_active(me));
 	record_server_autofight_view(userid,output,epoch,active);
 	if(!active)
 		m_delete(server_autofight_epochs,userid);
 	reset_server_autofight_order_if_idle();
 }
 
+private int server_autofight_scan_delay = 1;
+
 private void run_server_autofight_tick()
+{
+	server_autofight_tick_scheduled = 0;
+	// 扫描体内任何异常都不得打断call_out续链：整链一断，本Worker所有
+	// 挂机玩家的保活同时失效，1-2小时后会被空闲清理成批误踢。
+	mixed tick_err = catch { server_autofight_scan(); };
+	if(tick_err)
+		werror("[AUTOFIGHT][TICK_ERROR] %s\n",
+			describe_error(tick_err));
+	if(server_autofight_cycle_remaining>0 &&
+	   sizeof(server_autofight_epochs)>0){
+		server_autofight_tick_scheduled=1;
+		call_out(run_server_autofight_tick,
+			tick_err ? 1 : server_autofight_scan_delay);
+	}
+	else{
+		server_autofight_cycle_remaining=0;
+		schedule_server_autofight_tick();
+	}
+}
+
+private void server_autofight_scan()
 {
 	int examined = 0;
 	int scheduled = 0;
@@ -275,7 +302,6 @@ private void run_server_autofight_tick()
 	int queue_backoff = 0;
 	int throttle_backoff = 0;
 	int total;
-	server_autofight_tick_scheduled = 0;
 	if(server_autofight_cycle_remaining<=0){
 		server_autofight_ticks++;
 		if(server_autofight_ticks%60==0 ||
@@ -324,8 +350,22 @@ private void run_server_autofight_tick()
 			server_autofight_inflight_timeouts++;
 		}
 		me = HTTP_APID->get_player_from_connection(userid,0);
-		if(!me || !functionp(me->query_autofight) ||
-		   me->query_autofight()!="enable"){
+		if(!me || !functionp(me->query_autofight)){
+			m_delete(server_autofight_epochs,userid);
+			m_delete(server_autofight_inflight,userid);
+			m_delete(server_autofight_inflight_started,userid);
+			m_delete(server_autofight_charge_owners,userid);
+			deactivate_server_autofight_view(userid);
+			continue;
+		}
+		if(me->query_autofight()!="enable"){
+			// 额度耗尽/背包满等原因自停后保留会话保活：只刷新虚拟
+			// 连接时间，不再派发战斗。玩家主动关闭或保活期过后才真
+			// 正摘除，后台玩家不会被空闲清理当成掉线对象。
+			if(query_session_hold_active(me)){
+				HTTP_APID->update_connection_time(userid);
+				continue;
+			}
 			m_delete(server_autofight_epochs,userid);
 			m_delete(server_autofight_inflight,userid);
 			m_delete(server_autofight_inflight_started,userid);
@@ -366,18 +406,10 @@ private void run_server_autofight_tick()
 		throttle_backoff=1;
 		server_autofight_throttled_batches++;
 	}
-	if(server_autofight_cycle_remaining>0 &&
-	   sizeof(server_autofight_epochs)>0){
-		server_autofight_tick_scheduled=1;
-		// 扫描分片可在同一秒继续；实际入队达到本秒预算，或世界队列已满
-		// 时退避一秒。游标和本轮额度均保留，避免尾部玩家饥饿。
-		call_out(run_server_autofight_tick,
-			(queue_backoff || throttle_backoff) ? 1 : 0);
-	}
-	else{
-		server_autofight_cycle_remaining=0;
-		schedule_server_autofight_tick();
-	}
+	// 扫描分片可在同一秒继续；实际入队达到本秒预算，或世界队列已满
+	// 时退避一秒。游标和本轮额度均保留，避免尾部玩家饥饿。
+	server_autofight_scan_delay =
+		(queue_backoff || throttle_backoff) ? 1 : 0;
 }
 
 void ensure_server_autofight_tick(object me)
@@ -422,6 +454,31 @@ void cancel_server_autofight_tick(object me)
 	deactivate_server_autofight_view(userid);
 	clear_failed_loot(me);
 	reset_server_autofight_order_if_idle();
+}
+
+/** 会话保活是否仍在有效期内（运行时自停后的宽限窗口）。 */
+int query_session_hold_active(object me)
+{
+	if(!me)
+		return 0;
+	return (int)me["/tmp/autofight_session_hold_until"] > time();
+}
+
+/** 挂机因额度耗尽/背包满等原因自停时调用：随后6小时内服务端tick
+ * 只刷新HTTP虚拟连接，不再派发战斗，玩家不会被空闲清理踢下线。 */
+void hold_session_after_stop(object me)
+{
+	if(!me || !functionp(me->query_name))
+		return;
+	me["/tmp/autofight_session_hold_until"] =
+		time()+AUTOFIGHT_SESSION_HOLD_SECONDS;
+}
+
+/** TestUnit同步驱动一次服务端扫描：sleep()不触发call_out，回归测试
+ * 用它确定性地验证保活/摘除分支（生产仍由call_out续链驱动）。 */
+void run_server_autofight_scan_for_test()
+{
+	server_autofight_scan();
 }
 
 /** Re-register an enabled player after a fenced map-worker reconstruction. */
@@ -3131,6 +3188,7 @@ private void activate_autofight(object me,int preserve_chapter_mode)
 	me["/tmp/autofight_first_death_time"] = 0;
 	me["/tmp/autofight_death_count"] = 0;
 	me["/tmp/autofight_quota_warned"] = 0;
+	me->m_delete_foruser("/tmp/autofight_session_hold_until");
 	reset_scan_state(me);
 	ensure_auto_skill(me);
 	me->set_autofight("enable");
@@ -3160,7 +3218,7 @@ void resume_autofight(object me)
 	activate_autofight(me,1);
 }
 
-void stop_autofight(object me)
+void stop_autofight(object me,void|int session_hold)
 {
 	object env;
 	string return_path;
@@ -3168,7 +3226,10 @@ void stop_autofight(object me)
 		return;
 	me->m_delete_foruser("/tmp/illusion_chapter_autofight");
 	me->m_delete_foruser("/tmp/illusion_journey_autofight");
-	cancel_server_autofight_tick(me);
+	// session_hold：额度耗尽/背包满等运行时自停。保留服务端调度条目，
+	// tick会转入仅刷新虚拟连接的保活模式；玩家主动关闭仍走完整摘除。
+	if(!session_hold)
+		cancel_server_autofight_tick(me);
 	me["/tmp/autofight_last_charge"] = 0;
 	me["/tmp/autofight_no_target_ticks"] = 0;
 	me["/tmp/autofight_previous_room"] = "";

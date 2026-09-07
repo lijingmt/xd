@@ -43,7 +43,7 @@ int main()
 		 * （未初始化的人物会阻塞后续建角）。 */
 		mapping idx = ACCOUNT_CHARACTERD->create_character(
 			account_id,"human","jianxian",
-			"无心甲"+time()%100,"male","h_male1");
+			"无心甲"+time()%10000,"male","h_male1");
 		check("0a.测试账号索引就绪",(int)idx["ok"]==1,
 			sprintf("%O",idx));
 		if((int)idx["ok"]){
@@ -74,7 +74,7 @@ int main()
 		ACCOUNT_CHARACTERD->record_wuxin_entitlement_for_test(account_id);
 		mapping created = ACCOUNT_CHARACTERD->create_character(
 			account_id,"third","wuxin",
-			"无心路"+time()%100,"male","wuxin_male");
+			"无心路"+time()%10000,"male","wuxin_male");
 		check("2.解锁+付费后建角成功",(int)created["ok"]==1,
 			sprintf("%O",created));
 

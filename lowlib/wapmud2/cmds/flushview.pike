@@ -17,7 +17,10 @@ private string format_time(int seconds)
 
 private void stop_with_reason(object me, string reason)
 {
-	AUTOFIGHTD->stop_autofight(me);
+	// 运行时自停（额度耗尽/背包满/休整失败等）保留会话保活：
+	// 后台玩家停在原地在线等待，不再在1-2小时后被空闲清理踢下线。
+	AUTOFIGHTD->hold_session_after_stop(me);
+	AUTOFIGHTD->stop_autofight(me,1);
 	write("\n自动挂机已停止："+reason+"\n");
 	write("[挂机设置:autofight open]\n");
 	write("[返回游戏:look]\n");

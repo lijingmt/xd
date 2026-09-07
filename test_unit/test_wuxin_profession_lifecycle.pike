@@ -50,7 +50,7 @@ int main()
 
 		mapping idx = ACCOUNT_CHARACTERD->create_character(
 			account_id,"human","jianxian",
-			"种甲"+time()%100,"male","h_male1");
+			"种甲"+time()%10000,"male","h_male1");
 		check("1a.账号索引就绪",(int)idx["ok"]==1,
 			sprintf("%O",idx));
 		/* 完成种子角色初始化，避免阻塞建角 */
@@ -81,7 +81,7 @@ int main()
 			account_id);
 		mapping created = ACCOUNT_CHARACTERD->create_character(
 			account_id,"third",TEST_PROFESSION,
-			TEST_PROFESSION_CN+"乙"+time()%100,"male",
+			TEST_PROFESSION_CN+"乙"+time()%10000,"male",
 			TEST_PROFESSION+"_male");
 		check("1c.解锁+付费后建角成功",(int)created["ok"]==1,
 			sprintf("%O",created));
