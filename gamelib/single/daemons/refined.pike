@@ -19,7 +19,8 @@ inherit LOW_DAEMON;
 #define REFINE_PVP_DAILY_CAP 200
 #define REFINE_PVP_LEVEL_DIFF_MAX 30
 
-// 运行态：killer|victim -> 上次掉落时间；killer|日期 -> 当日掉落颗数。
+// 运行态：冷却与日上限也入状态文件——只放内存时玩家跨Worker迁移
+// 后冷却/上限皆可被绕过（防刷洞），重启也会清零。
 private mapping(string:int) pvp_victim_last_drop = ([]);
 private mapping(string:int) pvp_daily_drops = ([]);
 
@@ -54,27 +55,53 @@ private void load_pvp_state()
 		pvp_pending_charms=copy_value(data["pending_charms"]);
 	if(mappingp(data["donations"]))
 		donation_monthly=copy_value(data["donations"]);
+	if(mappingp(data["victim_cooldowns"]))
+		pvp_victim_last_drop=copy_value(data["victim_cooldowns"]);
+	if(mappingp(data["daily_drops"]))
+		pvp_daily_drops=copy_value(data["daily_drops"]);
 }
 
 private void save_pvp_state()
 {
+	prune_pvp_runtime_maps();
 	string raw=Standards.JSON.encode(([
 		"month":pvp_rank_month,
 		"kills":pvp_monthly_kills,
 		"donations":donation_monthly,
 		"pending_charms":pvp_pending_charms,
+		"victim_cooldowns":pvp_victim_last_drop,
+		"daily_drops":pvp_daily_drops,
 	]));
+	// tmp名必须带进程号：两个Worker同时写同一个.tmp会互相覆盖，
+	// 先rename者拿到对方内容、后rename者失败，月度计数可能丢失。
+	string tmp_path=pvp_state_path()+".tmp."+(string)getpid();
 	mixed err=catch{
-		Stdio.write_file(pvp_state_path()+".tmp",raw+"\n");
+		Stdio.write_file(tmp_path,raw+"\n");
 		if(Stdio.exist(pvp_state_path())){
 			rm(pvp_state_path()+".bak");
 			mv(pvp_state_path(),pvp_state_path()+".bak");
 		}
-		mv(pvp_state_path()+".tmp",pvp_state_path());
+		mv(tmp_path,pvp_state_path());
 	};
+	if(err && Stdio.exist(tmp_path))
+		rm(tmp_path);
 	if(err)
 		werror("[REFINE][PVP_STATE_SAVE_FAILED] %s\n",
 			describe_error(err));
+}
+
+private void prune_pvp_runtime_maps()
+{
+	int now=time();
+	string today="";
+	mapping t=localtime(now);
+	today=(t["year"]+1900)+"-"+(t["mon"]+1)+"-"+t["mday"];
+	foreach(indices(pvp_victim_last_drop),string k)
+		if(pvp_victim_last_drop[k]<=now-REFINE_PVP_VICTIM_COOLDOWN)
+			m_delete(pvp_victim_last_drop,k);
+	foreach(indices(pvp_daily_drops),string k)
+		if(search(k,"|")!=-1 && k[(search(k,"|")+1)..]!=today)
+			m_delete(pvp_daily_drops,k);
 }
 
 private string current_month_key()
@@ -374,17 +401,22 @@ mapping(string:mixed) attempt_refine(object me,object item,
 	if(!YUSHID->have_enough_yushi(me,costs["yushi"]))
 		return (["ok":0,"message":"碎玉不足（需要"+
 			costs["yushi"]+"）。"]);
+	// 扣费顺序：金钱→碎玉→淬炼石。石头是本地背包计数、预检后
+	// 不会失败；跨Worker钱包竞争最多让碎玉支付失败，此时退钱、
+	// 石头尚未扣，保证失败零损失。
 	if(costs["money"]>0 && !me->pay_money(costs["money"]))
 		return (["ok":0,"message":"金钱不足（需要"+
 			MUD_MONEYD->query_store_money_cn(costs["money"])+"）。"]);
-	// 顺序扣费：石头→碎玉→金钱（金钱上面已扣）。碎玉失败则退钱。
-	if(!consume_named_item(me,"cuilianshi",costs["stone"])){
-		me->add_money(costs["money"]);
-		return (["ok":0,"message":"淬炼石不足。"]);
-	}
 	if(!YUSHID->pay_yushi(me,costs["yushi"])){
-		me->add_money(costs["money"]);
+		if(costs["money"]>0)
+			me->add_money(costs["money"]);
 		return (["ok":0,"message":"碎玉不足。"]);
+	}
+	if(!consume_named_item(me,"cuilianshi",costs["stone"])){
+		if(costs["money"]>0)
+			me->add_money(costs["money"]);
+		YUSHID->give_yushi(me,costs["yushi"]);
+		return (["ok":0,"message":"淬炼石不足。"]);
 	}
 	threshold=query_is_threshold_attempt(level);
 	rate=query_refine_success_rate(level);
