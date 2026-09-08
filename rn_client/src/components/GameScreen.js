@@ -150,11 +150,20 @@ function SuiyuRechargeChip({ onOpen, value }) {
         toValue: 0.2, duration: 900, useNativeDriver: false,
       }),
     ])).start();
+    /* 定期弹出首充提示：首次4秒出现（停12秒），之后每3分钟再弹。 */
+    const showTip = () => { setTipVisible(true); };
     const t1 = setTimeout(() => {
-      if (!tippedRef.current) { tippedRef.current = true; setTipVisible(true); }
+      if (!tippedRef.current) { tippedRef.current = true; showTip(); }
     }, 4000);
     const t2 = setTimeout(() => setTipVisible(false), 16000);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    const repeater = setInterval(() => {
+      showTip();
+      setTimeout(() => setTipVisible(false), 12000);
+    }, 180000);
+    return () => {
+      clearTimeout(t1); clearTimeout(t2);
+      clearInterval(repeater);
+    };
   }, [glow]);
   const shadow = glow.interpolate({
     inputRange: [0, 1], outputRange: [2, 14],
@@ -455,9 +464,26 @@ export default function GameScreen() {
     menuPanel: th.modalBackground ? {
       backgroundColor: th.modalBackground, borderColor: th.menuBorder,
     } : null,
+    /* 白天模式：属性条标签/数值/经验等级/buff文字/轨道底色对比度 */
+    statLabel: th.id === 'day' ? { color: '#4a3a2a' } : null,
+    statValue: th.id === 'day' ? { color: '#4a3a2a' } : null,
+    statTrack: th.id === 'day' ? { backgroundColor: '#e0d8c8' } : null,
+    expLevel: th.id === 'day' ? { color: '#7a5a10' } : null,
+    expTrack: th.id === 'day' ? { backgroundColor: '#e0d8c8' } : null,
+    expFill: th.id === 'day' ? { backgroundColor: '#b89630' } : null,
+    buffChipText: th.id === 'day' ? { color: '#2d6a45' } : null,
+    buffChipTime: th.id === 'day' ? { color: '#5a7a4a' } : null,
+    afkButton: th.id === 'day' ? {
+      backgroundColor: '#f0e8d8', borderColor: '#8a6d2f',
+    } : null,
+    afkText: th.id === 'day' ? { color: '#5a4010' } : null,
+    menuButton: th.id === 'day' ? {
+      backgroundColor: '#f0e8d8', borderColor: '#8a6d2f',
+    } : null,
+    menuIcon: th.id === 'day' ? { color: '#5a4010' } : null,
   }), [th.appBackground, th.headerBackground, th.headerBorder,
     th.text, th.textSubtle, th.textMuted, th.gold, th.surface,
-    th.menuBorder, th.modalBackground]);
+    th.menuBorder, th.modalBackground, th.id]);
   const { width: screenW } = useWindowDimensions();
   const isTablet = screenW >= 768;
   const contentMaxW = isTablet ? 720 : 0;
@@ -863,8 +889,8 @@ export default function GameScreen() {
         id, active: isActive, hasSession, summary,
         name: card ? card.name : id,
       };
-    })
-    .sort((a, b) => (a.active ? -1 : b.active ? 1 : 0));
+    });
+  /* 类Chrome：激活的tab保持原位，不重排到最前。 */
 
   return (
     <KeyboardAvoidingView
@@ -1082,29 +1108,31 @@ export default function GameScreen() {
           </View>
           <TouchableOpacity
             style={[styles.afkButton,
-              store.autofighting && styles.afkButtonOn]}
+              store.autofighting && styles.afkButtonOn,
+              themeStyle.afkButton]}
             disabled={store.afkBusy}
             onPress={() => store.toggleAutofight()}>
             {store.afkBusy
               ? <ActivityIndicator size="small" color="#c8e8c8" />
-              : <Text style={styles.afkText}>
+              : <Text style={[styles.afkText, themeStyle.afkText]}>
                   {store.autofighting ? '◎ 挂机中' : '▶ 挂机'}
                 </Text>}
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.menuButton} onPress={() => setMenuOpen(true)}>
-            <Text style={styles.menuIcon}>☰</Text>
+            style={[styles.menuButton, themeStyle.menuButton]}
+            onPress={() => setMenuOpen(true)}>
+            <Text style={[styles.menuIcon, themeStyle.menuIcon]}>☰</Text>
           </TouchableOpacity>
         </View>
 
         {/* 三条属性条：生命/法力/精力 */}
         <View style={styles.statRows}>
           <StatBar label="生命" value={status.hp} max={status.hp_max}
-            fill="#c23a4a" />
+            fill={th.battleHp || '#c23a4a'} themeStyle={themeStyle} />
           <StatBar label="法力" value={status.mana} max={status.mana_max}
-            fill="#3a6ac2" />
+            fill={th.battleMp || '#3a6ac2'} themeStyle={themeStyle} />
           <StatBar label="精力" value={status.energy} max={100}
-            fill="#3f8a53" />
+            fill="#3f8a53" themeStyle={themeStyle} />
         </View>
 
         {/* 生效中的丹药/特药 buff 药丸（与 Vue active-buff-chip 同源） */}
@@ -1114,9 +1142,11 @@ export default function GameScreen() {
             {status.active_buffs.map(buff => (
               <View key={buff.kind || buff.name_cn}
                 style={styles.buffChip}>
-                <Text style={styles.buffChipText}>
+                <Text style={[styles.buffChipText,
+                  themeStyle.buffChipText]}>
                   🔆{buff.name_cn}
-                  <Text style={styles.buffChipTime}>
+                  <Text style={[styles.buffChipTime,
+                    themeStyle.buffChipTime]}>
                     ({buff.remain_min}m)
                   </Text>
                 </Text>
@@ -1127,11 +1157,13 @@ export default function GameScreen() {
 
         {/* 经验条：Lv.N === Lv.N+1 / 已封顶 */}
         <View style={styles.expRow}>
-          <Text style={styles.expLevel}>Lv.{status.level || '?'}</Text>
-          <View style={styles.expTrack}>
-            <View style={[styles.expFill, { width: `${expPercent}%` }]} />
+          <Text style={[styles.expLevel, themeStyle.expLevel]}>
+            Lv.{status.level || '?'}</Text>
+          <View style={[styles.expTrack, themeStyle.expTrack]}>
+            <View style={[styles.expFill, themeStyle.expFill,
+              { width: `${expPercent}%` }]} />
           </View>
-          <Text style={styles.expLevel}>
+          <Text style={[styles.expLevel, themeStyle.expLevel]}>
             {status.level_can_progress === false || !status.level_can_progress && status.exp_need
               ? '已封顶' : `Lv.${(status.level || 0) + 1}`}
           </Text>
@@ -1152,6 +1184,7 @@ export default function GameScreen() {
           enemy={enemy}
           pet={status.pet_assist || null}
           imageBase={imageBase}
+          theme={themeId}
         />
       )}
 
@@ -1502,14 +1535,18 @@ export default function GameScreen() {
   );
 }
 
-function StatBar({ label, value, max, fill }) {
+function StatBar({ label, value, max, fill, themeStyle }) {
   return (
     <View style={styles.statRow}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <View style={styles.statTrack}>
+      <Text style={[styles.statLabel,
+        themeStyle && themeStyle.statLabel]}>{label}</Text>
+      <View style={[styles.statTrack,
+        themeStyle && themeStyle.statTrack]}>
         <View style={[styles.statFill, { width: `${percent(value, max)}%`, backgroundColor: fill }]} />
       </View>
-      <Text style={styles.statValue}>{formatNumber(value)}/{formatNumber(max)}</Text>
+      <Text style={[styles.statValue,
+        themeStyle && themeStyle.statValue]}>
+        {formatNumber(value)}/{formatNumber(max)}</Text>
     </View>
   );
 }

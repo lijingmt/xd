@@ -134,6 +134,15 @@ export default function RechargeModal({ visible, onClose }) {
           <Text style={styles.subtitle}>
             账号共享余额 · 全角色通用 · 苹果内购
           </Text>
+          {/* 首充折扣横幅 */}
+          <View style={styles.firstBuyBanner}>
+            <Text style={styles.firstBuyText}>
+              🎁 首次充值限时双倍 · 今天充值立享额外赠送
+            </Text>
+            <Text style={styles.firstBuySub}>
+              仅限首次充值 · 任意档位均可享受
+            </Text>
+          </View>
 
           {phase === 'loading' && (
             <View style={styles.center}>
@@ -219,6 +228,15 @@ const styles = StyleSheet.create({
     textAlign: 'center' },
   subtitle: { color: '#8a7a8a', fontSize: 12, textAlign: 'center',
     marginBottom: 4 },
+  firstBuyBanner: {
+    backgroundColor: '#2d2410', borderRadius: 10,
+    borderWidth: 1.5, borderColor: '#ffd700',
+    paddingHorizontal: 14, paddingVertical: 10,
+    marginBottom: 4, alignItems: 'center', gap: 2,
+  },
+  firstBuyText: { color: '#ffd700', fontSize: 13, fontWeight: '700',
+    textAlign: 'center' },
+  firstBuySub: { color: '#c0a858', fontSize: 11, textAlign: 'center' },
   productCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: '#12101a', borderRadius: 12, borderWidth: 1,
