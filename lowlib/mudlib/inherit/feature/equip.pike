@@ -43,7 +43,72 @@ void set_refine_level(int level)
 protected int refine_scale(int value)
 {
 	int level=query_refine_level();
-	return level>0 && value>0 ? value*(100+level)/100 : value;
+	if(level<=0 || value<=0)
+		return value;
+	// 套装提炼共鸣：同一套装（新月收藏/心渊）已穿戴且提炼≥+50的
+	// 件数达5件全身属性再加5%，8件再加10%（并入提炼乘率）。
+	return value*(100+level+query_refine_set_resonance())/100;
+}
+
+private int query_refine_set_resonance()
+{
+	string family;
+	object wearer;
+	array cache;
+	int count;
+	int bonus;
+	family=query_refine_set_family();
+	if(family=="")
+		return 0;
+	cache=this_object()["/item_refine/res_cache"];
+	if(arrayp(cache) && sizeof(cache)==2 &&
+	   (int)cache[0]>time()-30)
+		return (int)cache[1];
+	wearer=environment(this_object());
+	if(wearer && functionp(wearer->is) && wearer->is("player") &&
+	   functionp(wearer->query_equip)){
+		mapping eq=(mapping)wearer->query_equip();
+		if(mappingp(eq))
+			foreach(values(eq),object ob){
+				if(!ob || !functionp(ob->query_refine_level) ||
+				   (int)ob->query_refine_level()<50)
+					continue;
+				if(query_item_set_family(ob)==family)
+					count++;
+			}
+	}
+	if(count>=8)
+		bonus=10;
+	else if(count>=5)
+		bonus=5;
+	this_object()["/item_refine/res_cache"]=({time(),bonus});
+	return bonus;
+}
+
+private string query_refine_set_family()
+{
+	string cid="";
+	if(functionp(this_object()->query_newmoon_collection_id))
+		cid=(string)this_object()->query_newmoon_collection_id();
+	if(cid!="")
+		return "nm:"+cid;
+	if(search(file_name(this_object()),"/wuxinsuit/")!=-1)
+		return "wuxinsuit";
+	return "";
+}
+
+private string query_item_set_family(object ob)
+{
+	string cid="";
+	if(!ob)
+		return "";
+	if(functionp(ob->query_newmoon_collection_id))
+		cid=(string)ob->query_newmoon_collection_id();
+	if(cid!="")
+		return "nm:"+cid;
+	if(search(file_name(ob),"/wuxinsuit/")!=-1)
+		return "wuxinsuit";
+	return "";
 }
 
 int is_newmoon_collection_id(string collection_id)

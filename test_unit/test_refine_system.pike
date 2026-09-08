@@ -60,6 +60,26 @@ void grant_stones(object me,int count)
 	stone->move(me);
 }
 
+int count_charms(object me)
+{
+	int total=0;
+	foreach(all_inventory(me),object ob)
+		if(ob && functionp(ob->query_name) &&
+		   (string)ob->query_name()=="tilianshouhufu")
+			total+=(int)(ob->amount || 1);
+	return total;
+}
+
+int count_named(object me,string nm)
+{
+	int total=0;
+	foreach(all_inventory(me),object ob)
+		if(ob && functionp(ob->query_name) &&
+		   (string)ob->query_name()==nm)
+			total+=(int)(ob->amount || 1);
+	return total;
+}
+
 int count_stones(object me)
 {
 	int total=0;
@@ -77,6 +97,7 @@ int main()
 	string victim_id = "xd01testrefine2";
 	object|zero me = 0;
 	object|zero victim = 0;
+	int ch_pre = 0;
 	werror("\n========== 提炼系统测试 ==========\n");
 	cleanup_player(account_id);
 	cleanup_player(victim_id);
@@ -119,9 +140,9 @@ int main()
 		mapping c50=REFINED->query_refine_costs(50);
 		mapping c1000=REFINED->query_refine_costs(1000);
 		check("1e.材料消耗公式",
-			c0["yushi"]==10 && c0["stone"]==5 && c0["money"]==0 &&
-			c50["yushi"]==110 && c50["stone"]==5 &&
-			c1000["yushi"]==2010 && c1000["stone"]==5,
+			c0["jade"]==10 && c0["stone"]==5 && c0["money"]==0 &&
+			c50["jade"]==110 && c50["stone"]==5 &&
+			c1000["jade"]==2010 && c1000["stone"]==5,
 			sprintf("%O %O %O",c0,c50,c1000));
 
 		/* ===== 1f) 幸运影响成功率 ===== */
@@ -145,8 +166,12 @@ int main()
 			(int)sword->query_refine_level()==0,
 			"无料提炼未被拦截");
 		grant_stones(me,10000000);
+		object jade = clone(ROOT+
+			"/gamelib/clone/item/material/lihuoyu");
+		jade->amount = 10000000;
+		jade->move(me);
 		object yu = clone(ROOT+"/gamelib/clone/item/yushi/suiyu");
-		yu->amount = 10000000;
+		yu->amount = 200000;
 		yu->move(me);
 		mapping r2b = REFINED->attempt_refine(me,sword,1);
 		check("2b.普通成功+1级且名称带+N",
@@ -156,10 +181,13 @@ int main()
 			sprintf("level=%d name=%s",(int)sword->query_refine_level(),
 				(string)sword->query_name_cn()));
 		me->set_lunck(800);
-		check("2b2.幸运计入实际成功率(130级底线30%→38%)",
-			REFINED->query_luck_adjusted_rate(me,130)==3800,
-			sprintf("rate=%d",
-				REFINED->query_luck_adjusted_rate(me,130)));
+		int expected_rate=3000+800+
+			(REFINED->query_weekend_boost()-100);
+		check("2b2.幸运(及周末)计入实际成功率",
+			REFINED->query_luck_adjusted_rate(me,130)==expected_rate,
+			sprintf("rate=%d expected=%d",
+				REFINED->query_luck_adjusted_rate(me,130),
+				expected_rate));
 		check("2b3.幸运不越过100%上限",
 			REFINED->query_luck_adjusted_rate(me,0)==10000,
 			sprintf("rate=%d",
@@ -188,6 +216,7 @@ int main()
 		check("2f.高档门槛失败降30%",
 			(int)sword->query_refine_level()==105,
 			sprintf("level=%d",(int)sword->query_refine_level()));
+		me->m_delete_foruser("/plus/refine_pity");
 		/* 级联防回归：199失败最多跌回本段起点150（旧规则会跌穿
 		 * 到105并级联重穿下方所有门槛，+500都要20万次尝试）。 */
 		sword->set_refine_level(199);
@@ -195,21 +224,19 @@ int main()
 		check("2f2.门槛失败最多跌回本段起点(199→150)",
 			(int)sword->query_refine_level()==150,
 			sprintf("level=%d",(int)sword->query_refine_level()));
-		/* 守护符：高档门槛失败降30%被减免为3级 */
+		/* 守护符：高档门槛失败降30%被减免为3级（先清保底计数） */
+		me->m_delete_foruser("/plus/refine_pity");
 		sword->set_refine_level(199);
 		object charm = clone(ROOT+
 			"/gamelib/clone/item/material/tilianshouhufu");
 		charm->move(me);
 		REFINED->attempt_refine(me,sword,10000);
-		int charm_count=0;
-		foreach(all_inventory(me),object ob)
-			if(ob && functionp(ob->query_name) &&
-			   (string)ob->query_name()=="tilianshouhufu")
-				charm_count+=(int)(ob->amount || 1);
 		check("2g.守护符把高档惩罚减免为3级且被消耗",
-			(int)sword->query_refine_level()==196 && charm_count==0,
-			sprintf("level=%d charm=%d",
-				(int)sword->query_refine_level(),charm_count));
+			(int)sword->query_refine_level()==196 &&
+			count_charms(me)==0,
+			sprintf("level=%d charms=%d",
+				(int)sword->query_refine_level(),
+				count_charms(me)));
 
 		/* ===== 3) PK掉落五重防刷 ===== */
 		victim = create_saved_player(victim_id,"refine88","10.0.0.2");
@@ -309,6 +336,13 @@ int main()
 			all_ok,fail_info=="" ? "unknown" : fail_info);
 		/* 1000级后的门槛失败（1050门槛） */
 		gears[0]->set_refine_level(1099);
+		me->m_delete_foruser("/plus/refine_pity");
+		foreach(all_inventory(me),object ob)
+			if(ob && functionp(ob->query_name) &&
+			   (string)ob->query_name()=="tilianshouhufu"){
+				ob->amount=0;
+				ob->remove();
+			}
 		mapping r4c=REFINED->attempt_refine(me,gears[0],10000);
 		check("4c.千级门槛失败降30%封顶50",
 			(int)gears[0]->query_refine_level()==1049,
@@ -348,7 +382,7 @@ int main()
 			mapping cc=REFINED->query_refine_costs(level);
 			attempts++;
 			stones_used+=cc["stone"];
-			yushi_used+=cc["yushi"];
+			yushi_used+=cc["jade"];
 			if(random(10000)<REFINED->query_refine_success_rate(level))
 				level++;
 			else if(REFINED->query_is_threshold_attempt(level)){
@@ -442,50 +476,76 @@ int main()
 				luck_total_stones));
 
 		/* ===== 5c) PK榜纯展示 + 捐赠月榜守护符 ===== */
+		/* 用全新受害者即时击杀一次，保证榜单状态自包含。 */
+		object victim_fresh=create_saved_player("xd01testrefine4",
+			"refine88","10.0.0.4");
+		mapping dbg=(["kl":(int)me->query_level(),
+			"vl":(int)victim_fresh->query_level(),
+			"ka":(string)me->query_account_owner(),
+			"va":(string)victim_fresh->query_account_owner(),
+			"ki":(string)me->query_userip(),
+			"vi":(string)victim_fresh->query_userip(),
+			"npc1":(int)me->is("npc"),
+			"npc2":(int)victim_fresh->is("npc")]);
+		REFINED->maybe_drop_pvp_material(me,victim_fresh,1);
+		destruct(victim_fresh);
+		ACCOUNT_CHARACTERD->remove_test_account("xd01testrefine4");
+		cleanup_player("xd01testrefine4");
 		array rank=REFINED->query_monthly_pvp_rank(10);
 		int me_ranked=0;
 		foreach(rank,array row)
 			if(row[0]==account_id && row[2]>=1)
 				me_ranked=1;
 		check("5c-1.有效击杀计入月度PK榜",
-			me_ranked,sprintf("rank=%O",rank[0..1]));
-		int charm2=0;
-		foreach(all_inventory(me),object ob)
-			if(ob && functionp(ob->query_name) &&
-			   (string)ob->query_name()=="tilianshouhufu")
-				charm2+=(int)(ob->amount || 1);
+			me_ranked,sprintf("rank=%O dbg=%O",rank[0..1],dbg));
+		/* PK击杀不得产生守护符：击杀前后待发队列数不变
+		 * （不依赖跨run持久化的捐赠残留状态）。 */
+		int pend_before=REFINED->query_pending_charm_count();
+		REFINED->maybe_drop_pvp_material(me,victim_fresh,1);
+		check("5c-2.PK击杀不结算守护符",
+			REFINED->query_pending_charm_count()==pend_before,
+			sprintf("before=%d after=%d",pend_before,
+				REFINED->query_pending_charm_count()));
 		REFINED->ensure_pvp_month_rollover("2000-01");
-		REFINED->maybe_deliver_pending_charm(me);
-		int charm3=0;
-		foreach(all_inventory(me),object ob)
-			if(ob && functionp(ob->query_name) &&
-			   (string)ob->query_name()=="tilianshouhufu")
-				charm3+=(int)(ob->amount || 1);
-		check("5c-2.PK榜跨月不结算守护符",
-			charm3==charm2,sprintf("before=%d after=%d",charm2,charm3));
 		array rank2=REFINED->query_monthly_pvp_rank(10);
 		check("5c-3.跨月后PK榜清零",
 			sizeof(rank2)==0,sprintf("rank=%O",rank2));
-		REFINED->record_donation(account_id,"提炼测试",5000);
-		array drank=REFINED->query_monthly_donation_rank(10);
+		REFINED->record_donation(account_id,"提炼测试",999999);
+		array drank=REFINED->query_monthly_donation_rank(20);
+		int me_donated=0;
+		foreach(drank,array row)
+			if(row[0]==account_id && row[2]>=999999)
+				me_donated=1;
 		check("5c-4.充值计入捐赠月榜",
-			sizeof(drank)==1 && drank[0][0]==account_id &&
-			drank[0][2]==5000,
-			sprintf("drank=%O",drank));
+			me_donated && drank[0][0]==account_id,
+			sprintf("drank=%O",drank[0..2]));
+		ch_pre=count_charms(me);
 		REFINED->ensure_pvp_month_rollover("2001-01");
 		REFINED->maybe_deliver_pending_charm(me);
-		int charm4=0;
-		foreach(all_inventory(me),object ob)
-			if(ob && functionp(ob->query_name) &&
-			   (string)ob->query_name()=="tilianshouhufu")
-				charm4+=(int)(ob->amount || 1);
 		check("5c-5.捐赠月榜榜首跨月获赠守护符",
-			charm4>charm3,sprintf("before=%d after=%d",charm3,charm4));
+			count_charms(me)>ch_pre,
+			sprintf("before=%d after=%d",ch_pre,count_charms(me)));
 		REFINED->ensure_pvp_month_rollover();
 		string wallet_src=Stdio.read_file(ROOT+
 			"/gamelib/single/daemons/account_walletd.pike") || "";
 		check("5c-6.钱包充值入口累计捐赠",
 			search(wallet_src,"record_donation")!=-1,"钩子缺失");
+		string equip_src=Stdio.read_file(ROOT+
+			"/lowlib/mudlib/inherit/feature/equip.pike") || "";
+		check("6a.套装提炼共鸣接线",
+			search(equip_src,"query_refine_set_resonance")!=-1 &&
+			search(equip_src,"wuxinsuit")!=-1,
+			"共鸣缺失");
+		check("6b.离火玉与碎晶物品存在",
+			Stdio.file_size(ROOT+
+			"/gamelib/clone/item/material/lihuoyu")>0 &&
+			Stdio.file_size(ROOT+
+			"/gamelib/clone/item/material/suijing")>0,
+			"物品缺失");
+		check("6c.心魔NPC可由真实Pike编译",
+			!catch{ compile_file(ROOT+
+				"/gamelib/clone/npc/refine_xinmo.pike"); },
+			"编译失败");
 
 		/* ===== 5b) 心渊套装可提炼（洗维持锁定） ===== */
 		object xy=clone(ROOT+"/gamelib/clone/item/wuxinsuit/xinyuanjie");
@@ -496,6 +556,133 @@ int main()
 			"心渊不可提炼");
 		if(xy)
 			destruct(xy);
+
+		/* ===== 5d) 二期：离火玉/购买/保底/催化剂/传承/碎晶/排行/心魔 ===== */
+		int jade_before=count_named(me,"lihuoyu");
+		mapping rb=REFINED->buy_jade(me,100);
+		check("5d-1.碎玉1:1购买离火玉",
+			(int)rb["ok"]==1 &&
+			count_named(me,"lihuoyu")==jade_before+100,
+			sprintf("%O",rb));
+		object sword2=clone(ROOT+
+			"/gamelib/clone/item/weapon/13huojingjian/13huojingjian");
+		sword2->move(me);
+		object|zero jade_stack=0;
+		foreach(all_inventory(me),object ob)
+			if(ob && functionp(ob->query_name) &&
+			   (string)ob->query_name()=="lihuoyu"){
+				jade_stack=ob;
+				break;
+			}
+		int jade_saved=(int)(jade_stack && jade_stack->amount);
+		if(jade_stack)
+			jade_stack->amount=3;
+		mapping rj=REFINED->attempt_refine(me,sword2);
+		check("5d-2.离火玉不足时拒绝且不扣费",
+			(int)rj["ok"]==0 &&
+			search((string)rj["message"],"离火玉不足")!=-1,
+			sprintf("%O",rj));
+		if(jade_stack)
+			jade_stack->amount=jade_saved;
+		/* 保底：3次门槛失败后必成 */
+		sword2->set_refine_level(9);
+		me->m_delete_foruser("/plus/refine_pity");
+		string pity_trace="";
+		for(int i=0;i<3;i++){
+			mapping rl=REFINED->attempt_refine(me,sword2,10000);
+			pity_trace+="[i"+i+":ok"+(int)rl["ok"]+
+				"s"+(int)(rl["success"] || 0)+"p"+
+				(int)(me["/plus/refine_pity"] || 0)+"]";
+			sword2->set_refine_level(9);
+		}
+		mapping rp=REFINED->attempt_refine(me,sword2,10000);
+		check("5d-3.门槛保底3连败后必成",
+			(int)rp["success"]==1 &&
+			(int)sword2->query_refine_level()==10,
+			sprintf("level=%d pity=%d trace=%s %O",
+				(int)sword2->query_refine_level(),
+				(int)(me["/plus/refine_pity"] || 0),
+				pity_trace,rp));
+		me->m_delete_foruser("/plus/refine_pity");
+		/* 护心丹 */
+		mapping rsd=REFINED->buy_catalyst(me,"shield");
+		sword2->set_refine_level(199);
+		REFINED->attempt_refine(me,sword2,10000);
+		check("5d-4.护心丹免降级",
+			(int)rsd["ok"]==1 &&
+			(int)sword2->query_refine_level()==199,
+			sprintf("level=%d",(int)sword2->query_refine_level()));
+		/* 祝福油 */
+		REFINED->buy_catalyst(me,"bless");
+		int rate_bless=REFINED->query_luck_adjusted_rate(me,50);
+		REFINED->attempt_refine(me,sword2,10000);
+		check("5d-5.祝福油加成且单次消耗",
+			rate_bless-(REFINED->query_weekend_boost()-100)>
+			REFINED->query_refine_success_rate(50) &&
+			(int)(me["/plus/refine_blessing_bp"] || 0)==0,
+			sprintf("rate=%d",rate_bless));
+		/* 周末窗口纯函数 */
+		check("5d-6.周末黄金时段判定",
+			REFINED->query_weekend_boost(6,20)==150 &&
+			REFINED->query_weekend_boost(0,21)==150 &&
+			REFINED->query_weekend_boost(6,19)==100 &&
+			REFINED->query_weekend_boost(3,20)==100,
+			"周末判定异常");
+		/* 碎晶合成 */
+		object shard=clone(ROOT+
+			"/gamelib/clone/item/material/suijing");
+		shard->amount=100;
+		shard->move(me);
+		int stones_before=count_named(me,"cuilianshi");
+		mapping rc=REFINED->compose_shards(me);
+		check("5d-7.碎晶100合1淬炼石",
+			(int)rc["ok"]==1 &&
+			count_named(me,"cuilianshi")==stones_before+1,
+			sprintf("%O",rc));
+		/* 传承 */
+		object sword3=clone(ROOT+
+			"/gamelib/clone/item/weapon/17duanshuijian/17duanshuijian");
+		sword3->move(me);
+		sword2->set_refine_level(50);
+		sword3->set_refine_level(0);
+		mapping rt=REFINED->transfer_refine(me,sword2,sword3);
+		check("5d-8.提炼传承90%转移",
+			(int)rt["ok"]==1 &&
+			(int)sword3->query_refine_level()==45 &&
+			(int)sword2->query_refine_level()==5,
+			sprintf("%O lv2=%d lv3=%d",rt,
+				(int)sword2->query_refine_level(),
+				(int)sword3->query_refine_level()));
+		/* 排行 */
+		array rank3=REFINED->query_refine_rank(20);
+		int me_ranked3=0;
+		foreach(rank3,mapping row)
+			if((string)row["account"]==account_id)
+				me_ranked3=1;
+		check("5d-9.提炼等级进入排行",me_ranked3,
+			sprintf("rank=%O",rank3[0..2]));
+		/* 心魔：门槛大跌→挑战队列→战胜恢复（先清守护符防减免） */
+		sword2->set_refine_level(199);
+		me->m_delete_foruser("/plus/refine_shield");
+		foreach(all_inventory(me),object ob)
+			if(ob && functionp(ob->query_name) &&
+			   (string)ob->query_name()=="tilianshouhufu"){
+				ob->amount=0;
+				ob->remove();
+			}
+		REFINED->attempt_refine(me,sword2,10000);
+		array xm=REFINED->query_xinmo_challenge(me);
+		check("5d-10.高档门槛大跌产生心魔挑战",
+			arrayp(xm) && (int)xm[1]>=10,
+			sprintf("xm=%O",xm));
+		mapping rx=REFINED->complete_xinmo(me);
+		check("5d-11.战胜心魔恢复损失等级",
+			(int)rx["ok"]==1 &&
+			(int)sword2->query_refine_level()==199,
+			sprintf("%O level=%d",rx,
+				(int)sword2->query_refine_level()));
+		if(sword3)
+			destruct(sword3);
 
 		/* ===== 6) 接线源检查 ===== */
 		string die_src=Stdio.read_file(ROOT+

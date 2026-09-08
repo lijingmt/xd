@@ -29,7 +29,7 @@ int main()
 		mixed jerr=catch{ data=Standards.JSON.decode(raw); };
 		check("公告JSON可解析且含多期",
 			!jerr && mappingp(data) && arrayp(data["notices"]) &&
-			sizeof(data["notices"])>=6,
+			sizeof(data["notices"])>=7,
 			sprintf("size=%d",sizeof(data && data["notices"] || ({}))));
 		array(mapping) list=data["notices"];
 		int all_valid=1;
@@ -38,8 +38,8 @@ int main()
 			   !arrayp(n["body"]) || sizeof(n["body"])<1)
 				all_valid=0;
 		check("每期公告字段完整",all_valid,"字段缺失");
-		check("最新一期为今日提炼公告",
-			(string)list[0]["date"]=="2026-09-07" &&
+		check("最新一期为提炼大扩充公告",
+			(string)list[0]["date"]=="2026-09-08" &&
 			search((string)list[0]["title"],"提炼")!=-1,
 			sprintf("date=%s",(string)list[0]["date"]));
 
