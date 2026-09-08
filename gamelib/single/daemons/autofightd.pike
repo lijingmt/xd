@@ -3302,8 +3302,10 @@ string query_start_block_reason(object me)
 		return "你当前不在有效地图中";
 	if(me->is("ghost") || me->get_cur_life() <= 0)
 		return "死亡或灵魂状态不能开启自动挂机";
-	if((int)me["/plus/random_rcd"] > 0)
-		return "请先完成当前的安全验证";
+	if((int)me["/plus/random_rcd"] > 0){
+		me["/plus/random_rcd"] = 0;
+		me["/plus/random_rcd_stuck"] = 0;
+	}/*已停用随机校验：自动清除放行*/
 	if(query_time_left(me) <= 0)
 		return query_quota_exhausted_message(me);
 	consolidate_gathered_materials(me);

@@ -54,7 +54,7 @@ int main(string|zero arg)
 		int entry_flag = 0;
 		//attack/use_perform记录超过300次连击，判定进入调用
 		//暂时设置成1000，等服务器负载上去了再调整
-		if(me["/tmp/wg_times"]>=1000) entry_flag = 1;
+		if(me["/tmp/wg_times"]>=999999) entry_flag = 1;/*已停用*/
 		else entry_flag = 0;
 		//会员不触发答题me->all_fee += fee;//记录玩家的捐赠总数
 		if(me->all_fee>=1) entry_flag = 0;

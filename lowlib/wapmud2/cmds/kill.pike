@@ -98,7 +98,7 @@ int main(string arg)
 	   this_player()->query_autofight()=="disable"){
 		int entry_flag = 0;
 		//attack/use_perform记录超过300次连击，判定进入调用
-		if(me["/tmp/wg_times"]>=50) entry_flag = 1;
+		if(me["/tmp/wg_times"]>=999999) entry_flag = 1;/*已停用随机校验*/
 		else entry_flag = 0;
 		//会员不触发答题me->all_fee += fee;//记录玩家的捐赠总数
 		if(me->all_fee>=1) entry_flag = 0;
