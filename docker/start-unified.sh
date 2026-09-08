@@ -215,6 +215,14 @@ cluster_is_healthy()
 	fi
 	printf '%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$probe_output" \
 		>> "$ROOT_DIR/log/map-worker-monitor.log"
+	# 软故障分级：内嵌网关"在线快照未就绪"是进程存活下的瞬时抖动
+	# （几秒自愈），历史8次生产事故都是它15秒内3连击触发全集群
+	# 强制重启。硬故障（进程死亡/清单不全）仍走3连快速通道。
+	if [[ "$probe_output" == *"online snapshot is not ready"* ]]; then
+		SUPERVISOR_PROBE_SOFT=1
+	else
+		SUPERVISOR_PROBE_SOFT=0
+	fi
 	return 1
 }
 
@@ -514,8 +522,21 @@ supervise_worker_cluster_once()
 		log "worker health probe is stabilizing; retrying before fallback"
 		return 0
 	fi
+	if [[ "$SUPERVISOR_PROBE_SOFT" == "1" ]]; then
+		# 软故障需持续600秒才升级为可重启故障；期间不打断在线玩家。
+		if (( SUPERVISOR_SOFT_SINCE == 0 )); then
+			SUPERVISOR_SOFT_SINCE=$SECONDS
+			log "soft gateway snapshot lag; will restart only after 600s of persistence"
+		fi
+		if (( SECONDS - SUPERVISOR_SOFT_SINCE < 600 )); then
+			return 0
+		fi
+		log "soft failure persisted 600s; escalating to hard restart path"
+	else
+		SUPERVISOR_SOFT_SINCE=0
+	fi
 	SUPERVISOR_HEALTH_FAILURES=$((SUPERVISOR_HEALTH_FAILURES + 1))
-	log "worker health probe failed ($SUPERVISOR_HEALTH_FAILURES/3)"
+	log "worker health probe failed ($SUPERVISOR_HEALTH_FAILURES/3${SUPERVISOR_PROBE_SOFT:+, soft})"
 	if (( SUPERVISOR_HEALTH_FAILURES >= 3 )); then
 		# 多worker是唯一正式拓扑：永不降级单进程（降级后持久化的
 		# 房间亲和仍指向死worker，每个动作吃满控制超时，玩家体感
@@ -543,6 +564,8 @@ run_supervisor()
 	SUPERVISOR_HEALTH_FAILURES=0
 	SUPERVISOR_CLUSTER_RESTARTS=0
 	SUPERVISOR_LAST_RESTART_SECONDS=0
+	SUPERVISOR_PROBE_SOFT=0
+	SUPERVISOR_SOFT_SINCE=0
 	SUPERVISOR_GRACE_DEADLINE=$(( SECONDS +
 		MAP_WORKER_STARTUP_STABILIZATION_SECONDS ))
 	while true; do
