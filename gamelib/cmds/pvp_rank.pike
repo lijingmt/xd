@@ -16,8 +16,8 @@ int main(string|zero arg)
 		s+="本月还没有人生效击杀，去厮杀吧！\n";
 	else{
 		for(int i=0;i<sizeof(rows);i++)
-			s+=sprintf("第%d名 %s(%s) 击杀%d\n",
-				i+1,rows[i][1],rows[i][0],rows[i][2]);
+			s+=sprintf("第%d名 %s 击杀%d\n",
+				i+1,rows[i][1],rows[i][2]);
 		s+="守护符每月发给捐赠（充值）月榜榜首，PK榜为荣誉展示。\n";
 	}
 	s+="[提炼装备:refine]|[返回游戏:look]\n";
