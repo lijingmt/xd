@@ -188,7 +188,7 @@ function SuiyuRechargeChip({ onOpen, value }) {
           activeOpacity={0.9}
           onPress={() => { setTipVisible(false); onOpen(); }}>
           <Text style={styles.rechargeTipText}>
-            💎 首充特惠 · 首次充值享折扣，点此充值 →
+            💎 首充$1.99 · 1000碎玉仅需$1.99（原价$14.99）→
           </Text>
           <View style={styles.rechargeTipArrow} />
         </TouchableOpacity>

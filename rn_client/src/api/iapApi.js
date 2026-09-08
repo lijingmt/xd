@@ -7,6 +7,12 @@
  * 客户端展示用 StoreKit 返回的本地化价格，入账按产品名固定碎玉数。 */
 export const IAP_PRODUCTS = [
   {
+    sku: 'com.wapmud.xiandao.firstbuy1000',
+    label: '🎁 首充特惠 · 1000碎玉',
+    desc: '首次充值专享 $1.99（原价$14.99）· 账号共享',
+    firstBuy: true,
+  },
+  {
     sku: 'com.wapmud.xiandao.1000suiyu',
     label: '1000碎玉',
     desc: '账号共享充值余额，全角色通用',

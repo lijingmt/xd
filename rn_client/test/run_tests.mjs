@@ -1512,8 +1512,8 @@ const {
   verifyIapPurchase, createRechargeController,
 } = await import('../src/api/iapApi.js');
 
-await check('内购产品表：三个SKU且不硬编码价格（由StoreKit本地化）', () => {
-  assert.equal(IAP_PRODUCTS.length, 3);
+await check('内购产品表：四个SKU且不硬编码价格（由StoreKit本地化）', () => {
+  assert.equal(IAP_PRODUCTS.length, 4);
   assert.ok(IAP_PRODUCTS.some(p =>
     p.sku === 'com.wapmud.xiandao.1000suiyu'));
   assert.ok(IAP_PRODUCTS.some(p =>

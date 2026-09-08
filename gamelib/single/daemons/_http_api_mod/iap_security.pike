@@ -251,6 +251,8 @@ int is_iap_synthetic_receipt(string receipt)
 int query_iap_product_fee(string product_id)
 {
 	switch(product_id) {
+		case "com.wapmud.xiandao.firstbuy1000":
+			return 100;
 		case "com.wapmud.xiandao.1000suiyu":
 			return 100;
 		case "com.wapmud.xiandao.3000suiyu":
@@ -264,6 +266,8 @@ int query_iap_product_fee(string product_id)
 string query_iap_product_label(string product_id)
 {
 	switch(product_id) {
+		case "com.wapmud.xiandao.firstbuy1000":
+			return "首充特惠1000碎玉";
 		case "com.wapmud.xiandao.1000suiyu":
 			return "1000碎玉";
 		case "com.wapmud.xiandao.3000suiyu":

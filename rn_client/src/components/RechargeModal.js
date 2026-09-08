@@ -137,10 +137,10 @@ export default function RechargeModal({ visible, onClose }) {
           {/* 首充折扣横幅 */}
           <View style={styles.firstBuyBanner}>
             <Text style={styles.firstBuyText}>
-              🎁 首次充值限时双倍 · 今天充值立享额外赠送
+              🎁 首充特惠 · 1000碎玉仅需 $1.99（原价$14.99）
             </Text>
             <Text style={styles.firstBuySub}>
-              仅限首次充值 · 任意档位均可享受
+              限时优惠 · 账号共享 · 全角色通用
             </Text>
           </View>
 
