@@ -188,7 +188,7 @@ function SuiyuRechargeChip({ onOpen, value }) {
           activeOpacity={0.9}
           onPress={() => { setTipVisible(false); onOpen(); }}>
           <Text style={styles.rechargeTipText}>
-            💎 首充$1.99 · 1000碎玉仅需$1.99（原价$14.99）→
+            💎 首充特惠 · 1000碎玉仅需$1.99{'\n'}原价$14.99 · 点此充值 →
           </Text>
           <View style={styles.rechargeTipArrow} />
         </TouchableOpacity>
@@ -1674,12 +1674,13 @@ const styles = StyleSheet.create({
   rechargeTip: {
     position: 'absolute', top: 40, right: 0, zIndex: 50,
     backgroundColor: '#1a1208', borderWidth: 1.5, borderColor: '#ffd700',
-    borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7,
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7,
     shadowColor: '#000', shadowOpacity: 0.8, shadowRadius: 10,
     shadowOffset: { width: 0, height: 3 }, elevation: 12,
+    maxWidth: 220, alignItems: 'flex-end',
   },
   rechargeTipText: { color: '#ffd700', fontSize: 12,
-    fontWeight: '800', letterSpacing: 0.5 },
+    fontWeight: '800', letterSpacing: 0.5, textAlign: 'right' },
   rechargeTipArrow: {
     position: 'absolute', top: -6, right: 16, width: 10, height: 10,
     backgroundColor: '#1a1208', borderLeftWidth: 1.5,
