@@ -3784,7 +3784,9 @@ createApp({
                 // 追加一次 /api/battle_status；普通命令仍按原流程检测。
                 if (isAutofightRefresh && data.refresh) {
                     this.applyBattleStatusData(data.refresh, true);
-                } else {
+                } else if (!this._lastBattleStatusCheck ||
+                           Date.now() - this._lastBattleStatusCheck > 2000) {
+                    this._lastBattleStatusCheck = Date.now();
                     await this.checkBattleStatus(isAutofightRefresh);
                 }
                 // 解析战斗动作并生成动画

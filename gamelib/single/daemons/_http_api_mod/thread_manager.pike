@@ -291,7 +291,7 @@ int query_world_pending_command_count()
 }
 
 int enqueue_world_command(string userid,string password,string cmd,
-    function callback,array extra)
+    function callback,array extra,void|int low_priority)
 {
     array(mapping) queue;
     string command_name;
@@ -346,6 +346,7 @@ int enqueue_world_command(string userid,string password,string cmd,
         "command_name":command_name,
         "callbacks":({({callback,extra})}),
         "queued_at":gethrtime(),
+        "priority":low_priority ? 1 : 0,
     ])});
     world_user_queues[queue_userid] = queue;
     world_pending_commands++;
@@ -372,12 +373,35 @@ void process_world_command_queue()
     world_dispatch_scheduled = 0;
     if(sizeof(world_ready_order)==0)
         return;
+    /* 手动玩家命令优先于挂机tick：先扫一遍找队头有priority=0
+     * 命令的用户，找不到才取默认轮转头（挂机用户）。这保证了
+     * 玩家点击的 look/attack/go 等永远排在挂机 flushview 之前，
+     * 消除多号挂机时手动命令被几十条挂机命令阻塞的体感卡顿。 */
     userid = world_ready_order[0];
-    if(sizeof(world_ready_order)>1)
-        world_ready_order = world_ready_order[1..];
+    if(sizeof(world_ready_order)>1){
+        int pick_index = -1;
+        for(int i=0;i<sizeof(world_ready_order);i++){
+            string u = world_ready_order[i];
+            array(mapping) q = world_user_queues[u];
+            if(arrayp(q) && sizeof(q)>0 &&
+               !(int)(q[0]["priority"] || 0)){
+                pick_index = i;
+                break;
+            }
+        }
+        if(pick_index>0){
+            userid = world_ready_order[pick_index];
+            world_ready_order = world_ready_order[..pick_index-1]+
+                world_ready_order[pick_index+1..];
+            m_delete(world_ready_users,userid);
+        }
+        else{
+            world_ready_order = world_ready_order[1..];
+            m_delete(world_ready_users,userid);
+        }
+    }
     else
-        world_ready_order = ({});
-    m_delete(world_ready_users,userid);
+        m_delete(world_ready_users,userid);
 
     queue = world_user_queues[userid];
     if(!arrayp(queue) || sizeof(queue)==0){

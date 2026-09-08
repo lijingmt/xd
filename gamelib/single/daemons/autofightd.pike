@@ -384,7 +384,7 @@ private void server_autofight_scan()
 		server_autofight_inflight[userid] = request_id;
 		server_autofight_inflight_started[userid] = time();
 		if(HTTP_APID->enqueue_world_command(userid,"","flushview",
-		   finish_server_autofight_tick,({userid,epoch,request_id}))){
+		   finish_server_autofight_tick,({userid,epoch,request_id}),1)){
 			server_autofight_enqueued++;
 			dispatched++;
 		}
