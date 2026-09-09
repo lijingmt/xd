@@ -1057,6 +1057,19 @@ void maybe_drop_pvp_material(object killer,object victim,
 		pvp_daily_drops=([]);
 	tell_object(killer,"你从厮杀中获得"+(string)count+
 		"颗淬炼石（提炼装备的材料）。\n");
+	/* 全服广播：让所有玩家看到PK掉落，制造猎杀氛围 */
+	catch{
+		string kn=functionp(killer->query_name_cn) ?
+			(string)killer->query_name_cn() :
+			(string)killer->query_name();
+		string vn=functionp(victim->query_name_cn) ?
+			(string)victim->query_name_cn() :
+			(string)victim->query_name();
+		foreach(users(1),object online)
+			if(online && functionp(online->query_name))
+				tell_object(online,"【淬炼石】"+kn+" 击杀了 "+vn+
+					"，获得"+(string)count+"颗淬炼石！\n");
+	};
 	string now=ctime(time());
 	ASYNC_IOD->append_log(ROOT+"/log/refine_pvp_drop.log",
 		now[0..sizeof(now)-2]+" "+(string)killer->query_name()+
