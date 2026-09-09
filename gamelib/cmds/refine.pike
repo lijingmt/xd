@@ -160,9 +160,78 @@ int main(string|zero arg)
 	}
 	string old_name="";
 	string new_name="";
-	if(action=="transfer"){
-		write("用法：refine transfer 旧装备名 新装备名（提炼+10以上，"+
-			"90%等级转移，费用=转移等级数碎玉）。\n[返回:refine]\n");
+	if(action=="transfer" || sscanf(action,"transfer %s",old_name)==1 &&
+	   search(action," ")==-1){
+		/* 传承UI：第一步列出+10以上装备选源 */
+		string ts="【提炼传承】选择要转出的装备（提炼+10以上）\n"+
+			"90%等级转移到新装备，费用=转移等级数碎玉。\n";
+		int tlisted=0;
+		foreach(all_inventory(me),object ob){
+			if(!is_refinable(ob) || !functionp(ob->query_refine_level))
+				continue;
+			int lv=(int)ob->query_refine_level();
+			if(lv<10)
+				continue;
+			ts+="[+"+lv+" "+ob->query_name_cn()+"→:refine transfer_from "+
+				ob->query_name()+"]\n";
+			tlisted++;
+		}
+		if(!tlisted)
+			ts+="身上没有+10以上的可传承装备。\n";
+		ts+="[返回:refine]\n";
+		write(ts);
+		return 1;
+	}
+	string from_name="";
+	if(sscanf(action,"transfer_from %s",from_name)==1){
+		/* 传承UI：第二步列出其他装备选目标 */
+		object|zero from_item=0;
+		foreach(all_inventory(me),object ob){
+			if(is_refinable(ob) && ob->query_name()==from_name){
+				from_item=ob;
+				break;
+			}
+		}
+		if(!from_item){
+			write("源装备不在背包。\n[返回:refine transfer]\n");
+			return 1;
+		}
+		int flv=(int)from_item->query_refine_level();
+		string fs="【提炼传承】从 "+from_item->query_name_cn()+
+			" +"+flv+" 转移到哪件装备？\n"+
+			"将转移90%等级（+"+flv*90/100+"），费用"+
+			(flv*90/100)+"碎玉。\n";
+		int flisted=0;
+		foreach(all_inventory(me),object ob){
+			if(!is_refinable(ob) || ob==from_item ||
+			   !functionp(ob->query_refine_level))
+				continue;
+			int lv=(int)ob->query_refine_level();
+			fs+="["+ob->query_name_cn()+"(现+"+lv+"):refine transfer_do "+
+				from_name+" "+ob->query_name()+"]\n";
+			flisted++;
+		}
+		if(!flisted)
+			fs+="背包里没有其他可接收的装备。\n";
+		fs+="[重新选源:refine transfer]\n[返回:refine]\n";
+		write(fs);
+		return 1;
+	}
+	string do_from="";
+	string do_to="";
+	if(sscanf(action,"transfer_do %s %s",do_from,do_to)==2){
+		object|zero from_item=0;
+		object|zero to_item=0;
+		foreach(all_inventory(me),object ob){
+			if(!is_refinable(ob))
+				continue;
+			if(ob->query_name()==do_from && !from_item)
+				from_item=ob;
+			else if(ob->query_name()==do_to && !to_item)
+				to_item=ob;
+		}
+		mapping r=REFINED->transfer_refine(me,from_item,to_item);
+		write((string)r["message"]+"\n[返回:refine]\n");
 		return 1;
 	}
 	if(sscanf(action,"transfer %s %s",old_name,new_name)==2){
