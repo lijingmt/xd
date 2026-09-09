@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useWindowDimensions } from 'react-native';
 import {
-  View, Text, FlatList, TouchableOpacity, Modal,
+  View, Text, FlatList, TouchableOpacity, Modal, Linking,
   Image, ScrollView, StyleSheet, KeyboardAvoidingView, Platform,
   ActivityIndicator, AppState, RefreshControl, Pressable, Animated,
   TextInput, Alert,
@@ -21,6 +21,7 @@ import { toast } from './Toast.js';
 import { APP_THEMES } from '../utils/appThemes.js';
 import WorldMapScreen from './WorldMapScreen.js';
 import { getImageBase } from '../api/mudApi.js';
+import { checkAppUpdate } from '../api/versionApi.js';
 import { useGameStore, setRuntimePlatform } from '../store/useGameStore.js';
 import { PROFESSION_OPTIONS } from '../data/characterOptions.js';
 import {
@@ -493,6 +494,7 @@ export default function GameScreen() {
   const [equipOpen, setEquipOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [rechargeOpen, setRechargeOpen] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState(null);
   const [suiyuLogOpen, setSuiyuLogOpen] = useState(false);
   const [worldMapOpen, setWorldMapOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -819,6 +821,19 @@ export default function GameScreen() {
     if (event.critical) return 1400;
     return 900;
   }
+
+  /* 版本更新检查：iOS上线版本为基准，有新版本弹提示 */
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      const info = await checkAppUpdate(store.apiBase);
+      if (!cancelled && info && info.enabled && info.hasUpdate) {
+        setUpdateInfo(info);
+      }
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [store.apiBase]);
 
   const send = cmd => {
     if (!cmd) return;
@@ -1361,6 +1376,52 @@ export default function GameScreen() {
         visible={rechargeOpen}
         onClose={() => setRechargeOpen(false)}
       />
+
+      {/* ===== 版本更新提示 ===== */}
+      <Modal visible={!!updateInfo} transparent animationType="fade"
+        onRequestClose={() => { if(!updateInfo?.force) setUpdateInfo(null); }}>
+        <TouchableOpacity style={styles.updateOverlay}
+          activeOpacity={1}
+          onPress={() => { if(!updateInfo?.force) setUpdateInfo(null); }}>
+          <View style={styles.updatePanel}
+            onStartShouldSetResponder={() => true}>
+            <Text style={styles.updateIcon}>🎉</Text>
+            <Text style={styles.updateTitle}>发现新版本</Text>
+            <Text style={styles.updateVersion}>
+              v{updateInfo?.latestVersion} 已发布
+            </Text>
+            <Text style={styles.updateMsg}>
+              {updateInfo?.message || '更新以获得最新功能和优化'}
+            </Text>
+            <TouchableOpacity
+              style={styles.updateBtn}
+              onPress={() => {
+                if (Platform.OS === 'ios') {
+                  Linking.openURL(updateInfo?.storeUrl ||
+                    'itms-apps://itunes.apple.com/app/id6740398383');
+                } else {
+                  Linking.openURL(updateInfo?.downloadUrl ||
+                    'https://www.wapmud.com/gamehome/xiandao.apk');
+                }
+              }}>
+              <Text style={styles.updateBtnText}>
+                {Platform.OS === 'ios' ? '前往App Store更新' : '立即下载更新'}
+              </Text>
+            </TouchableOpacity>
+            {!updateInfo?.force ? (
+              <TouchableOpacity
+                style={styles.updateLater}
+                onPress={() => setUpdateInfo(null)}>
+                <Text style={styles.updateLaterText}>稍后再说</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.updateForceHint}>
+                此版本过旧，需要更新后才能继续使用
+              </Text>
+            )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* ===== 一键登录子菜单 ===== */}
       <Modal visible={loginAllMenu} transparent animationType="fade"
@@ -2059,4 +2120,27 @@ const styles = StyleSheet.create({
     textShadowRadius: 20,
     letterSpacing: 6,
   },
+  updateOverlay: {
+    flex: 1, backgroundColor: 'rgba(5,3,8,0.72)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  updatePanel: {
+    width: '82%', borderRadius: 16, backgroundColor: '#17131c',
+    borderWidth: 1, borderColor: '#8a6d2f',
+    padding: 22, alignItems: 'center', gap: 10,
+  },
+  updateIcon: { fontSize: 42 },
+  updateTitle: { color: '#ffd700', fontSize: 19, fontWeight: '800' },
+  updateVersion: { color: '#b8a060', fontSize: 13 },
+  updateMsg: { color: '#c8b8a0', fontSize: 13, textAlign: 'center',
+    lineHeight: 19 },
+  updateBtn: {
+    width: '100%', borderRadius: 10, borderWidth: 1, borderColor: '#d4af37',
+    backgroundColor: '#2d2410', paddingVertical: 12, alignItems: 'center',
+    marginTop: 6,
+  },
+  updateBtnText: { color: '#ffd700', fontSize: 15, fontWeight: '700' },
+  updateLater: { marginTop: 4, paddingVertical: 8 },
+  updateLaterText: { color: '#6a5a6a', fontSize: 13 },
+  updateForceHint: { color: '#ff6b8a', fontSize: 11, marginTop: 2 },
 });

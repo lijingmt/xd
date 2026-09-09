@@ -1005,6 +1005,9 @@ void handle_request(Protocols.HTTP.Server.Request req)
             case "/api":
                 handle_api(req);
                 break;
+            case "/api/app_version":
+                handle_api_app_version(req);
+                break;
             case "/api/partitions":
                 handle_api_partitions(req);
                 break;
@@ -4280,4 +4283,113 @@ mapping query_status()
     m["pagination"] = query_pagination_status();
     m["performance"] = query_http_performance_status();
     return m;
+}
+
+/* ===== APP 版本更新检查 ===== */
+private mapping load_app_version_config()
+{
+    mapping config = ([
+        "cache_seconds": "3600",
+        "ios.version": "0.2.11",
+        "ios.min_version": "",
+        "ios.force": "0",
+        "android.version": "0.2.11",
+        "android.version_code": "12",
+        "android.min_version_code": "1",
+        "android.force": "0",
+        "android.download_url":
+            "https://www.wapmud.com/gamehome/xiandao.apk",
+    ]);
+    string conf = Stdio.read_file(ROOT+"/gamelib/etc/app_version.conf") || "";
+    foreach(conf/"\n",string line){
+        line = String.trim_all_whites(line);
+        if(!line || line=="" || line[0]=='#')
+            continue;
+        string key;
+        string value;
+        if(sscanf(line,"%s=%s",key,value)==2)
+            config[String.trim_all_whites(key)] =
+                String.trim_all_whites(value);
+    }
+    return config;
+}
+
+private int version_gt(string a,string b)
+{
+    array(int) va = array_sscanf(a,"%d.%d.%d")[..2];
+    array(int) vb = array_sscanf(b,"%d.%d.%d")[..2];
+    for(int i=0;i<3;i++){
+        int x = sizeof(va)>i ? va[i] : 0;
+        int y = sizeof(vb)>i ? vb[i] : 0;
+        if(x>y) return 1;
+        if(x<y) return 0;
+    }
+    return 0;
+}
+
+void handle_api_app_version(Protocols.HTTP.Server.Request req)
+{
+    mapping params = get_params(req);
+    mapping config = load_app_version_config();
+    string platform = lower_case((string)(params["platform"] || ""));
+    string current = (string)(params["currentVersion"] ||
+        params["current_version"] || "");
+    string code_str = (string)(params["versionCode"] ||
+        params["version_code"] || "");
+    int code = (int)code_str;
+    mapping result;
+
+    if(platform == "ios"){
+        string latest = (string)config["ios.version"];
+        string min = (string)config["ios.min_version"];
+        int force = (int)config["ios.force"];
+        int has_update = current!="" && latest!="" &&
+            version_gt(latest,current);
+        int below_min = min!="" && current!="" &&
+            version_gt(min,current);
+        result = ([
+            "enabled": 1,
+            "platform": "ios",
+            "latestVersion": latest,
+            "currentVersion": current,
+            "hasUpdate": has_update,
+            "force": force || below_min,
+            "storeUrl": "itms-apps://itunes.apple.com/app/id6740398383",
+            "message": has_update
+                ? sprintf("新版本 %s 已发布，请前往App Store更新",
+                    latest)
+                : "",
+        ]);
+    }
+    else if(platform == "android"){
+        string latest = (string)config["android.version"];
+        int latest_code = (int)config["android.version_code"];
+        int min_code = (int)config["android.min_version_code"];
+        int force = (int)config["android.force"];
+        int has_update = code>0 && latest_code>0 && code<latest_code;
+        int below_min = code>0 && min_code>0 && code<min_code;
+        result = ([
+            "enabled": 1,
+            "platform": "android",
+            "latestVersion": latest,
+            "latestVersionCode": latest_code,
+            "currentVersionCode": code,
+            "hasUpdate": has_update,
+            "force": force || below_min,
+            "downloadUrl": (string)config["android.download_url"],
+            "message": has_update
+                ? sprintf("新版本 %s 已发布，点击下载更新",latest)
+                : "",
+        ]);
+    }
+    else{
+        result = ([
+            "enabled": 0,
+            "platform": platform,
+            "hasUpdate": 0,
+            "force": 0,
+        ]);
+    }
+    result["checkedAt"] = time();
+    send_json(req,result);
 }
