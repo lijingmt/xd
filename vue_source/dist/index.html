@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1789028426373">
-    <link rel="stylesheet" href="css/app.css?v=v1789028426373">
-    <link rel="stylesheet" href="css/realm.css?v=v1789028426373">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1789056710975">
+    <link rel="stylesheet" href="css/app.css?v=v1789056710975">
+    <link rel="stylesheet" href="css/realm.css?v=v1789056710975">
 </head>
 <body>
     <div id="app">
@@ -1169,6 +1169,33 @@
                             class="ui-toast-close"
                             @click="clearUiToast"
                             aria-label="关闭提示">✕</button>
+                </div>
+            </div>
+
+            <!-- 自绘确认弹窗：替代 window.confirm，风格与主题一致 -->
+            <div v-if="uiConfirmState.open"
+                 class="ui-confirm-overlay"
+                 role="dialog"
+                 aria-modal="true"
+                 :aria-label="uiConfirmState.title"
+                 @click.self="settleUiConfirm(false)">
+                <div class="ui-confirm-panel">
+                    <h3 class="ui-confirm-title">{{ uiConfirmState.title }}</h3>
+                    <p class="ui-confirm-message"
+                       v-html="renderGameText(uiConfirmState.message)"></p>
+                    <div class="ui-confirm-actions">
+                        <button type="button"
+                                class="ui-confirm-cancel"
+                                @click="settleUiConfirm(false)">
+                            {{ uiConfirmState.cancelText }}
+                        </button>
+                        <button type="button"
+                                class="ui-confirm-ok"
+                                :class="{ 'ui-confirm-danger': uiConfirmState.danger }"
+                                @click="settleUiConfirm(true)">
+                            {{ uiConfirmState.confirmText }}
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -2667,19 +2694,19 @@
                         </aside>
 </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1789028426373"></script>
-    <script src="vendor/canvas-confetti.js?v=v1789028426373"></script>
-    <script src="vendor/howler.core.min.js?v=v1789028426373"></script>
-    <script src="vendor/driver.iife.js?v=v1789028426373"></script>
-    <script src="../includes/game-number-format.js?v=v1789028426373" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1789056710975"></script>
+    <script src="vendor/canvas-confetti.js?v=v1789056710975"></script>
+    <script src="vendor/howler.core.min.js?v=v1789056710975"></script>
+    <script src="vendor/driver.iife.js?v=v1789056710975"></script>
+    <script src="../includes/game-number-format.js?v=v1789056710975" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1789028426373';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1789056710975';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1789028426373"></script>
+    <script src="js/app.js?v=v1789056710975"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1789028426373"></script>
+    <script src="../includes/translate.js?v=v1789056710975"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

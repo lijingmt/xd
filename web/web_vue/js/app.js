@@ -598,6 +598,12 @@ createApp({
             // 全局轻提示
             uiToast: null,
             uiToastTimer: null,
+            // 自绘确认弹窗（替代 window.confirm，与主题一致）
+            uiConfirmState: {
+                open: false, message: '', title: '确认操作',
+                confirmText: '确认', cancelText: '取消', danger: false,
+            },
+            uiConfirmResolve: null,
             // 组队邀请由状态轮询送达，兼容没有持续socket输出的网页连接
             teamInvite: null,
             teamInviteBusy: false,
@@ -765,6 +771,35 @@ createApp({
                 this.uiToast = null;
                 this.uiToastTimer = null;
             }, action ? 9000 : 4500);
+        },
+
+        /** 自绘确认弹窗（Promise<boolean>）：替代 window.confirm。
+         *  options: { title, confirmText, cancelText, danger } */
+        uiConfirm(message, options = {}) {
+            if (this.uiConfirmResolve) {
+                this.uiConfirmResolve(false);
+                this.uiConfirmResolve = null;
+            }
+            this.uiConfirmState = {
+                open: true,
+                message: String(message || ''),
+                title: options.title || '确认操作',
+                confirmText: options.confirmText || '确认',
+                cancelText: options.cancelText || '取消',
+                danger: !!options.danger,
+            };
+            return new Promise(resolve => {
+                this.uiConfirmResolve = resolve;
+            });
+        },
+
+        settleUiConfirm(result) {
+            const resolve = this.uiConfirmResolve;
+            this.uiConfirmResolve = null;
+            this.uiConfirmState = { ...this.uiConfirmState, open: false };
+            if (typeof resolve === 'function') {
+                resolve(!!result);
+            }
         },
 
         runUiToastAction() {
@@ -2158,9 +2193,10 @@ createApp({
 				this.characterError = '人物ID不匹配，本次没有删除任何档案';
 				return;
 			}
-			if (!window.confirm(
-				`最后确认：将「${character.name_cn || character.id}」移入管理员可恢复的安全归档？\n将立即释放人物栏位，但已购买的赛季栏位和职业上限不退款。`
-			)) return;
+			if (!(await this.uiConfirm(
+				`最后确认：将「${character.name_cn || character.id}」移入管理员可恢复的安全归档？\n将立即释放人物栏位，但已购买的赛季栏位和职业上限不退款。`,
+				{ title: '删除人物', confirmText: '确认删除', danger: true }
+			))) return;
 			if (!this.characterDeletionPendingRequest ||
 				this.characterDeletionPendingRequest.characterId !== character.id) {
 				this.characterDeletionPendingRequest = {
@@ -2291,7 +2327,8 @@ createApp({
 			const actionText = option === 'one'
 				? `支付${cost}碎玉增加1个人物栏位`
 				: `支付${cost}碎玉一次购买5个人物栏位`;
-			if (!window.confirm(`${actionText}？\n优先扣账号共享碎玉，不足部分自动用当前在线人物背包玉石补足。`)) {
+			if (!(await this.uiConfirm(`${actionText}？\n优先扣账号共享碎玉，不足部分自动用当前在线人物背包玉石补足。`,
+				{ title: '扩充栏位', confirmText: '支付' }))) {
 				return;
 			}
 			const requestKey = `${this.illusionRealmStatus.illusion_id || 'S1'}:${option}`;
@@ -2378,9 +2415,10 @@ createApp({
 				return;
 			}
 			const professionName = professionId === 'wuxiang' ? '无相' : '太极';
-			if (!window.confirm(
-				`支付${nextCost}碎玉，将${professionName}可创建上限从${currentLimit}个提升到${currentLimit + 1}个？\n最高上限为${maxLimit}个，已支付的扩充不退款。`
-			)) return;
+			if (!(await this.uiConfirm(
+				`支付${nextCost}碎玉，将${professionName}可创建上限从${currentLimit}个提升到${currentLimit + 1}个？\n最高上限为${maxLimit}个，已支付的扩充不退款。`,
+				{ title: '扩充职业上限', confirmText: '支付' }
+			))) return;
 			const requestKey = `${professionId}:${currentLimit + 1}`;
 			if (!this.professionExpansionPendingRequest ||
 				this.professionExpansionPendingRequest.key !== requestKey) {
@@ -3016,7 +3054,8 @@ createApp({
         async revokeCharacterBookmarks(characterId) {
             if (!characterId || !this.accountToken || this.characterLoading)
                 return;
-            if (!window.confirm('撤销后，该人物以前保存和分享的直达书签都会失效。确定继续吗？'))
+            if (!(await this.uiConfirm('撤销后，该人物以前保存和分享的直达书签都会失效。确定继续吗？',
+                { title: '撤销书签', danger: true })))
                 return;
             this.characterLoading = true;
             try {
@@ -3428,12 +3467,12 @@ createApp({
         copyInviteCode() {
             const code = this.inviteCode;
             if (!code) {
-                alert('请先登录');
+                this.showUiToast('请先登录','warning');
                 return;
             }
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(code).then(() => {
-                    alert('邀请码已复制！');
+                    this.showUiToast('邀请码已复制！','success');
                 }).catch(() => {
                     this.fallbackCopy(code);
                 });
@@ -3445,12 +3484,12 @@ createApp({
         // 复制邀请链接
         copyInviteLink() {
             if (!this.inviteLink) {
-                alert('请先登录');
+                this.showUiToast('请先登录','warning');
                 return;
             }
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(this.inviteLink).then(() => {
-                    alert('邀请链接已复制！');
+                    this.showUiToast('邀请链接已复制！','success');
                 }).catch(() => {
                     this.fallbackCopy(this.inviteLink);
                 });
@@ -3469,9 +3508,9 @@ createApp({
             textarea.select();
             try {
                 document.execCommand('copy');
-                alert('已复制！');
+                this.showUiToast('已复制！','success');
             } catch (e) {
-                alert('复制失败，请手动复制');
+                this.showUiToast('复制失败，请手动复制','warning');
             }
             document.body.removeChild(textarea);
         },
@@ -4294,8 +4333,8 @@ createApp({
         },
 
         // 返回界面选择
-        goToSelection() {
-            if (confirm('返回界面选择？')) {
+        async goToSelection() {
+            if (await this.uiConfirm('返回界面选择？', { title: '切换界面' })) {
                 this.clearTabSession();
     
     
@@ -5136,11 +5175,12 @@ createApp({
             return 3000;
         },
 
-        flyToDesktopWorldNode() {
+        async flyToDesktopWorldNode() {
             const node = this.desktopWorldSelectedNode;
             if (!node || node.id === this.desktopWorldNode?.id) return;
             const cost = this.flyCostForNode(node) || 1500;
-            if (!window.confirm(`飞往「${node.name}」约需${cost}银两（以实际航程结算），现在起飞？`)) return;
+            if (!(await this.uiConfirm(`飞往「${node.name}」约需${cost}银两（以实际航程结算），现在起飞？`,
+                { title: '世界地图飞行', confirmText: '起飞' }))) return;
             this.closeDesktopWorldMap();
             this.sendQuickCommand(`fly_to_room ${node.id}`);
         },
@@ -6804,7 +6844,8 @@ createApp({
         },
 
         async cleanupBooks() {
-            if (!confirm('确定摧毁所有比当前等级低30级的书卷？')) return;
+            if (!(await this.uiConfirm('确定摧毁所有比当前等级低30级的书卷？',
+                { title: '一键清理书卷', confirmText: '摧毁', danger: true }))) return;
             await this.sendQuickCommand('book_cleanup confirm');
         },
 
@@ -7033,14 +7074,13 @@ createApp({
          */
         openQQCommunity() {
             const groupId = '610653957';
-            const done = () => alert('QQ群号已复制：' + groupId +
-                '\n请在QQ中搜索该群号加群');
+            const done = () => this.showUiToast('QQ群号已复制：' + groupId + '，请在QQ中搜索加群','success');
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(groupId)
                     .then(done)
-                    .catch(() => alert('官方QQ群：' + groupId));
+                    .catch(() => this.showUiToast('官方QQ群：' + groupId,'info'));
             } else {
-                alert('官方QQ群：' + groupId);
+                this.showUiToast('官方QQ群：' + groupId,'info');
             }
         },
 
@@ -7066,7 +7106,7 @@ createApp({
             try {
                 const txd = this.txd;
                 if (!txd) {
-                    alert('请先登录');
+                    this.showUiToast('请先登录','warning');
                     this.showPerformsList = false;
                     return;
                 }
@@ -7112,11 +7152,11 @@ createApp({
          */
         async selectPerform(perform) {
             if (!perform.available) {
-                alert(`该招式需要武功等级达到 ${perform.level_req} 级`);
+                this.showUiToast(`该招式需要武功等级达到 ${perform.level_req} 级`,'warning');
                 return;
             }
             if (!perform.enough_neili) {
-                alert(`内力不足！需要 ${perform.neili_cost} 点内力`);
+                this.showUiToast(`内力不足！需要 ${perform.neili_cost} 点内力`,'warning');
                 return;
             }
 

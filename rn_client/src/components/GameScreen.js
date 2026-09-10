@@ -7,7 +7,7 @@ import {
   TextInput, Alert,
 } from 'react-native';
 import {
-  lineKey, COLOR_HEX, COLOR_HEX_DAY,
+  lineKey, linePlainText, COLOR_HEX, COLOR_HEX_DAY,
 } from '../utils/segments.js';
 import { parseBattleLines, extractSkillName, skillAnimationTarget } from '../utils/battleFeedback.js';
 import {
@@ -54,6 +54,7 @@ const QUICK_TOOLS = [
   { icon: '🌀', label: '传送', cmd: 'userlist' },
   { icon: '⚙️', label: '设置', cmd: 'game_detail' },
   { icon: '♻️', label: '挂机设置', cmd: 'autofight' },
+  { icon: '🧭', label: '新手引导', cmd: '__onboarding' },
   { icon: '👑', label: '会员', cmd: 'vip_service_list' },
 ];
 
@@ -142,11 +143,14 @@ function MenuRow({ icon, label, onPress, danger }) {
   );
 }
 
-/* 充值钻石按钮：金色呼吸发光 + 首充提示气泡（iOS专属充值入口）。 */
+/* 充值钻石按钮：金色呼吸发光 + 首充提示气泡（iOS专属充值入口）。
+ * 气泡可 ✕ 关闭；"今日不再提示"后当日不再自动弹出。 */
 function SuiyuRechargeChip({ onOpen, value }) {
   const glow = useRef(new Animated.Value(0)).current;
   const [tipVisible, setTipVisible] = useState(false);
   const tippedRef = useRef(false);
+  const mutedTodayRef = useRef(false);
+  const muteTodayRef = useRef(() => {});
   useEffect(() => {
     Animated.loop(Animated.sequence([
       Animated.timing(glow, {
@@ -156,8 +160,23 @@ function SuiyuRechargeChip({ onOpen, value }) {
         toValue: 0.2, duration: 900, useNativeDriver: false,
       }),
     ])).start();
-    /* 定期弹出首充提示：首次4秒出现（停12秒），之后每3分钟再弹。 */
-    const showTip = () => { setTipVisible(true); };
+    let st = null;
+    import('../utils/themeStorage.js').then(({ injectableStorage }) => {
+      injectableStorage().then(storage => {
+        st = storage;
+        return storage.getItem('xiand.recharge_tip_muted_until');
+      }).then(v => {
+        const today = new Date().toISOString().slice(0, 10);
+        if (v === today) mutedTodayRef.current = true;
+      }).catch(() => {});
+    }).catch(() => {});
+    const muteToday = () => {
+      mutedTodayRef.current = true;
+      if (st) st.setItem('xiand.recharge_tip_muted_until',
+        new Date().toISOString().slice(0, 10)).catch(() => {});
+    };
+    /* 首次4秒出现；之后每3分钟再弹（当日已静音则不再打扰）。 */
+    const showTip = () => { if (!mutedTodayRef.current) setTipVisible(true); };
     const t1 = setTimeout(() => {
       if (!tippedRef.current) { tippedRef.current = true; showTip(); }
     }, 4000);
@@ -166,6 +185,7 @@ function SuiyuRechargeChip({ onOpen, value }) {
       showTip();
       setTimeout(() => setTipVisible(false), 12000);
     }, 180000);
+    muteTodayRef.current = muteToday;
     return () => {
       clearTimeout(t1); clearTimeout(t2);
       clearInterval(repeater);
@@ -196,6 +216,14 @@ function SuiyuRechargeChip({ onOpen, value }) {
           <Text style={styles.rechargeTipText}>
             💎 首充特惠 · 1000碎玉仅需$1.99{'\n'}原价$14.99 · 点此充值 →
           </Text>
+          <TouchableOpacity style={styles.rechargeTipClose}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => {
+              setTipVisible(false);
+              muteTodayRef.current();
+            }}>
+            <Text style={styles.rechargeTipCloseText}>今日不再提示 ✕</Text>
+          </TouchableOpacity>
           <View style={styles.rechargeTipArrow} />
         </TouchableOpacity>
       )}
@@ -507,6 +535,9 @@ export default function GameScreen() {
   const [suiyuLogOpen, setSuiyuLogOpen] = useState(false);
   const [worldMapOpen, setWorldMapOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchText, setSearchText] = useState('');
   const [charListOpen, setCharListOpen] = useState(false);
   const [loginAllBusy, setLoginAllBusy] = useState(false);
   const [loginAllMenu, setLoginAllMenu] = useState(false);
@@ -603,21 +634,32 @@ export default function GameScreen() {
   /* 挂机开启的瞬间清掉阅读保护期：玩家点挂机就是想立刻看战斗，
    * 不能被15秒菜单保护挡住画面轮询。 */
   const wasAfkRef = useRef(false);
-  /* 新手引导：首次进入游戏时显示（AsyncStorage 持久化标记） */
+  /* 新手引导：首次进入游戏时显示；只有玩家显式完成/跳过才写"已读"
+   * 标记（此前打开即标记，误触一下就永久关闭）。随时可从更多重看。 */
   useEffect(() => {
     if (store.txd) {
-      import('../utils/themeStorage.js').then(({ injectableStorage }) => {
-        injectableStorage().then(st =>
+      import('../utils/themeStorage.js').then(({ injectableStorage }) =>
+        injectableStorage()).then(st =>
           st.getItem('xiand.onboarding_done')).then(done => {
-            if (!done) {
-              setShowOnboarding(true);
-              injectableStorage().then(st =>
-                st.setItem('xiand.onboarding_done', '1'));
-            }
-          });
-      }).catch(() => {});
+            if (!done) setShowOnboarding(true);
+          }).catch(() => {});
     }
   }, [store.txd]);
+  const finishOnboarding = () => {
+    setShowOnboarding(false);
+    setOnboardingStep(0);
+    import('../utils/themeStorage.js').then(({ injectableStorage }) =>
+      injectableStorage()).then(st =>
+        st.setItem('xiand.onboarding_done', '1')).catch(() => {});
+  };
+
+  /* 命令失败即时反馈（画面已自动恢复，别让玩家对着旧帧猜）。 */
+  const lastErrRef = useRef('');
+  useEffect(() => {
+    if (store.error && store.error !== lastErrRef.current)
+      toast('操作失败：' + store.error, 'error');
+    lastErrRef.current = store.error || '';
+  }, [store.error]);
 
   useEffect(() => {
     if (store.autofighting && !wasAfkRef.current) {
@@ -857,6 +899,12 @@ export default function GameScreen() {
       setWorldMapOpen(true);
       return;
     }
+    if (cmd === '__onboarding') {
+      setMoreOpen(false);
+      setOnboardingStep(0);
+      setShowOnboarding(true);
+      return;
+    }
     Vibration.vibrate(10); /* 轻微触觉反馈 */
     setMoreOpen(false);
     lastUserNavRef.current = Date.now();
@@ -1051,21 +1099,43 @@ export default function GameScreen() {
         </View>
       )}
 
-      {/* ===== 新手引导（首次使用） ===== */}
+      {/* ===== 新手引导（首次使用，分步+显式完成；更多可重看） ===== */}
       {showOnboarding && (
-        <TouchableOpacity
-          style={styles.onboardingOverlay}
-          activeOpacity={1}
-          onPress={() => setShowOnboarding(false)}>
+        <View style={styles.onboardingOverlay}>
           <View style={styles.onboardingCard}>
             <Text style={styles.onboardingTitle}>🧭 快速上手指南</Text>
-            <Text style={styles.onboardingItem}>1️⃣ 点击左上角头像 → 查看装备和属性</Text>
-            <Text style={styles.onboardingItem}>2️⃣ 更多 → 世界地图 → 跨图飞行</Text>
-            <Text style={styles.onboardingItem}>3️⃣ 点击 ▶ 挂机 → 自动打怪无需操作</Text>
-            <Text style={styles.onboardingItem}>4️⃣ 点击 ☰ 菜单 → 消费记录/主题/设置</Text>
-            <Text style={styles.onboardingHint}>点击任意位置关闭</Text>
+            {onboardingStep === 0 && (
+              <Text style={styles.onboardingItem}>点击左上角头像，查看装备、属性对比和智能穿装。</Text>
+            )}
+            {onboardingStep === 1 && (
+              <Text style={styles.onboardingItem}>点「更多」→ 世界地图，可跨图飞行直达任意区域。</Text>
+            )}
+            {onboardingStep === 2 && (
+              <Text style={styles.onboardingItem}>点 ▶ 挂机自动打怪；多角色可在顶部条一键登录并挂机。</Text>
+            )}
+            {onboardingStep === 3 && (
+              <Text style={styles.onboardingItem}>右下角有官方QQ群/电报入口；☰ 菜单里有主题、字号与消费记录。</Text>
+            )}
+            <View style={styles.onboardingActions}>
+              <TouchableOpacity onPress={finishOnboarding}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                <Text style={styles.onboardingSkip}>跳过</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.onboardingBtn}
+                onPress={() => {
+                  if (onboardingStep >= 3) finishOnboarding();
+                  else setOnboardingStep(onboardingStep + 1);
+                }}>
+                <Text style={styles.onboardingBtnText}>
+                  {onboardingStep >= 3 ? '开始游戏' : '下一步'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.onboardingHint}>
+              第 {onboardingStep + 1}/4 步 · 随时可在「更多」里重看
+            </Text>
           </View>
-        </TouchableOpacity>
+        </View>
       )}
 
       {/* ===== 顶栏：复刻 Vue game-header ===== */}
@@ -1288,10 +1358,43 @@ export default function GameScreen() {
         </View>
       )}
 
+      {/* ===== 画面工具条：过期提示 + 本地筛选（物品/技能等长列表） ===== */}
+      <View style={styles.feedToolbar} pointerEvents="box-none">
+        {store.pollFailCount > 0 && (
+          <View style={styles.staleBadge}>
+            <Text style={styles.staleBadgeText}>⚠ 画面可能已过期，正在重试</Text>
+          </View>
+        )}
+        <TouchableOpacity style={styles.searchToggle}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          onPress={() => {
+            setSearchOpen(!searchOpen);
+            if (searchOpen) setSearchText('');
+          }}>
+          <Text style={styles.searchToggleText}>
+            {searchOpen ? '✕ 关闭筛选' : '🔍 筛选'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+      {searchOpen && (
+        <TextInput
+          style={styles.searchInput}
+          value={searchText}
+          onChangeText={setSearchText}
+          placeholder="输入关键字过滤当前画面（物品/技能/任务）"
+          placeholderTextColor="#6a5a6a"
+          returnKeyType="search"
+        />
+      )}
+
       <FlatList
         ref={listRef}
         style={styles.feed}
-        data={store.lines}
+        data={(searchOpen && searchText)
+          ? store.lines.filter(line =>
+              linePlainText(line).toLowerCase()
+                .includes(searchText.toLowerCase()))
+          : store.lines}
         keyExtractor={lineKey}
         onScroll={handleScroll}
         scrollEventThrottle={100}
@@ -2193,4 +2296,57 @@ const styles = StyleSheet.create({
   updateLater: { marginTop: 4, paddingVertical: 8 },
   updateLaterText: { color: '#6a5a6a', fontSize: 13 },
   updateForceHint: { color: '#ff6b8a', fontSize: 11, marginTop: 2 },
+  onboardingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(5,3,8,0.78)',
+    alignItems: 'center', justifyContent: 'center', zIndex: 200,
+  },
+  onboardingCard: {
+    width: '82%', borderRadius: 16, backgroundColor: '#17131c',
+    borderWidth: 1, borderColor: '#8a6d2f', padding: 22, gap: 12,
+  },
+  onboardingTitle: {
+    color: '#ffd700', fontSize: 19, fontWeight: '800',
+    textAlign: 'center',
+  },
+  onboardingItem: { color: '#d8ccb8', fontSize: 14, lineHeight: 22 },
+  onboardingActions: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginTop: 4,
+  },
+  onboardingSkip: { color: '#8a7a8a', fontSize: 13, paddingVertical: 6 },
+  onboardingBtn: {
+    borderRadius: 10, borderWidth: 1, borderColor: '#d4af37',
+    backgroundColor: '#2d2410', paddingVertical: 10,
+    paddingHorizontal: 26, alignItems: 'center',
+  },
+  onboardingBtnText: { color: '#ffd700', fontSize: 15, fontWeight: '700' },
+  onboardingHint: { color: '#6a5a6a', fontSize: 11, textAlign: 'center' },
+  rechargeTipClose: {
+    marginTop: 6, alignSelf: 'flex-end',
+    paddingVertical: 2, paddingHorizontal: 6,
+  },
+  rechargeTipCloseText: { color: '#b8a060', fontSize: 10 },
+  feedToolbar: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'flex-end', paddingHorizontal: 10, gap: 8,
+    paddingVertical: 2,
+  },
+  staleBadge: {
+    backgroundColor: '#3d2a10', borderColor: '#8a6d2f', borderWidth: 1,
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
+    marginRight: 'auto',
+  },
+  staleBadgeText: { color: '#e8c060', fontSize: 11 },
+  searchToggle: {
+    borderColor: '#3a2f46', borderWidth: 1, borderRadius: 8,
+    paddingHorizontal: 8, paddingVertical: 3, backgroundColor: '#1a141c',
+  },
+  searchToggleText: { color: '#c8b8c8', fontSize: 11 },
+  searchInput: {
+    marginHorizontal: 10, marginBottom: 4, borderWidth: 1,
+    borderColor: '#3a2f46', borderRadius: 8, backgroundColor: '#14101a',
+    color: '#e8dcc8', fontSize: 13, paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
 });
