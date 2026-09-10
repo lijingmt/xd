@@ -130,26 +130,29 @@ export default function EquipmentPanel({ visible, onClose }) {
     if (visible) load();
   }, [visible]);
 
-  const act = item => {
+  /* 等真实回包再刷新：固定延时会因网络快慢刷出旧数据或白等。 */
+  const act = async item => {
     if (!item || !item.actionCmd || busyCmd) return;
     setBusyCmd(item.actionCmd);
-    command(item.actionCmd);
-    setTimeout(() => {
+    try {
+      await command(item.actionCmd);
+    } finally {
       setBusyCmd('');
       load();
-    }, 700);
+    }
   };
 
   /* 一键智能穿装：补空位 + 换同槽更强的普通装备（服务端保护
    * 强化/融合/宝石/稀有装备，评分严格更高才替换）。 */
-  const smartEquip = () => {
+  const smartEquip = async () => {
     if (smartBusy) return;
     setSmartBusy(true);
-    command('auto_equip smart');
-    setTimeout(() => {
+    try {
+      await command('auto_equip smart');
+    } finally {
       setSmartBusy(false);
       load();
-    }, 1100);
+    }
   };
 
   /* 七彩八卦炉：炼化洗装（转化/增加属性），不依赖地点，幻境也可用。 */

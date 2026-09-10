@@ -621,11 +621,14 @@ export const useGameStore = create((set, get) => ({
   },
 
   /** 主命令(按钮/tab/手动输入)：清空画面→加载→填充新内容。
-   *  挂机轮询(flushview)不走这里，保留增量追加。 */
+   *  挂机轮询(flushview)不走这里，保留增量追加。
+   *  失败时恢复执行前的旧画面：旧画面里往往有按钮和重试入口，
+   *  清掉不还原会让玩家停在死屏上只能下拉刷新。 */
   async command(cmd) {
     const { txd } = get();
     if (!txd || !cmd) return;
     suiyuLastCmd = { text: cmd, t: Date.now() };
+    const previousLines = get().lines;
     set({ busy: true, error: '', lines: [] });
     try {
       const data = await api.sendCommand(txd, cmd, undefined, platformTag());
@@ -638,7 +641,11 @@ export const useGameStore = create((set, get) => ({
           : get().inBattle,
       });
     } catch (e) {
-      set({ busy: false, error: e.message });
+      set({
+        busy: false,
+        error: e.message,
+        lines: previousLines.length ? previousLines : get().lines,
+      });
     }
   },
 

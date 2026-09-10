@@ -2,6 +2,7 @@ import React, { memo, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import {
   flattenTextParts, buttonStyleFor, resolveImageUrl, buildInputCommand,
+  lineKey,
 } from '../utils/segments.js';
 
 /**
@@ -70,7 +71,9 @@ function renderSegments(line, ctx) {
       );
     }
     if (segment.type === 'cmd-input' || segment.type === 'input') {
-      const key = `input-${index}`;
+      /* key绑定到行内容+输入名：同一画面轮询重绘时保留已输入值，
+       * 换画面/换表单后key不同，不会继承上一个表单的输入。 */
+      const key = `${lineKey(line)}:${segment.name || 'in'}:${index}`;
       const value = ctx.inputValues[key] ??
         String(segment.default || '');
       return (

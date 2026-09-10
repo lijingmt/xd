@@ -41,7 +41,7 @@ import { LineItem } from './LineItem.js';
 const QUICK_TOOLS = [
   { icon: '📣', label: '公告', cmd: 'notices' },
   { icon: '📅', label: '每日修行', cmd: 'daily' },
-  { icon: '🗺️', label: '地图', cmd: 'map_display' },
+  { icon: '🗺️', label: '世界地图', cmd: '__world_map' },
   { icon: '📜', label: '任务', cmd: 'mytasks' },
   { icon: '🌙', label: '幻境任务', cmd: 'illusion_realm' },
   { icon: '🔥', label: '挑战难度', cmd: 'personal_difficulty' },
@@ -852,6 +852,11 @@ export default function GameScreen() {
 
   const send = cmd => {
     if (!cmd) return;
+    if (cmd === '__world_map') {
+      setMoreOpen(false);
+      setWorldMapOpen(true);
+      return;
+    }
     Vibration.vibrate(10); /* 轻微触觉反馈 */
     setMoreOpen(false);
     lastUserNavRef.current = Date.now();
@@ -1055,7 +1060,7 @@ export default function GameScreen() {
           <View style={styles.onboardingCard}>
             <Text style={styles.onboardingTitle}>🧭 快速上手指南</Text>
             <Text style={styles.onboardingItem}>1️⃣ 点击左上角头像 → 查看装备和属性</Text>
-            <Text style={styles.onboardingItem}>2️⃣ 点击 🗺️ 按钮 → 打开世界地图飞行</Text>
+            <Text style={styles.onboardingItem}>2️⃣ 更多 → 世界地图 → 跨图飞行</Text>
             <Text style={styles.onboardingItem}>3️⃣ 点击 ▶ 挂机 → 自动打怪无需操作</Text>
             <Text style={styles.onboardingItem}>4️⃣ 点击 ☰ 菜单 → 消费记录/主题/设置</Text>
             <Text style={styles.onboardingHint}>点击任意位置关闭</Text>
@@ -1211,13 +1216,6 @@ export default function GameScreen() {
           </Text>
         </View>
       </View>
-
-      {/* ===== 离线横幅：连续轮询失败时显示 ===== */}
-      {!store.networkOnline && (
-        <View style={styles.offlineBanner}>
-          <Text style={styles.offlineText}>⚠ 网络连接中断，正在重试…</Text>
-        </View>
-      )}
 
       {/* ===== 战斗场景：左右对峙（Vue battle-mini 复刻） ===== */}
       {!!store.inBattle && !!enemy && (
@@ -1848,13 +1846,6 @@ const styles = StyleSheet.create({
     color: '#5a4a5a', fontSize: 10, textAlign: 'center',
     paddingVertical: 8,
   },
-  mapButton: {
-    paddingHorizontal: 11, minHeight: 30, borderRadius: 999,
-    borderWidth: 1, borderColor: '#5a7a8a',
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#102028',
-  },
-  mapButtonText: { fontSize: 16 },
   afkButton: {
     paddingHorizontal: 11, minHeight: 30, borderRadius: 999,
     borderWidth: 1, borderColor: '#6a8a5a',
