@@ -20,6 +20,11 @@ constant PIKE_GATEWAY_CIRCUIT_SECONDS = 5;
 constant PIKE_GATEWAY_MONITOR_FAILURES = 3;
 constant PIKE_GATEWAY_SOCIAL_BATCH_PER_WORKER = 8;
 constant PIKE_GATEWAY_ONLINE_SNAPSHOT_ATTEMPTS = 3;
+// 同一玩家持续毒化在线快照（route/epoch分歧）时的定向自愈阈值：
+// 远小于监管器600s升级窗口，让"踢一人重登"永远先于"全集群重启"。
+constant PIKE_GATEWAY_MISMATCH_HEAL_SECONDS = 120;
+constant PIKE_GATEWAY_MISMATCH_HEAL_MIN_INTERVAL = 30;
+constant PIKE_GATEWAY_MISMATCH_HEAL_MAX_PER_PASS = 8;
 
 private multiset(string) pike_gateway_hop_headers = (<
 	"connection","keep-alive","proxy-authenticate",
@@ -106,6 +111,9 @@ private int pike_gateway_last_online_publish_at;
 private int pike_gateway_last_online_snapshot_at;
 private int pike_gateway_last_online_snapshot_count;
 private string pike_gateway_last_online_snapshot_error = "not_published";
+private mapping(string:int) pike_gateway_online_mismatch_since = ([]);
+private int pike_gateway_last_mismatch_heal_at;
+private int pike_gateway_online_mismatch_heals;
 private int pike_gateway_online_snapshot_recovery_pending;
 private int pike_gateway_online_snapshot_recoveries;
 private int pike_gateway_online_snapshot_recovery_failures;
@@ -1002,6 +1010,7 @@ mapping query_pike_gateway_online_users()
 {
 	mapping(string:mapping(string:mixed)) by_user = ([]);
 	mapping(string:int) counts = ([]);
+	multiset(string) seen_users = (<>);
 	array(mapping(string:mixed)) users = ({});
 	mapping(string:array(mapping(string:mixed))) rows_by_worker;
 	mapping(string:int) rows_at_by_worker;
@@ -1027,37 +1036,18 @@ mapping query_pike_gateway_online_users()
 		foreach(worker_users,mixed raw){
 			mapping row;
 			mapping route;
-			mapping committed_proof = ([]);
 			string userid;
+			string reject;
 			if(!mappingp(raw))
 				return (["ok":0,"code":"invalid_online_row"]);
 			row = (mapping)raw;
 			userid = (string)row["userid"];
-			if(!pike_gateway_valid_userid(userid) ||
-			   (string)row["worker_id"]!=worker_id ||
-			   (int)row["epoch"]<1)
-				return (["ok":0,"code":"invalid_online_owner",
-					"userid":userid]);
 			route = MAP_WORKERD->query_player_route(userid);
-			if(pike_gateway_online_row_is_prepared_source(row,route,worker_id))
-				continue;
-			if((int)route["ok"] && (string)route["state"]=="active" &&
-			   ((string)route["worker_id"]!=worker_id ||
-			    (int)route["epoch"]!=(int)row["epoch"]))
-				committed_proof = MAP_WORKERD->query_committed_handoff_proof(
-					userid,worker_id,(int)row["epoch"],
-					(string)route["worker_id"],(int)route["epoch"]);
-			if(pike_gateway_online_row_is_committed_source(row,route,worker_id,
-			   rows_at,committed_proof))
-				continue;
-			if(by_user[userid])
-				return (["ok":0,"code":"duplicate_online_owner",
-					"userid":userid]);
-			if(!(int)route["ok"] || (string)route["state"]!="active" ||
-			   (string)route["worker_id"]!=worker_id ||
-			   (int)route["epoch"]!=(int)row["epoch"])
-				return (["ok":0,"code":"online_route_mismatch",
-					"userid":userid]);
+			reject = pike_gateway_online_row_reject_reason(row,worker_id,
+				rows_at,route,seen_users);
+			if(reject!="")
+				return (["ok":0,"code":reject,"userid":userid]);
+			seen_users[userid] = 1;
 			by_user[userid] = copy_value(row);
 			counts[worker_id]++;
 		}
@@ -1067,6 +1057,52 @@ mapping query_pike_gateway_online_users()
 	return (["ok":1,"count":sizeof(users),"users":users,
 		"worker_counts":counts,"worker_count":sizeof(pike_gateway_worker_ports),
 		"snapshot_at":time()]);
+}
+
+/**
+ * Evaluate one captured online row against the coordinator route with the
+ * exact prepared/committed handoff exemptions used by snapshot validation.
+ * Returns "" when the row is publishable, otherwise the failure code. The
+ * mismatch heal shares this verdict so a discard decision can never diverge
+ * from what validation itself would reject.
+ */
+private string pike_gateway_online_row_reject_reason(mapping row,
+	string worker_id,int rows_at,mapping route,multiset(string) seen_users)
+{
+	mapping committed_proof = ([]);
+	string userid;
+	if(!mappingp(row))
+		return "invalid_online_row";
+	userid = (string)row["userid"];
+	if(!pike_gateway_valid_userid(userid) ||
+	   (string)row["worker_id"]!=worker_id ||
+	   (int)row["epoch"]<1)
+		return "invalid_online_owner";
+	if(pike_gateway_online_row_is_prepared_source(row,route,worker_id))
+		return "";
+	if((int)route["ok"] && (string)route["state"]=="active" &&
+	   ((string)route["worker_id"]!=worker_id ||
+	    (int)route["epoch"]!=(int)row["epoch"]))
+		committed_proof = MAP_WORKERD->query_committed_handoff_proof(
+			userid,worker_id,(int)row["epoch"],
+			(string)route["worker_id"],(int)route["epoch"]);
+	if(pike_gateway_online_row_is_committed_source(row,route,worker_id,
+	   rows_at,committed_proof))
+		return "";
+	if(seen_users[userid])
+		return "duplicate_online_owner";
+	if(!(int)route["ok"] || (string)route["state"]!="active" ||
+	   (string)route["worker_id"]!=worker_id ||
+	   (int)route["epoch"]!=(int)row["epoch"])
+		return "online_route_mismatch";
+	return "";
+}
+
+string test_pike_gateway_online_row_reject_reason(mapping row,
+	string worker_id,int rows_at,mapping route,array(string) seen)
+{
+	return pike_gateway_online_row_reject_reason(row,worker_id,rows_at,
+		route,mkmultiset(seen || ({})));
 }
 
 /**
@@ -3395,6 +3431,7 @@ private void pike_gateway_note_online_snapshot(int ok,int snapshot_at,
 		pike_gateway_last_online_snapshot_count = count;
 		pike_gateway_last_online_snapshot_error = "";
 		pike_gateway_online_snapshot_recovery_pending = 0;
+		pike_gateway_online_mismatch_since = ([]);
 	}
 	else{
 		pike_gateway_last_online_snapshot_error = code || "snapshot_failed";
@@ -3459,8 +3496,24 @@ private void pike_gateway_publish_online_snapshot()
 		if(attempt>=PIKE_GATEWAY_ONLINE_SNAPSHOT_ATTEMPTS ||
 		   !pike_gateway_online_snapshot_retryable(code)){
 			pike_gateway_note_online_snapshot(0,0,0,code);
-			werror("[PIKE_GATEWAY][ONLINE_SNAPSHOT] validation attempt=%d code=%s\n",
-				attempt,pike_gateway_log_field(code,64));
+			// 定位肇事者是线上排障的第一手信息：打出userid引用与
+			// 路由/上报行分歧详情（worker/epoch/状态），不再只报code。
+			string offender = (string)(snapshot["userid"] || "");
+			mapping offender_route = offender!="" ?
+				MAP_WORKERD->query_player_route(offender) : ([]);
+			werror("[PIKE_GATEWAY][ONLINE_SNAPSHOT] validation attempt=%d code=%s"+
+				"%s%s route_worker=%s route_epoch=%s route_state=%s\n",
+				attempt,pike_gateway_log_field(code,64),
+				offender!="" ? " user_ref=" : "",
+				offender!="" ?
+					pike_gateway_user_log_ref(offender) : "",
+				pike_gateway_log_field(
+					(string)(offender_route["worker_id"] || ""),16),
+				pike_gateway_log_field(
+					sprintf("%d",(int)(offender_route["epoch"] || 0)),16),
+				pike_gateway_log_field(
+					(string)(offender_route["state"] ||
+						(offender_route["code"] || "")),24));
 			return;
 		}
 		sleep(0.05);
@@ -4024,56 +4077,121 @@ private void pike_gateway_run_lease_gc()
 			pike_gateway_log_field(describe_error(recovery_err),256));
 }
 
-/** 无暂停僵尸清理：只做在线行快照扫描+local_discard，不动路由。
- *  玩家读请求（status/flushview/look等）不受影响。 */
-private void pike_gateway_fast_zombie_sweep()
+/**
+ * Targeted heal for a live player whose online row keeps failing validation
+ * (expired/mismatched coordinator lease, split owner).  recover_local_players
+ * only discards rows whose player left the lease inventory; a LIVE session
+ * with a diverged epoch is skipped there forever and poisons every publish.
+ * After MISMATCH_HEAL_SECONDS of the same offender we discard that one
+ * session (safe save + remove; the player re-admits on next login) instead
+ * of letting the supervisor force-restart the whole cluster at 600s.
+ */
+private void pike_gateway_heal_persistent_online_mismatches()
 {
+	mapping(string:array(mapping(string:mixed))) rows_snapshot;
+	mapping(string:int) rows_at_snapshot;
+	multiset(string) failing_users = (<>);
+	mapping(string:mapping(string:mixed)) offender_rows = ([]);
+	mapping(string:string) offender_workers = ([]);
+	int healed = 0;
+	int now = time();
+	if(now-pike_gateway_last_mismatch_heal_at<
+	   PIKE_GATEWAY_MISMATCH_HEAL_MIN_INTERVAL)
+		return;
+	pike_gateway_last_mismatch_heal_at = now;
 	object rows_key = pike_gateway_state_lock->lock();
-	mapping(string:array(mapping(string:mixed))) rows_snapshot =
-		copy_value(pike_gateway_online_rows_by_worker);
-	mapping(string:int) rows_at_snapshot =
-		copy_value(pike_gateway_online_rows_at);
+	rows_snapshot = copy_value(pike_gateway_online_rows_by_worker);
+	rows_at_snapshot = copy_value(pike_gateway_online_rows_at);
 	destruct(rows_key);
-	mapping(string:array(string)) row_claims = ([]);
+	multiset(string) seen_users = (<>);
 	foreach(sort(indices(rows_snapshot)),string row_worker){
 		if(!pike_gateway_worker_is_reachable(row_worker))
 			continue;
-		if((int)rows_at_snapshot[row_worker]<time()-30)
+		int rows_at = (int)rows_at_snapshot[row_worker];
+		if(rows_at<now-30)
 			continue;
 		foreach((array)rows_snapshot[row_worker],mixed raw_row){
-			mapping row = mappingp(raw_row) ? (mapping)raw_row : 0;
-			string row_user = row ?
-				(string)row["userid"] : "";
-			if(row_user=="")
+			mapping row;
+			mapping route;
+			string userid;
+			string reject;
+			if(!mappingp(raw_row))
 				continue;
-			if(!row_claims[row_user])
-				row_claims[row_user] = ({});
-			row_claims[row_user] += ({row_worker});
+			row = (mapping)raw_row;
+			userid = (string)row["userid"];
+			route = MAP_WORKERD->query_player_route(userid);
+			reject = pike_gateway_online_row_reject_reason(row,row_worker,
+				rows_at,route,seen_users);
+			// seen只登记通过校验的行，与发布校验完全同语义：分歂数据里
+			// 恰好有一侧是路由一致的合法副本，绝不能把合法侧标成重复。
+			if(reject=="")
+				seen_users[userid] = 1;
+			if(reject=="" || reject=="invalid_online_row" ||
+			   reject=="invalid_online_owner")
+				continue;
+			failing_users[userid] = 1;
+			offender_rows[userid] = copy_value(row);
+			offender_workers[userid] = row_worker;
 		}
 	}
-	int swept = 0;
-	foreach(sort(indices(row_claims)),string userid){
-		array(string) claim_workers = row_claims[userid];
-		if(sizeof(claim_workers)!=1)
+	object since_key = pike_gateway_state_lock->lock();
+	foreach(indices(pike_gateway_online_mismatch_since),string userid)
+		if(!failing_users[userid])
+			m_delete(pike_gateway_online_mismatch_since,userid);
+	foreach(indices(failing_users),string userid)
+		if(!pike_gateway_online_mismatch_since[userid])
+			pike_gateway_online_mismatch_since[userid] = now;
+	destruct(since_key);
+	foreach(sort(indices(failing_users)),string userid){
+		mapping row;
+		mapping discarded;
+		string worker_id;
+		mixed discard_err;
+		int first_seen;
+		if(healed>=PIKE_GATEWAY_MISMATCH_HEAL_MAX_PER_PASS)
+			break;
+		since_key = pike_gateway_state_lock->lock();
+		first_seen = (int)pike_gateway_online_mismatch_since[userid];
+		destruct(since_key);
+		if(!first_seen || now-first_seen<PIKE_GATEWAY_MISMATCH_HEAL_SECONDS)
 			continue;
-		string claim_worker = claim_workers[0];
-		mapping route = MAP_WORKERD->query_player_route(userid);
-		if((int)route["ok"] &&
-		   (string)route["state"]=="active" &&
-		   (string)route["worker_id"]==claim_worker)
+		row = offender_rows[userid];
+		worker_id = offender_workers[userid];
+		if(!mappingp(row) || worker_id=="")
 			continue;
-		mapping discarded = pike_gateway_worker_rpc(
-			claim_worker,"local_discard",([
-				"userid":userid,"epoch":0,
+		discard_err = catch {
+			discarded = pike_gateway_worker_rpc(worker_id,"local_discard",([
+				"userid":userid,
+				"epoch":(int)row["epoch"],
 			]));
-		if((int)discarded["ok"]){
-			swept++;
-			werror("[PIKE_GATEWAY][ZOMBIE_SWEEP] user_ref=%s worker=%s\n",
-				pike_gateway_user_log_ref(userid),claim_worker);
+		};
+		since_key = pike_gateway_state_lock->lock();
+		m_delete(pike_gateway_online_mismatch_since,userid);
+		destruct(since_key);
+		if(discard_err || !mappingp(discarded) || !(int)discarded["ok"]){
+			werror("[PIKE_GATEWAY][MISMATCH_HEAL] user_ref=%s worker=%s "+
+				"row_epoch=%d result=retry\n",
+				pike_gateway_user_log_ref(userid),worker_id,
+				(int)row["epoch"]);
+			continue;
 		}
+		healed++;
+		pike_gateway_online_mismatch_heals++;
+		werror("[PIKE_GATEWAY][MISMATCH_HEAL] user_ref=%s worker=%s "+
+			"row_epoch=%d discarded=1\n",
+			pike_gateway_user_log_ref(userid),worker_id,
+			(int)row["epoch"]);
 	}
-	if(swept>0)
-		werror("[PIKE_GATEWAY][FAST_SWEEP] discarded=%d zombies\n",swept);
+}
+
+int test_pike_gateway_mismatch_heal_due(int first_seen,int now)
+{
+	return first_seen>0 && now-first_seen>=PIKE_GATEWAY_MISMATCH_HEAL_SECONDS;
+}
+
+int query_pike_gateway_mismatch_heal_count()
+{
+	return pike_gateway_online_mismatch_heals;
 }
 
 /**
@@ -4085,6 +4203,10 @@ private void pike_gateway_fast_zombie_sweep()
 private void pike_gateway_run_online_snapshot_recovery()
 {
 	mixed recovery_err = catch { pike_gateway_run_lease_gc(); };
+	mixed heal_err = catch { pike_gateway_heal_persistent_online_mismatches(); };
+	if(heal_err)
+		werror("[PIKE_GATEWAY][MISMATCH_HEAL] pass failed: %s\n",
+			pike_gateway_log_field(describe_error(heal_err),256));
 	object key = pike_gateway_state_lock->lock();
 	if(recovery_err){
 		pike_gateway_online_snapshot_recovery_failures++;

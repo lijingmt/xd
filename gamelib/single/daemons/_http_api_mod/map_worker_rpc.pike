@@ -529,6 +529,7 @@ private void handle_map_worker_local_live_leases(
     mapping(string:mapping(string:mixed)) live = ([]);
     array(string) userids;
     array(mapping(string:mixed)) leases = ({});
+    array(mapping(string:mixed)) invalid_live = ({});
     int offset = max(0,(int)params["offset"]);
     int limit = max(1,min(128,(int)(params["limit"] || 128)));
     if(MAP_WORKERD->query_node_role()!="worker" ||
@@ -556,10 +557,15 @@ private void handle_map_worker_local_live_leases(
             map_worker_player_affinity(player);
         account_id = functionp(player->query_account_owner) ?
             (string)player->query_account_owner() : userid;
+        // epoch=0/无affinity的活玩家只说明它自己无法续租（它不进入
+        // 在线行，epoch>0才上报）；此前整页409会让该Worker全部玩家的
+        // 租约一起过期，进而拖垮全服在线快照。改为跳过并上报，交给
+        // 网关的定向自愈（MISMATCH_HEAL）处理该玩家本身。
         if(userid=="" || account_id=="" || epoch<1 || affinity==""){
-            send_json(req,(["ok":0,"code":"invalid_live_player",
-                "userid":userid]),409);
-            return;
+            if(sizeof(invalid_live)<32)
+                invalid_live += ({(["userid":userid,"epoch":epoch,
+                    "affinity":affinity])});
+            continue;
         }
         if(mappingp(live[userid])){
             send_json(req,(["ok":0,"code":"duplicate_live_player",
@@ -569,6 +575,9 @@ private void handle_map_worker_local_live_leases(
         live[userid] = (["userid":userid,"account_id":account_id,
             "epoch":epoch,"affinity":affinity]);
     }
+    if(sizeof(invalid_live))
+        werror("[MAP_WORKER][LIVE_LEASES] skipped_invalid=%d\n",
+            sizeof(invalid_live));
     userids = sort(indices(live));
     if(offset>sizeof(userids)){
         send_json(req,(["ok":0,"code":"invalid_live_lease_offset"]),409);
@@ -580,7 +589,8 @@ private void handle_map_worker_local_live_leases(
     int next_offset = offset+sizeof(leases);
     send_json(req,(["ok":1,"leases":leases,"count":sizeof(leases),
         "next_offset":next_offset,
-        "done":next_offset>=sizeof(userids) ? 1 : 0]));
+        "done":next_offset>=sizeof(userids) ? 1 : 0,
+        "invalid_live":invalid_live]));
 }
 
 private void discard_map_worker_internal_arrival(string userid,object player)

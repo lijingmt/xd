@@ -637,7 +637,7 @@ int main()
 		int prepared_source_filter=search(gateway,
 			"if(pike_gateway_online_row_is_prepared_source(row,route,worker_id))");
 		int duplicate_online_filter=search(gateway,
-			"if(by_user[userid])",prepared_source_filter);
+			"if(seen_users[userid])",prepared_source_filter);
 		check("prepared源owner在重复检查前排除且与Worker排序无关",
 			prepared_source_filter!=-1 && duplicate_online_filter!=-1 &&
 			prepared_source_filter<duplicate_online_filter,
