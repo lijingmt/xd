@@ -517,10 +517,16 @@ export default function GameScreen() {
     setLoginAllBusy(true);
     try {
       const r = await store.loginAllCharacters(mode);
-      if (r && (r.ok > 0 || r.failed > 0)) {
-        toast(`已登录 ${r.ok} 个角色` +
-          (mode === 'afk' ? '并开启挂机' : mode === 'noafk' ? '（挂机关闭）' : '') +
-          (r.failed > 0 ? `，${r.failed} 个失败` : ''),
+      if (r && (r.ok > 0 || r.failed > 0 || r.afkApplied > 0)) {
+        const parts = [];
+        if (r.ok > 0)
+          parts.push(`已登录 ${r.ok} 个角色`);
+        if (r.afkApplied > 0)
+          parts.push(`${r.afkApplied} 个在线角色已${mode === 'afk' ? '开启' : '关闭'}挂机`);
+        if (r.failed > 0)
+          parts.push(`${r.failed} 个失败`);
+        toast(parts.join('，') +
+          (mode === 'afk' && r.ok > 0 ? '并开启挂机' : ''),
           r.failed > 0 ? 'warn' : 'success');
       } else if (r && r.skipped > 0) {
         toast(`并行上限已满，${r.skipped} 个角色未登录`, 'warn');

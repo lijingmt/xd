@@ -380,29 +380,53 @@ export const useGameStore = create((set, get) => ({
   async loginAllCharacters(mode) {
     const { accountCharacters, sessions, parallelLimit } = get();
     const cap = parallelLimit > 0 ? parallelLimit : PARALLEL_CHARACTER_LIMIT;
-    const pending = (accountCharacters || [])
+    const availableIds = (accountCharacters || [])
       .filter(card => card && card.available !== false)
-      .map(card => String(card.id))
-      .filter(id => {
-        const s = (sessions || {})[id];
-        return !(s && s.txd);
-      });
-    const room = cap - Object.keys(sessions || {})
-      .filter(id => sessions[id] && sessions[id].txd).length;
+      .map(card => String(card.id));
+    /* 已登录角色不需要重登；afk/noafk 模式要直接对其下发挂机开关。 */
+    const loggedInIds = availableIds.filter(id => {
+      const s = (sessions || {})[id];
+      return s && s.txd;
+    });
+    const pending = availableIds.filter(id =>
+      loggedInIds.indexOf(id) === -1);
+    const room = cap - loggedInIds.length;
     const targets = pending.slice(0, Math.max(0, room));
     let ok = 0;
+    let afkApplied = 0;
     let lastError = '';
+    const commandAfk = async (txd) => {
+      if (mode === 'afk') {
+        await api.sendCommand(txd, 'autofight start');
+      } else if (mode === 'noafk') {
+        await api.sendCommand(txd, 'autofight stop');
+      }
+    };
+    for (const id of loggedInIds) {
+      try {
+        await commandAfk(sessions[id].txd);
+        afkApplied += 1;
+        if (mode === 'afk' || mode === 'noafk') {
+          set(state => ({
+            sessions: {
+              ...state.sessions,
+              [id]: { ...state.sessions[id],
+                autofighting: mode === 'afk' },
+            },
+          }));
+        }
+      } catch (cmdErr) {
+        lastError = cmdErr && cmdErr.message
+          ? cmdErr.message : String(cmdErr);
+      }
+    }
     for (const id of targets) {
       try {
         const txd = await get().ensureCharacterSession(id);
         if (!txd) continue;
         try {
           await api.sendCommand(txd, 'look');
-          if (mode === 'afk') {
-            await api.sendCommand(txd, 'autofight start');
-          } else if (mode === 'noafk') {
-            await api.sendCommand(txd, 'autofight stop');
-          }
+          await commandAfk(txd);
         } catch (cmdErr) {
           lastError = cmdErr && cmdErr.message
             ? cmdErr.message : String(cmdErr);
@@ -413,7 +437,9 @@ export const useGameStore = create((set, get) => ({
       }
     }
     if (lastError) set({ error: lastError });
-    return { ok, skipped: pending.length - targets.length, failed: targets.length - ok };
+    return { ok, afkApplied,
+      skipped: pending.length - targets.length,
+      failed: targets.length - ok };
   },
 
   /** 不切换画面，直接开关某角色的挂机（并行挂机核心入口）。 */
