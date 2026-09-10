@@ -259,7 +259,7 @@ private void show_cleanup_settings(object me,string notice)
 	else
 		out += "不限制等级差（"+vip_label(3)+"解锁）\n";
 
-	out += "\n套装回收（挂机中自动回收重复套装件，每组保留最好一件，绑定/任务/唯一等永不动）：\n";
+	out += "\n套装回收（挂机中自动回收未绑定重复套装件，每组保留最好一件；绑定件请在套装管理中手动清理）：\n";
 	{
 		object set_cmd = (object)(
 			ROOT+"/gamelib/cmds/set_equipment_cleanup.pike");

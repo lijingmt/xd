@@ -43,27 +43,27 @@ private int has_socketed_gem(object item)
 string query_set_cleanup_reject_reason(object player,object item)
 {
 	string source;
+	int bound;
 	if(!player || !item || environment(item)!=player)
 		return "not_in_backpack";
 	if(!is_set_equipment(item))
 		return "not_set";
 	if(item->equiped)
 		return "equipped";
-	if(functionp(item->query_newmoon_account_bound) &&
-	   (int)item->query_newmoon_account_bound()==1)
-		return "bound";
+	bound=functionp(item->query_newmoon_account_bound) &&
+		(int)item->query_newmoon_account_bound()==1;
+	// 账号绑定的新月套装件允许清理：清理只给银两不给物品，不存在
+	// 跨账号风险。绑定件的canTrade/canDrop/canStorage=0不再把套装
+	// 挡在清理之外（玩家反馈"套装放不下又销毁不了"；幻境角色还不能
+	// 使用账号共享仓库，绑定件没有其他出口）。绑定归属必须匹配当前
+	// 人物，其余任务/唯一/玩家标记等硬保护仍然生效。
+	if(bound && !item->query_newmoon_binding_matches_owner(player))
+		return "not_owner";
 	if(item->query_item_task()==1)
 		return "task_item";
-	// 账号绑定的新月套装件允许清理：清理只给银两不给物品，
-	// 不存在跨账号风险。绑定件的canTrade=0此前把所有
-	// 新月套装挡在清理之外（玩家反馈"套装放不下又销毁不了"）。
-	if(functionp(item->query_newmoon_account_bound) &&
-	   (int)item->query_newmoon_account_bound()==1){
-		// 绑定件跳过canTrade检查，但task/unique/player标记仍拦截
-	}
-	else if(item->query_item_canTrade()!=1 ||
+	if(!bound && (item->query_item_canTrade()!=1 ||
 	   item->query_item_canDrop()!=1 ||
-	   item->query_item_canStorage()!=1)
+	   item->query_item_canStorage()!=1))
 		return "restricted";
 	if(item->query_item_only()==1)
 		return "unique";
@@ -135,6 +135,30 @@ array(object) query_set_cleanup_candidates(object player)
 	return candidates;
 }
 
+/**
+ * 绑定套装清理候选：背包内未穿戴、账号绑定、且通过全部硬保护的新月
+ * 套装件。与重复件候选不同，这里不做"每组保留一件"的自动判断——
+ * 单件绑定旧装（换系列/换职业后遗留）没有重复件出口，只能由玩家
+ * 在预览确认中显式选择销毁。
+ */
+array(object) query_bound_set_cleanup_candidates(object player)
+{
+	array(object) candidates=({});
+	if(!player)
+		return candidates;
+	foreach(all_inventory(player),object item){
+		if(!is_set_equipment(item))
+			continue;
+		if(!(functionp(item->query_newmoon_account_bound) &&
+		   (int)item->query_newmoon_account_bound()==1))
+			continue;
+		if(query_set_cleanup_reject_reason(player,item)!="")
+			continue;
+		candidates+=({item});
+	}
+	return candidates;
+}
+
 array(string) query_set_cleanup_runtime_refs(array(object) items)
 {
 	array(string) refs=({});
@@ -202,6 +226,44 @@ mapping(string:mixed) perform_set_cleanup(object player,
 	return result;
 }
 
+mapping(string:mixed) perform_bound_set_cleanup(object player,
+	array(object) preview_items)
+{
+	mapping(string:mixed) result=(["count":0,"money":0,"names":({})]);
+	if(!player || player->query_in_combat() || !arrayp(preview_items))
+		return result;
+	foreach(preview_items,object item){
+		string name;
+		string path;
+		string collection;
+		int value;
+		// 逐件重新校验：确认页与执行之间物品可能被穿戴、移动或
+		// 保护状态变化。失败关闭，只跳过该件。
+		if(!item || !is_set_equipment(item) ||
+		   !functionp(item->query_newmoon_account_bound) ||
+		   (int)item->query_newmoon_account_bound()!=1 ||
+		   query_set_cleanup_reject_reason(player,item)!="")
+			continue;
+		name=(string)item->query_name_cn();
+		path=(file_name(item)/"#")[0];
+		collection=(string)item->query_newmoon_collection_id();
+		value=query_set_cleanup_value(item);
+		mixed remove_err=catch{ item->remove(); };
+		if(remove_err || item)
+			continue;
+		player->add_money(value);
+		result["count"]=(int)result["count"]+1;
+		result["money"]=(int)result["money"]+value;
+		result["names"]+=({name});
+		ASYNC_IOD->append_log(SET_CLEANUP_LOG,
+			MUD_TIMESD->get_mysql_timedesc()+" user="+
+			(string)player->query_name()+" collection="+collection+
+			" item="+replace(name,(["\n":" ","\r":" "]))+
+			" path="+path+" money="+(string)value+" bound=1\n");
+	}
+	return result;
+}
+
 /** 挂机套装回收开关（默认关闭；独立于智能清包，套装保护不受其品质档影响）。 */
 int query_set_recycle_enabled(object player)
 {
@@ -220,7 +282,8 @@ mapping(string:mixed) set_recycle_enabled(object player,int enabled)
 
 /**
  * 挂机自动套装回收tick：只处理"同系列+同职业+同主题+同部位"的
- * 重复件（每组保留评分最高一件），复用手动清理的全部硬保护；
+ * 未绑定重复件（每组保留评分最高一件），复用手动清理的全部硬保护；
+ * 账号绑定件不进入自动回收，只在手动入口中显式销毁；
  * 战斗中不执行（perform_set_cleanup自身也拒绝战斗态）。
  * 返回 (["count":N,"money":M])。
  */
@@ -237,6 +300,20 @@ mapping(string:mixed) auto_set_recycle_tick(object player)
 	};
 	if(err || !arrayp(candidates) || !sizeof(candidates))
 		return result;
+	// 自动回收只处理未绑定重复件：绑定件是玩家穿戴投入过的套装，
+	// 仍只在一键清理/预览确认/绑定清理等手动入口中显式销毁。
+	{
+		array(object) unbound=({});
+		foreach(candidates,object item){
+			if(item && functionp(item->query_newmoon_account_bound) &&
+			   (int)item->query_newmoon_account_bound()==1)
+				continue;
+			unbound+=({item});
+		}
+		candidates=unbound;
+	}
+	if(!sizeof(candidates))
+		return result;
 	err = catch {
 		done = perform_set_cleanup(player,candidates);
 	};
@@ -252,8 +329,8 @@ string render_set_manager(object player)
 	mapping(string:int) collections=([]);
 	int total=0;
 	int equipped=0;
-	int bound=0;
 	array(object) candidates=query_set_cleanup_candidates(player);
+	array(object) bound_items=query_bound_set_cleanup_candidates(player);
 	string out="【套装管理】\n";
 	foreach(all_inventory(player),object item){
 		string label;
@@ -262,28 +339,32 @@ string render_set_manager(object player)
 		total++;
 		if(item->equiped)
 			equipped++;
-		if(functionp(item->query_newmoon_account_bound) &&
-		   (int)item->query_newmoon_account_bound()==1)
-			bound++;
 		label=(string)item->query_newmoon_collection_name()+"·"+
 			(string)item->query_newmoon_resonance_profession_cn();
 		collections[label]=(int)collections[label]+1;
 	}
-	out+="背包套装："+total+"件；已穿"+equipped+"件；已绑定"+
-		bound+"件。\n";
+	out+="背包套装："+total+"件；已穿"+equipped+"件。\n";
 	foreach(sort(indices(collections)),string label)
 		out+="· "+label+"："+(int)collections[label]+"件\n";
 	if(!total)
 		out+="背包里暂时没有套装。\n";
 	out+="\n重复件候选："+sizeof(candidates)+"件。系统按同系列、同职业、"+
-		"同主题、同部位分组，每组永久保留评分最高的一件。\n";
-	out+="已穿、账号绑定、任务、玩家标记、洗炼、锻造、融合、镶嵌、"+
-		"特殊来源、空觉及以上套装不会进入候选。\n\n";
+		"同主题、同部位分组，每组永久保留评分最高的一件；账号绑定的"+
+		"重复件同样参与清理。\n";
+	out+="已穿、任务、玩家标记、锻造、融合、镶嵌、"+
+		"特殊来源、空觉及以上套装不会进入候选。\n";
+	if(sizeof(bound_items))
+		out+="绑定未穿件："+sizeof(bound_items)+"件。绑定件不能交易/"+
+			"丢弃/存仓（幻境角色也不能用共享仓库），可在下方显式"+
+			"销毁换取银两。\n";
+	out+="\n";
 	out+="[只看套装:inventory_filter category set]|"+
 		"[套装优先穿装:auto_equip set]\n";
 	if(sizeof(candidates))
 		out+="[一键清理重复套装:set_equipment_cleanup sell]|"+
 			"[预览后清理:set_equipment_cleanup preview]\n";
+	if(sizeof(bound_items))
+		out+="[清理绑定套装:set_equipment_cleanup bound]\n";
 	out+="[返回分类背包:inventory_filter]|[返回游戏:look]\n";
 	return out;
 }
@@ -366,6 +447,83 @@ int main(string|zero arg)
 			"[确认清理:set_equipment_cleanup confirm]|"+
 			"[取消:set_equipment_cleanup]\n";
 		write(out);
+		return 1;
+	}
+	if(arg=="bound"){
+		array(object) bound_items;
+		int value=0;
+		string out="【绑定套装清理预览】\n";
+		bound_items=query_bound_set_cleanup_candidates(player);
+		if(!sizeof(bound_items)){
+			write("当前没有可清理的绑定套装件。\n"+
+				"[返回套装管理:set_equipment_cleanup]\n");
+			return 1;
+		}
+		player["/tmp/set_equipment_cleanup/bound_objects"]=
+			query_set_cleanup_runtime_refs(bound_items);
+		player["/tmp/set_equipment_cleanup/bound_runtime_nonce"]=
+			PLAYER_TRANSFERD->query_ephemeral_runtime_nonce();
+		player["/tmp/set_equipment_cleanup/bound_created_at"]=time();
+		foreach(bound_items,object item)
+			value+=query_set_cleanup_value(item);
+		out+="将销毁"+sizeof(bound_items)+"件账号绑定套装件，获得"+
+			MUD_MONEYD->query_store_money_cn(value)+"。\n";
+		for(int index=0;index<sizeof(bound_items) && index<30;index++)
+			out+="· "+(string)bound_items[index]->query_short()+"\n";
+		if(sizeof(bound_items)>30)
+			out+="……另有"+(sizeof(bound_items)-30)+"件。\n";
+		out+="\n⚠ 绑定套装销毁后不可恢复，成套技能以实际穿戴的10件计算，"+
+			"请确认这些不是还想收集的部件。\n"+
+			"确认有效期两分钟；确认时会再次逐件校验。\n"+
+			"[确认销毁:set_equipment_cleanup bound_confirm]|"+
+			"[取消:set_equipment_cleanup]\n";
+		write(out);
+		return 1;
+	}
+	if(arg=="bound_confirm"){
+		array(object) preview;
+		int created_at;
+		int same_runtime;
+		mapping result;
+		preview=resolve_set_cleanup_runtime_refs(player,
+			(array)(player["/tmp/set_equipment_cleanup/bound_objects"] ||
+				({})));
+		created_at=(int)player[
+			"/tmp/set_equipment_cleanup/bound_created_at"];
+		same_runtime=(string)player[
+			"/tmp/set_equipment_cleanup/bound_runtime_nonce"]==
+			PLAYER_TRANSFERD->query_ephemeral_runtime_nonce();
+		player->m_delete_foruser(
+			"/tmp/set_equipment_cleanup/bound_objects");
+		player->m_delete_foruser(
+			"/tmp/set_equipment_cleanup/bound_created_at");
+		player->m_delete_foruser(
+			"/tmp/set_equipment_cleanup/bound_runtime_nonce");
+		if(!same_runtime || !created_at ||
+		   time()-created_at>SET_CLEANUP_CONFIRM_SECONDS ||
+		   !sizeof(preview)){
+			write("绑定清理确认已失效，请重新预览。\n"+
+				"[重新预览:set_equipment_cleanup bound]\n");
+			return 1;
+		}
+		result=perform_bound_set_cleanup(player,preview);
+		if((int)result["count"]<=0){
+			write("绑定套装状态已经变化，本次没有清理任何物品。\n"+
+				"[返回套装管理:set_equipment_cleanup]\n");
+			return 1;
+		}
+		if(!player->save_with_result()){
+			write("绑定套装清理完成：销毁"+(int)result["count"]+
+				"件，获得"+MUD_MONEYD->query_store_money_cn(
+				(int)result["money"])+"。\n"+
+				"⚠ 存档失败，请重新登录确认银两。\n"+
+				"[返回游戏:look]\n");
+			return 1;
+		}
+		write("绑定套装清理完成：销毁"+(int)result["count"]+
+			"件，获得"+MUD_MONEYD->query_store_money_cn(
+			(int)result["money"])+"。\n"+
+			"[继续管理套装:set_equipment_cleanup]|[返回游戏:look]\n");
 		return 1;
 	}
 	if(arg=="confirm"){

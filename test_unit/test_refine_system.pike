@@ -476,8 +476,11 @@ int main()
 				luck_total_stones));
 
 		/* ===== 5c) PK榜纯展示 + 捐赠月榜守护符 ===== */
-		/* 用全新受害者即时击杀一次，保证榜单状态自包含。 */
-		object victim_fresh=create_saved_player("xd01testrefine4",
+		/* 用全新受害者即时击杀一次，保证榜单状态自包含。受害者名带
+		 * 时间后缀：pvp冷却键为killer|victim名，固定名会让紧接着的
+		 * 下一次TestUnit运行撞上上一轮留下的冷却而拿不到击杀记录。 */
+		string victim_name=sprintf("xd01trf%d",(int)time()%1000000);
+		object victim_fresh=create_saved_player(victim_name,
 			"refine88","10.0.0.4");
 		mapping dbg=(["kl":(int)me->query_level(),
 			"vl":(int)victim_fresh->query_level(),
@@ -489,8 +492,8 @@ int main()
 			"npc2":(int)victim_fresh->is("npc")]);
 		REFINED->maybe_drop_pvp_material(me,victim_fresh,1);
 		destruct(victim_fresh);
-		ACCOUNT_CHARACTERD->remove_test_account("xd01testrefine4");
-		cleanup_player("xd01testrefine4");
+		ACCOUNT_CHARACTERD->remove_test_account(victim_name);
+		cleanup_player(victim_name);
 		array rank=REFINED->query_monthly_pvp_rank(10);
 		int me_ranked=0;
 		foreach(rank,array row)
