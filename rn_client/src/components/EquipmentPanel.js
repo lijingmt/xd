@@ -6,6 +6,7 @@ import {
 import { useGameStore } from '../store/useGameStore.js';
 import { getImageBase } from '../api/mudApi.js';
 import { fetchEquipmentPanel, panelModel, attrRows, attrTotalDelta } from '../api/equipmentApi.js';
+import { loadUiSettings, fontScaleFor } from '../utils/uiSettings.js';
 import { SmartImage } from './GameSmartImage.js';
 
 function fmtNum(v) {
@@ -107,7 +108,14 @@ export default function EquipmentPanel({ visible, onClose }) {
   const [busyCmd, setBusyCmd] = useState('');
   const [smartBusy, setSmartBusy] = useState(false);
   const [error, setError] = useState('');
+  const [fontScale, setFontScale] = useState(1);
   const imageBase = getImageBase(apiBase);
+
+  useEffect(() => {
+    loadUiSettings().then(settings =>
+      setFontScale(fontScaleFor(settings.fontSize) || 1)
+    ).catch(() => {});
+  }, []);
 
   const load = useCallback(async () => {
     if (!txd) return;
@@ -187,19 +195,24 @@ export default function EquipmentPanel({ visible, onClose }) {
             )}
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.eyebrow}>人物外观 · 快速换装</Text>
-            <Text style={styles.title}>{player.name_cn || '我的装备'}</Text>
+            <Text style={[styles.eyebrow,
+              { fontSize: Math.round(10 * fontScale) }]}>人物外观 · 快速换装</Text>
+            <Text style={[styles.title,
+              { fontSize: Math.round(17 * fontScale) }]}>{player.name_cn || '我的装备'}</Text>
             {player.name ? (
               <>
-                <Text style={styles.sub}>
+                <Text style={[styles.sub,
+                  { fontSize: Math.round(11 * fontScale) }]}>
                   Lv.{player.level || '?'} · {player.profession || ''}
                 </Text>
                 {typeof player.total_think === 'number' && (
-                  <Text style={styles.heartStatText}>
+                  <Text style={[styles.heartStatText,
+                    { fontSize: Math.round(10 * fontScale) }]}>
                     力{fmtNum(player.total_str)} 敏{fmtNum(player.total_dex)}
                     {' '}智{fmtNum(player.total_think)}
                     {player.heart_bonus_think > 0 && (
-                      <Text style={styles.heartBonusText}>
+                      <Text style={[styles.heartBonusText,
+                        { fontSize: Math.round(10 * fontScale) }]}>
                         {' '}✨+{fmtNum(player.heart_bonus_think)}
                       </Text>
                     )}
@@ -415,7 +428,8 @@ export default function EquipmentPanel({ visible, onClose }) {
                           <Text style={styles.slotIconText}>{slot.icon}</Text>
                         )}
                       </View>
-                      <Text style={styles.slotLabel} numberOfLines={1}>
+                      <Text style={[styles.slotLabel,
+                        { fontSize: Math.round(9 * fontScale) }]} numberOfLines={1}>
                         {slot.label}
                       </Text>
                     </TouchableOpacity>

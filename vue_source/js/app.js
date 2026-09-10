@@ -5372,6 +5372,9 @@ createApp({
         // 应用主题到body
         applyTheme() {
             document.body.setAttribute('data-theme', this.theme);
+            // 双主题体系联动：全局主题切换时同步页面昼夜主题
+            // （light=白天，classic/dark=夜晚），避免两套开关各改各的。
+            this.setVueTheme(this.theme === 'light' ? 'day' : 'night');
         },
 
         // 调整游戏内容字号并持久保存

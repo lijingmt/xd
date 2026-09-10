@@ -20,6 +20,7 @@ import { Vibration } from 'react-native';
 import { toast } from './Toast.js';
 import { APP_THEMES } from '../utils/appThemes.js';
 import WorldMapScreen from './WorldMapScreen.js';
+import ChatRoomModal from './ChatRoomModal.js';
 import { getImageBase } from '../api/mudApi.js';
 import { checkAppUpdate } from '../api/versionApi.js';
 import { useGameStore, setRuntimePlatform } from '../store/useGameStore.js';
@@ -55,6 +56,7 @@ const QUICK_TOOLS = [
   { icon: '⚙️', label: '设置', cmd: 'game_detail' },
   { icon: '♻️', label: '挂机设置', cmd: 'autofight' },
   { icon: '🧭', label: '新手引导', cmd: '__onboarding' },
+  { icon: '💬', label: '聊天室', cmd: '__chat' },
   { icon: '👑', label: '会员', cmd: 'vip_service_list' },
 ];
 
@@ -536,6 +538,7 @@ export default function GameScreen() {
   const [worldMapOpen, setWorldMapOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
+  const [chatOpen, setChatOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [charListOpen, setCharListOpen] = useState(false);
@@ -905,6 +908,11 @@ export default function GameScreen() {
       setShowOnboarding(true);
       return;
     }
+    if (cmd === '__chat') {
+      setMoreOpen(false);
+      setChatOpen(true);
+      return;
+    }
     Vibration.vibrate(10); /* 轻微触觉反馈 */
     setMoreOpen(false);
     lastUserNavRef.current = Date.now();
@@ -1041,8 +1049,9 @@ export default function GameScreen() {
               </Text>
             </Pressable>
             <Pressable style={styles.charChipAdd}
-              onPress={() => store.backToDashboard()}>
-              <Text style={styles.charChipAddText}>＋</Text>
+              onPress={() => store.backToDashboard()}
+              hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}>
+              <Text style={styles.charChipAddText}>☰ 主页</Text>
             </Pressable>
             <Pressable style={styles.charChipExpand}
               onPress={() => setCharListOpen(!charListOpen)}>
@@ -1242,14 +1251,17 @@ export default function GameScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 三条属性条：生命/法力/精力 */}
+        {/* 三条属性条：生命/法力/精力（字号跟随全局缩放） */}
         <View style={styles.statRows}>
           <StatBar label="生命" value={status.hp} max={status.hp_max}
-            fill={th.battleHp || '#c23a4a'} themeStyle={themeStyle} />
+            fill={th.battleHp || '#c23a4a'} themeStyle={themeStyle}
+            fontScale={fontScaleFor(uiSettings.fontSize)} />
           <StatBar label="法力" value={status.mana} max={status.mana_max}
-            fill={th.battleMp || '#3a6ac2'} themeStyle={themeStyle} />
+            fill={th.battleMp || '#3a6ac2'} themeStyle={themeStyle}
+            fontScale={fontScaleFor(uiSettings.fontSize)} />
           <StatBar label="精力" value={status.energy} max={100}
-            fill="#3f8a53" themeStyle={themeStyle} />
+            fill="#3f8a53" themeStyle={themeStyle}
+            fontScale={fontScaleFor(uiSettings.fontSize)} />
         </View>
 
         {/* 生效中的丹药/特药 buff 药丸（与 Vue active-buff-chip 同源） */}
@@ -1417,7 +1429,15 @@ export default function GameScreen() {
         }
         ListEmptyComponent={
           !store.busy && store.lines.length === 0
-            ? <Text style={[styles.emptyText, themeStyle.emptyText]}>暂无内容</Text>
+            ? <View style={styles.emptyWrap}>
+                <Text style={[styles.emptyText, themeStyle.emptyText]}>
+                  当前画面为空
+                </Text>
+                <Text style={styles.emptyHint}>
+                  下拉可刷新；点底部「场景」回到当前位置，
+                  或点 ▶ 挂机开始自动战斗。
+                </Text>
+              </View>
             : null
         }
         renderItem={({ item }) => (
@@ -1608,6 +1628,12 @@ export default function GameScreen() {
         onClose={() => setWorldMapOpen(false)}
       />
 
+      {/* ===== 聊天室（对齐 Vue 三频道聊天） ===== */}
+      <ChatRoomModal
+        visible={chatOpen}
+        onClose={() => setChatOpen(false)}
+      />
+
       {/* ===== 消费记录 ===== */}
       <SuivLogModal
         visible={suiyuLogOpen}
@@ -1724,15 +1750,17 @@ export default function GameScreen() {
                 setMenuOpen(false);
                 store.backToDashboard();
               }} />
-            <MenuRow icon="🗑️" label="删除账号"
-              onPress={() => {
-                setMenuOpen(false);
-                setDeleteOpen(true);
-              }} />
             <MenuRow icon="🚪" label="退出登录" danger
               onPress={() => {
                 setMenuOpen(false);
                 store.logout();
+              }} />
+            <View style={styles.menuDivider} />
+            <Text style={styles.menuSectionLabel}>账号安全</Text>
+            <MenuRow icon="🗑️" label="删除账号（归档全部人物）" danger
+              onPress={() => {
+                setMenuOpen(false);
+                setDeleteOpen(true);
               }} />
           </View>
         </Pressable>
@@ -1742,16 +1770,19 @@ export default function GameScreen() {
   );
 }
 
-function StatBar({ label, value, max, fill, themeStyle }) {
+function StatBar({ label, value, max, fill, themeStyle, fontScale }) {
+  const fs = fontScale || 1;
   return (
     <View style={styles.statRow}>
       <Text style={[styles.statLabel,
+        { fontSize: Math.round(11 * fs) },
         themeStyle && themeStyle.statLabel]}>{label}</Text>
       <View style={[styles.statTrack,
         themeStyle && themeStyle.statTrack]}>
         <View style={[styles.statFill, { width: `${percent(value, max)}%`, backgroundColor: fill }]} />
       </View>
       <Text style={[styles.statValue,
+        { fontSize: Math.round(10 * fs) },
         themeStyle && themeStyle.statValue]}>
         {formatNumber(value)}/{formatNumber(max)}</Text>
     </View>
@@ -1780,22 +1811,22 @@ function Floater({ event, offset }) {
       break;
     case 'dodge':
       color = '#87CEEB';
-      text = 'MISS';
+      text = '闪避';
       fontSize = 16;
       break;
     case 'block':
       color = '#FFD700';
-      text = 'BLOCK';
+      text = '格挡';
       fontSize = 16;
       break;
     case 'poison':
       color = '#90EE90';
-      text = 'POISON';
+      text = '中毒';
       fontSize = 14;
       break;
     case 'victory':
       color = '#FFD700';
-      text = '✦ VICTORY';
+      text = '✦ 胜利';
       fontSize = 28;
       break;
     case 'skill':
@@ -2054,6 +2085,10 @@ const styles = StyleSheet.create({
   },
   themeChipText: { color: '#a89aa8', fontSize: 12 },
   themeChipTextActive: { color: '#ffd700', fontSize: 12, fontWeight: '700' },
+  menuSectionLabel: {
+    color: '#8a7a8a', fontSize: 11, paddingHorizontal: 12,
+    paddingVertical: 2, fontWeight: '600',
+  },
   menuDivider: {
     height: 1, backgroundColor: '#2e2430', marginVertical: 6,
     marginHorizontal: 6,
@@ -2209,6 +2244,11 @@ const styles = StyleSheet.create({
   emptyLoadingText: { color: '#8a7a8a', fontSize: 14 },
   emptyText: {
     color: '#6a5a6a', textAlign: 'center', paddingTop: 60, fontSize: 14,
+  },
+  emptyWrap: { alignItems: 'center', paddingHorizontal: 30 },
+  emptyHint: {
+    color: '#5a4f5a', textAlign: 'center', fontSize: 12,
+    lineHeight: 19, marginTop: 6, paddingTop: 4,
   },
   tabBar: {
     flexDirection: 'row', backgroundColor: '#14101a',
