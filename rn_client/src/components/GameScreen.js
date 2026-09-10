@@ -1783,7 +1783,9 @@ const styles = StyleSheet.create({
     borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7,
     shadowColor: '#000', shadowOpacity: 0.8, shadowRadius: 10,
     shadowOffset: { width: 0, height: 3 }, elevation: 12,
-    maxWidth: 220, alignItems: 'flex-end',
+    /* 绝对定位子元素按父容器(钻石按钮~60px)测量，maxWidth挡不住
+     * 逐字竖排；显式定宽才能横排两行。 */
+    width: 236, alignItems: 'flex-end',
   },
   rechargeTipText: { color: '#ffd700', fontSize: 12,
     fontWeight: '800', letterSpacing: 0.5, textAlign: 'right' },
