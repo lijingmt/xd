@@ -478,10 +478,16 @@ void test_signup_to_reward_flow()
 	int battle_started = 0;
 	int settled = 0;
 	int rewarded = 0;
+	int exp_before = 0;
+	int exp_need_before = 0;
 	string error_desc = "";
 	mixed err = catch{
+		/* 同日重跑：先清上一轮持久化的同日场次，否则报名被判"今日已参加"。 */
+		TIMED_EVENTD->purge_event_sessions_for_test("tianheng");
 		first->move(city);
 		second->move(city);
+		exp_before = (int)first->query_exp();
+		exp_need_before = (int)first->query_levelUp_need_exp();
 		/* 注入中国时区(UTC+8)今天20:01与20:10:01两个时钟：
 		 * 走真实join_event报名入口与真实调度tick开战。 */
 		int china_now = time()+480*60;
@@ -512,11 +518,20 @@ void test_signup_to_reward_flow()
 			!(int)TIMED_EVENTD->query_player_status(second)["joined"];
 		mapping first_state = first["/plus/timed_event"];
 		mapping second_state = second["/plus/timed_event"];
+		int stones_gained = 0;
+		foreach(all_inventory(first),object one)
+			if(one && functionp(one->query_name) &&
+			   one->query_name()=="cuilianshi")
+				stones_gained += 1;
 		rewarded = mappingp(first_state) &&
 			(int)first_state["tianheng_tokens"]>0 &&
 			mappingp(second_state) &&
 			(int)second_state["tianheng_tokens"]>0 &&
-			sizeof(indices((mapping)first_state["claims"]))==1;
+			sizeof(indices((mapping)first_state["claims"]))==1 &&
+			exp_need_before>0 &&
+			(int)first->query_exp()-exp_before>=
+				exp_need_before*15/100 &&
+			stones_gained>=1;
 	};
 	if(err)
 		error_desc = describe_error(err)+" "+describe_backtrace(err);
@@ -524,8 +539,9 @@ void test_signup_to_reward_flow()
 		!rewarded)
 		error_desc = sprintf(
 			"signup=%d stance=%d battle=%d settled=%d rewarded=%d "+
-			"env=%O/%O status=%O",
+			"exp=%d/need%d env=%O/%O status=%O",
 			joined_signup,stance_ok,battle_started,settled,rewarded,
+			(int)first->query_exp(),exp_need_before,
 			environment(first) && file_name(environment(first)),
 			environment(second) && file_name(environment(second)),
 			TIMED_EVENTD->query_player_status(first));
@@ -534,6 +550,47 @@ void test_signup_to_reward_flow()
 		rewarded,error_desc);
 	if(first) destruct(first);
 	if(second) destruct(second);
+}
+
+void test_percentage_reward_and_materials()
+{
+	mapping champion = TIMED_EVENTD->query_reward_for_test(
+		200,"tianheng","finished",1);
+	mapping runner = TIMED_EVENTD->query_reward_for_test(
+		200,"tianheng","finished",2);
+	mapping third = TIMED_EVENTD->query_reward_for_test(
+		200,"tianheng","finished",3);
+	mapping joined = TIMED_EVENTD->query_reward_for_test(
+		200,"tianheng","finished",9);
+	mapping victory = TIMED_EVENTD->query_reward_for_test(
+		200,"jiuyao","victory",0);
+	mapping failure = TIMED_EVENTD->query_reward_for_test(
+		200,"jiuyao","failure",0);
+	check("经验改按百分比且不再返回固定经验值",
+		(int)champion["exp_percent"]==15 &&
+		(int)runner["exp_percent"]==10 &&
+		(int)third["exp_percent"]==6 &&
+		(int)joined["exp_percent"]==3 &&
+		!(int)champion["exp"],
+		sprintf("champion=%O",champion));
+	check("九曜百分比低于天衡冠军并保留参与保底",
+		(int)victory["exp_percent"]==8 &&
+		(int)failure["exp_percent"]==4,
+		sprintf("victory=%O failure=%O",victory,failure));
+	check("名次奖励携带淬炼石且参与给碎晶",
+		(int)champion["stones"]==3 && (int)runner["stones"]==2 &&
+		(int)third["stones"]==1 && (int)joined["stones"]==0 &&
+		(int)joined["shards"]==1 &&
+		(int)victory["stones"]==2 && (int)failure["stones"]==1,
+		sprintf("champion=%O joined=%O",champion,joined));
+	object shop_player = create_player("__testunit_timed_shop2__");
+	string shop_page = TIMED_EVENTD->handle_command(
+		shop_player,"shop","");
+	check("天衡令商店上架淬炼石",
+		search(shop_page,"淬炼石")!=-1,
+		shop_page[..200]);
+	if(shop_player)
+		destruct(shop_player);
 }
 
 int main()
@@ -546,6 +603,7 @@ int main()
 	test_worker_single_writer_and_reward_ack_contract();
 	test_schedule_and_timezone();
 	test_token_exchange_shop();
+	test_percentage_reward_and_materials();
 	test_original_game_rules();
 	test_room_teleport_guard_and_npc();
 	test_wiring_and_public_status();

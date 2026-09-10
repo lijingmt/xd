@@ -330,30 +330,41 @@ private int player_already_entered(object player,string event_id,string date)
 
 private mapping build_reward(int level,string event_id,string result,int rank)
 {
-	int base_exp;
 	int base_money;
 	int multiplier = 1;
 	int tokens = 1;
+	/* 经验按“距离升级所需经验”的百分比结算（2026-09-10玩家反馈：
+	 * 固定值公式在高等级段约等于零）。领取时折算，封顶玩家折双倍令牌。 */
+	int exp_percent = 3;
+	int stones = 0;
+	int shards = 0;
 	string message;
 	if(level<1)
 		level = 1;
-	base_exp = level*level*3+500;
 	base_money = level*200+1000;
 	if(event_id==EVENT_TIANHENG){
-		if(rank==1){ multiplier = 5; tokens = 12; }
-		else if(rank==2){ multiplier = 3; tokens = 8; }
-		else if(rank==3){ multiplier = 2; tokens = 5; }
+		if(rank==1){ multiplier = 5; tokens = 12; exp_percent = 15; stones = 3; }
+		else if(rank==2){ multiplier = 3; tokens = 8; exp_percent = 10; stones = 2; }
+		else if(rank==3){ multiplier = 2; tokens = 5; exp_percent = 6; stones = 1; }
+		else shards = 1;
 		message = rank>0 && rank<=3 ?
 			"天衡绝境第"+(string)rank+"名奖励" : "天衡绝境参与奖励";
 	}
 	else{
-		if(result=="victory"){ multiplier = 4; tokens = 8; }
-		else if(result=="failure"){ multiplier = 2; tokens = 2; }
+		if(result=="victory"){ multiplier = 4; tokens = 8; exp_percent = 8; stones = 2; }
+		else if(result=="failure"){ multiplier = 2; tokens = 2; exp_percent = 4; stones = 1; }
+		else shards = 1;
 		message = result=="victory" ? "九曜镇渊成功奖励" :
 			(result=="failure" ? "九曜镇渊守关奖励" : "九曜镇渊参与奖励");
 	}
-	return (["exp":base_exp*multiplier,"money":base_money*multiplier,
-		"tokens":tokens,"message":message]);
+	return (["exp_percent":exp_percent,"money":base_money*multiplier,
+		"tokens":tokens,"stones":stones,"shards":shards,
+		"message":message]);
+}
+
+mapping query_reward_for_test(int level,string event_id,string result,int rank)
+{
+	return copy_value(build_reward(level,event_id,result,rank));
 }
 
 private void prepare_participant_reward(mapping session,string user_id,
@@ -390,16 +401,53 @@ private int claim_participant_reward(mapping session,string user_id,
 	receipt = claims[claim_id];
 	if(!mappingp(receipt)){
 		newly_credited = 1;
-		if((int)reward["exp"]>0)
+		int token_bonus = 0;
+		int exp_need = functionp(player->query_levelUp_need_exp) ?
+			(int)player->query_levelUp_need_exp() : 0;
+		int percent = (int)reward["exp_percent"];
+		if(percent>0 && exp_need>0)
+			actual_exp = player->add_exp_with_bonus(
+				exp_need*percent/100);
+		else if(percent>0){
+			/* 封顶/无升级需求：经验份额折算为等量令牌加成。 */
+			token_bonus = (int)reward["tokens"];
+			tell_object(player,"你已无升级需求，活动经验份额折算为"+
+				"额外"+(string)token_bonus+"枚令牌。\n");
+		}
+		else if((int)reward["exp"]>0)
 			actual_exp = player->add_exp_with_bonus((int)reward["exp"]);
 		if((int)reward["money"]>0)
 			player->add_account((int)reward["money"]);
 		if((string)session["event_id"]==EVENT_TIANHENG)
 			state["tianheng_tokens"] = (int)state["tianheng_tokens"]+
-				(int)reward["tokens"];
+				(int)reward["tokens"]+token_bonus;
 		else
 			state["jiuyao_tokens"] = (int)state["jiuyao_tokens"]+
-				(int)reward["tokens"];
+				(int)reward["tokens"]+token_bonus;
+		/* 提炼材料：淬炼石/碎晶直接入包；发放失败只记日志不阻断
+		 * 领奖回执（经验/银两/令牌已在手，不能因格子满卡死结算）。 */
+		foreach(({
+			(["count":(int)reward["stones"],
+				"path":"/gamelib/clone/item/material/cuilianshi",
+				"name":"淬炼石"]),
+			(["count":(int)reward["shards"],
+				"path":"/gamelib/clone/item/material/suijing",
+				"name":"碎晶"]),
+		}),mapping material){
+			for(int index=0;index<(int)material["count"];index++){
+				mixed item_err = catch {
+					object item = clone(ROOT+
+						(string)material["path"]);
+					if(!item || item->move(player)!=1)
+						destruct(item);
+				};
+				if(item_err)
+					werror("[TIMED_EVENT_REWARD] user=%s item=%s "+
+						"deliver failed: %s\n",user_id,
+						(string)material["name"],
+						describe_error(item_err)[..120]);
+			}
+		}
 		if((int)participant["xinyuan_suit_drop"] &&
 		   functionp(player->query_profeId) &&
 		   (string)player->query_profeId()=="wuxin" &&

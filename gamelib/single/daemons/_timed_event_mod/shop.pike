@@ -16,6 +16,9 @@ private mapping(string:mapping(string:mixed)) event_shop_catalog()
 		"th_xuanhuang":(["name":"绑定玄黄石","desc":"用于锻造的绑定玄黄石。",
 			"token_key":"tianheng_tokens","cost":12,"kind":"item",
 			"item_path":"/gamelib/clone/item/material/xuanhuangshi"]),
+		"th_cuilianshi":(["name":"淬炼石","desc":"提炼装备的核心材料，PK与活动双产。",
+			"token_key":"tianheng_tokens","cost":5,"kind":"item",
+			"item_path":"/gamelib/clone/item/material/cuilianshi"]),
 		"th_jingang":(["name":"绑定金刚钻","desc":"用于高阶锻造的绑定金刚钻。",
 			"token_key":"tianheng_tokens","cost":36,"kind":"item",
 			"item_path":"/gamelib/clone/item/material/jingangzuan"]),
@@ -45,8 +48,8 @@ private mapping(string:mapping(string:mixed)) event_shop_catalog()
 
 private array(string) event_shop_order()
 {
-	return ({"th_gold","th_herald","th_guard","th_xuanhuang",
-		"th_jingang","th_badge","jy_gold","jy_xuanhuang",
+	return ({"th_gold","th_herald","th_guard","th_cuilianshi",
+		"th_xuanhuang","th_jingang","th_badge","jy_gold","jy_xuanhuang",
 		"jy_yufeicui","jy_jingang","jy_zishuijing","jy_badge"});
 }
 

@@ -6,7 +6,7 @@ private mapping(string:mixed) default_timed_event_config()
 		"events":([
 			"tianheng":([
 				"enabled":1,"hour":20,"minute":0,
-				"signup_seconds":600,"battle_seconds":1800,
+				"signup_seconds":600,"battle_seconds":1200,
 				"minimum_level":30,"minimum_players":2,
 				"offline_grace_seconds":60,
 				"force_match_seconds":30,

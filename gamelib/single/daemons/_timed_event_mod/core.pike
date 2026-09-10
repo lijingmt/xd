@@ -367,6 +367,27 @@ void tick_sessions_for_test(void|int fake_now)
 	run_scheduler_tick(fake_now ? fake_now : time());
 }
 
+/** 仅供指定 TestUnit 对象清除某活动的全部场次：同日重跑报名流测试时，
+ * 上一轮持久化的同日场次会把 join 判成"今日已参加"。 */
+int purge_event_sessions_for_test(string event_id)
+{
+	int removed = 0;
+	if(!is_timed_event_test_caller() ||
+	   (event_id!=EVENT_TIANHENG && event_id!=EVENT_JIUYAO))
+		return 0;
+	foreach(indices(sessions),string session_key){
+		mapping session = sessions[session_key];
+		if(mappingp(session) && (string)session["event_id"]==event_id){
+			destroy_session_runtime(session);
+			m_delete(sessions,session_key);
+			removed++;
+		}
+	}
+	if(removed)
+		save_event_state();
+	return removed;
+}
+
 /** 仅供指定 TestUnit 对象创建即时场次；普通命令和管理脚本无权调用。 */
 string begin_session_for_test(string event_id,array(object) players)
 {
