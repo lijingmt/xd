@@ -467,6 +467,75 @@ void test_real_pve_flow()
 	if(player) destruct(player);
 }
 
+void test_signup_to_reward_flow()
+{
+	object city = (object)(ROOT+
+		"/gamelib/d/congxianzhen/congxianzhenguangchang");
+	object first = create_player("__testunit_timed_join_a__");
+	object second = create_player("__testunit_timed_join_b__");
+	int joined_signup = 0;
+	int stance_ok = 0;
+	int battle_started = 0;
+	int settled = 0;
+	int rewarded = 0;
+	string error_desc = "";
+	mixed err = catch{
+		first->move(city);
+		second->move(city);
+		/* 注入中国时区(UTC+8)今天20:01与20:10:01两个时钟：
+		 * 走真实join_event报名入口与真实调度tick开战。 */
+		int china_now = time()+480*60;
+		int today_china = china_now-(china_now%86400);
+		int signup_at = today_china+20*3600+60-480*60;
+		int battle_at = today_china+20*3600+600+1-480*60;
+		string join_first = TIMED_EVENTD->join_event_for_test(
+			first,"tianheng",signup_at);
+		string join_second = TIMED_EVENTD->join_event_for_test(
+			second,"tianheng",signup_at);
+		mapping status = TIMED_EVENTD->query_player_status(first);
+		joined_signup = join_first=="" && join_second=="" &&
+			(int)status["joined"]==1 &&
+			(string)status["phase"]=="signup" &&
+			environment(first)!=city && environment(second)!=city;
+		stance_ok = search(TIMED_EVENTD->handle_command(
+			first,"stance","feng"),"锋势")!=-1;
+		TIMED_EVENTD->tick_sessions_for_test(battle_at);
+		status = TIMED_EVENTD->query_player_status(first);
+		battle_started = (string)status["phase"]=="battle";
+		TIMED_EVENTD->handle_command(first,"move","north");
+		TIMED_EVENTD->handle_command(second,"move","south");
+		second->set_action("escape");
+		second->escape();
+		settled = TIMED_EVENTD->handle_player_defeat(second,first) &&
+			environment(first)==city && environment(second)==city &&
+			!(int)TIMED_EVENTD->query_player_status(first)["joined"] &&
+			!(int)TIMED_EVENTD->query_player_status(second)["joined"];
+		mapping first_state = first["/plus/timed_event"];
+		mapping second_state = second["/plus/timed_event"];
+		rewarded = mappingp(first_state) &&
+			(int)first_state["tianheng_tokens"]>0 &&
+			mappingp(second_state) &&
+			(int)second_state["tianheng_tokens"]>0 &&
+			sizeof(indices((mapping)first_state["claims"]))==1;
+	};
+	if(err)
+		error_desc = describe_error(err)+" "+describe_backtrace(err);
+	else if(!joined_signup || !stance_ok || !battle_started || !settled ||
+		!rewarded)
+		error_desc = sprintf(
+			"signup=%d stance=%d battle=%d settled=%d rewarded=%d "+
+			"env=%O/%O status=%O",
+			joined_signup,stance_ok,battle_started,settled,rewarded,
+			environment(first) && file_name(environment(first)),
+			environment(second) && file_name(environment(second)),
+			TIMED_EVENTD->query_player_status(first));
+	check("天衡全流程：真实报名入口→选战势→调度开战→交战→结算→天衡令到账",
+		!err && joined_signup && stance_ok && battle_started && settled &&
+		rewarded,error_desc);
+	if(first) destruct(first);
+	if(second) destruct(second);
+}
+
 int main()
 {
 	werror("\n========== 每日限时原创玩法测试 ==========\n");
@@ -482,6 +551,7 @@ int main()
 	test_wiring_and_public_status();
 	test_real_pvp_flow();
 	test_real_pve_flow();
+	test_signup_to_reward_flow();
 	werror("限时玩法测试完成: 总计%d, 通过%d, 失败%d\n",
 		results["total"],results["passed"],results["failed"]);
 	return results["failed"] ? 1 : 0;

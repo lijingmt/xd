@@ -20,7 +20,7 @@ private mapping create_participant(object player)
 	]);
 }
 
-private string join_event(object player,string event_id)
+private string join_event(object player,string event_id,void|int at_time)
 {
 	mapping config;
 	mapping window;
@@ -32,7 +32,7 @@ private string join_event(object player,string event_id)
 	if(event_id!=EVENT_TIANHENG && event_id!=EVENT_JIUYAO)
 		return "未找到该限时玩法。\n[返回:timed_event]\n";
 	config = query_event_config(event_id);
-	window = query_event_window(event_id,time());
+	window = query_event_window(event_id,at_time ? at_time : time());
 	if((string)window["phase"]!="signup")
 		return "当前不在集结时段，战斗开始后不能中途加入。\n[返回:timed_event]\n";
 	// 多Worker拓扑诊断：报名全路径留痕（含被路由到别的节点的情况），
@@ -283,9 +283,8 @@ private void prune_old_sessions(int now)
 	}
 }
 
-private void tick_sessions()
+private void run_scheduler_tick(int now)
 {
-	int now = time();
 	/* 配置热重载必须覆盖所有节点：非owner的worker也要用它渲染活动
 	 * 页时间窗与集结判定（2026-09-05实测：只让owner重载，其他worker
 	 * 的旧配置把开放中的集结判成"不在集结时段"）。 */
@@ -336,6 +335,11 @@ private void tick_sessions()
 			tick_jiuyao(session,now);
 	}
 	prune_old_sessions(now);
+}
+
+private void tick_sessions()
+{
+	run_scheduler_tick(time());
 	call_out(tick_sessions,TIMED_EVENT_TICK_SECONDS);
 }
 
@@ -345,6 +349,22 @@ private int is_timed_event_test_caller()
 	string caller_path = caller ? file_name(caller) : "";
 	return caller_path!="" &&
 		has_prefix(caller_path,ROOT+"/test_unit/test_timed_event_system");
+}
+
+/** 仅供指定 TestUnit 对象走真实报名入口；普通命令和管理脚本无权调用。 */
+string join_event_for_test(object player,string event_id,int at_time)
+{
+	if(!is_timed_event_test_caller())
+		return "";
+	return join_event(player,event_id,at_time);
+}
+
+/** 仅供指定 TestUnit 对象同步驱动一次调度tick（fake_now注入时钟）。 */
+void tick_sessions_for_test(void|int fake_now)
+{
+	if(!is_timed_event_test_caller())
+		return;
+	run_scheduler_tick(fake_now ? fake_now : time());
 }
 
 /** 仅供指定 TestUnit 对象创建即时场次；普通命令和管理脚本无权调用。 */
