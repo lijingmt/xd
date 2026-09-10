@@ -2772,12 +2772,16 @@ body {
     color: white;
 }
 
+/* 三条资源条压缩为单行三等分：标签+伸缩条+数值，不再整行堆叠。 */
 .player-stats {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 6px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px 10px;
     align-items: center;
-    overflow-x: auto;
+}
+
+.active-buffs {
+    grid-column: 1 / -1;
 }
 
 .stat-item {
@@ -2804,6 +2808,7 @@ body {
     display: flex;
     align-items: center;
     gap: 4px;
+    min-width: 0;
 }
 
 .stat-label {
@@ -2812,8 +2817,13 @@ body {
     white-space: nowrap;
 }
 
+.stat-value {
+    white-space: nowrap;
+}
+
 .bar-container {
-    width: 40px;
+    flex: 1 1 0;
+    min-width: 12px;
     height: 8px;
     background: rgba(0,0,0,0.3);
     border-radius: 4px;
@@ -5812,7 +5822,7 @@ body {
     }
 
     .bar-container {
-        width: 30px;
+        width: auto;
         height: 5px;
     }
 
@@ -5897,7 +5907,7 @@ body {
     }
 
     .bar-container {
-        width: 35px;
+        width: auto;
         height: 6px;
     }
 
@@ -6262,7 +6272,7 @@ body {
     }
 
     .bar-container {
-        width: 30px;
+        width: auto;
         height: 5px;
     }
 
@@ -12354,6 +12364,26 @@ body {
     transform: scale(0.97);
 }
 
+.equipment-convert-btn {
+    border-color: #5a4a8a;
+    background: #191326;
+    color: #b9a6ff;
+}
+
+.equipment-convert-btn:not(:disabled):active {
+    background: #241b38;
+}
+
+.equipment-refine-btn {
+    border-color: #8a4a2f;
+    background: #26150e;
+    color: #ffb37a;
+}
+
+.equipment-refine-btn:not(:disabled):active {
+    background: #382012;
+}
+
 .equipment-attr-diff {
     display: flex;
     flex-wrap: wrap;
@@ -12584,4 +12614,71 @@ body, .game-container, .modal, .panel, .btn {
         height: 18px;
         font-size: 14px;
     }
+}
+
+/* ===== 碎玉余额 chip：发光呼吸动画，点击充值 ===== */
+.header-jade-chip {
+    background: #231b10;
+    border: 1px solid #8a6d2f;
+    color: #ffd700;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 8px;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    animation: jade-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes jade-glow {
+    0%, 100% {
+        box-shadow: 0 0 3px rgba(212, 175, 55, 0.35);
+        border-color: #8a6d2f;
+    }
+    50% {
+        box-shadow: 0 0 12px rgba(255, 215, 0, 0.85);
+        border-color: #ffd700;
+    }
+}
+
+.header-jade-chip:active {
+    transform: scale(0.96);
+}
+
+/* ===== 右下角官方社群入口（QQ群/电报） ===== */
+.community-dock {
+    position: fixed;
+    right: 8px;
+    bottom: calc(var(--quick-nav-height, 52px) + var(--safe-bottom, 0px) + 14px);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    z-index: 60;
+}
+
+.community-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    border: 1px solid #5a4a2f;
+    background: rgba(20, 16, 26, 0.82);
+    color: #c8b878;
+    font-size: 12px;
+    line-height: 1.6;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.community-chip:active {
+    transform: scale(0.96);
+}
+
+[data-theme="light"] .community-chip {
+    border-color: #8a6d2f;
+    background: rgba(240, 232, 216, 0.88);
+    color: #5a4010;
 }

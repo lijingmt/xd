@@ -12644,3 +12644,41 @@ body, .game-container, .modal, .panel, .btn {
 .header-jade-chip:active {
     transform: scale(0.96);
 }
+
+/* ===== 右下角官方社群入口（QQ群/电报） ===== */
+.community-dock {
+    position: fixed;
+    right: 8px;
+    bottom: calc(var(--quick-nav-height, 52px) + var(--safe-bottom, 0px) + 14px);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    z-index: 60;
+}
+
+.community-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    border: 1px solid #5a4a2f;
+    background: rgba(20, 16, 26, 0.82);
+    color: #c8b878;
+    font-size: 12px;
+    line-height: 1.6;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.community-chip:active {
+    transform: scale(0.96);
+}
+
+[data-theme="light"] .community-chip {
+    border-color: #8a6d2f;
+    background: rgba(240, 232, 216, 0.88);
+    color: #5a4010;
+}

@@ -67,6 +67,11 @@ const MAIN_TABS = [
 
 const PLATFORM_TAG = Platform.OS === 'web' ? 'ios' : Platform.OS;
 
+/* 官方社群入口（与 txpike9 同源）：右下角常驻小徽章。 */
+const COMMUNITY_TELEGRAM_URL = 'https://t.me/wapmud';
+const COMMUNITY_QQ_ID = '610653957';
+const COMMUNITY_QQ_URL = `mqqapi://card/show_pslcard?src_type=internal&version=1&uin=${COMMUNITY_QQ_ID}&card_type=group&source=qrcode`;
+
 function professionName(professionId) {
   const hit = PROFESSION_OPTIONS.find(option =>
     option.profession_id === professionId);
@@ -482,6 +487,10 @@ export default function GameScreen() {
       backgroundColor: '#f0e8d8', borderColor: '#8a6d2f',
     } : null,
     menuIcon: th.id === 'day' ? { color: '#5a4010' } : null,
+    communityChip: th.id === 'day' ? {
+      backgroundColor: 'rgba(240,232,216,0.88)', borderColor: '#8a6d2f',
+    } : null,
+    communityText: th.id === 'day' ? { color: '#5a4010' } : null,
   }), [th.appBackground, th.headerBackground, th.headerBorder,
     th.text, th.textSubtle, th.textMuted, th.gold, th.surface,
     th.menuBorder, th.modalBackground, th.id]);
@@ -857,6 +866,18 @@ export default function GameScreen() {
       { text: '取消', style: 'cancel' },
       { text: '确认', style: 'destructive', onPress: () => send(cmd) },
     ]);
+  };
+
+  /* 右下角社群入口：QQ群卡片/电报。未装对应App时退回提示群号。 */
+  const openQQCommunity = () => {
+    Linking.openURL(COMMUNITY_QQ_URL).catch(() => {
+      Alert.alert('QQ群', `请确认已安装QQ，或在QQ中搜索群号 ${COMMUNITY_QQ_ID}`);
+    });
+  };
+  const openTelegramCommunity = () => {
+    Linking.openURL(COMMUNITY_TELEGRAM_URL).catch(() => {
+      Alert.alert('电报群', `请稍后重试，或手动访问 ${COMMUNITY_TELEGRAM_URL}`);
+    });
   };
 
   const sendTab = tab => {
@@ -1307,6 +1328,24 @@ export default function GameScreen() {
           />
         )}
       />
+
+      {/* ===== 右下角社群入口：QQ群/电报常驻小徽章 ===== */}
+      <View style={styles.communityDock} pointerEvents="box-none">
+        <TouchableOpacity style={[styles.communityChip,
+          themeStyle.communityChip]} onPress={openQQCommunity}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+          <Text style={styles.communityIcon}>💬</Text>
+          <Text style={[styles.communityText,
+            themeStyle.communityText]}>QQ群</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.communityChip,
+          themeStyle.communityChip]} onPress={openTelegramCommunity}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+          <Text style={styles.communityIcon}>✈️</Text>
+          <Text style={[styles.communityText,
+            themeStyle.communityText]}>电报</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* ===== 底部五Tab：复刻 Vue quick-nav =====
        * 自由命令输入栏已移除：原生端全部走按钮/页面内cmd-input表单，
@@ -2073,6 +2112,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row', backgroundColor: '#14101a',
     borderTopWidth: 1, borderTopColor: '#2e2430', paddingBottom: 2,
   },
+  communityDock: {
+    position: 'absolute', right: 6, bottom: 64, zIndex: 40,
+    alignItems: 'flex-end', gap: 5,
+  },
+  communityChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(20,16,26,0.82)', borderWidth: 1,
+    borderColor: '#5a4a2f', borderRadius: 12, paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  communityIcon: { fontSize: 12 },
+  communityText: { color: '#c8b878', fontSize: 11 },
   tabButton: {
     flex: 1, alignItems: 'center', paddingVertical: 6, gap: 1,
   },

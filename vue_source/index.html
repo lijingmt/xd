@@ -2528,7 +2528,17 @@
                 </nav>
             </footer>
         </template>
-    
+
+        <!-- 右下角官方社群入口：QQ群/电报（登录后常驻） -->
+        <div v-if="!showLogin && !showRegister && !showCharacterSelect"
+             class="community-dock" @click.stop>
+            <button type="button" class="community-chip"
+                    title="QQ群 610653957"
+                    @click="openQQCommunity">💬 QQ群</button>
+            <a class="community-chip" href="https://t.me/wapmud"
+               target="_blank" rel="noopener noreferrer">✈️ 电报</a>
+        </div>
+
         <aside v-if="desktopWorldMapOpen && clientLayout !== 'pc'"
                                class="desktop-world-map-overlay desktop-scene-hud"
                                @click.stop>

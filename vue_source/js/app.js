@@ -7029,6 +7029,22 @@ createApp({
         },
 
         /**
+         * 右下角社群入口：复制QQ群号并提示（桌面网页无法直接唤起QQ加群卡片）
+         */
+        openQQCommunity() {
+            const groupId = '610653957';
+            const done = () => alert('QQ群号已复制：' + groupId +
+                '\n请在QQ中搜索该群号加群');
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(groupId)
+                    .then(done)
+                    .catch(() => alert('官方QQ群：' + groupId));
+            } else {
+                alert('官方QQ群：' + groupId);
+            }
+        },
+
+        /**
          * 根据内容行数动态调整容器高度
          */
         adjustContainerHeight() {

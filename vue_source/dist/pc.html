@@ -22,10 +22,10 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1788884478317">
-    <link rel="stylesheet" href="css/app.css?v=v1788884478317">
-    <link rel="stylesheet" href="css/realm.css?v=v1788884478317">
-    <link rel="stylesheet" href="css/pc.css?v=v1788884478317">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1789028426373">
+    <link rel="stylesheet" href="css/app.css?v=v1789028426373">
+    <link rel="stylesheet" href="css/realm.css?v=v1789028426373">
+    <link rel="stylesheet" href="css/pc.css?v=v1789028426373">
 </head>
 <body>
     <div id="app">
@@ -2529,7 +2529,17 @@
                 </nav>
             </footer>
         </template>
-    
+
+        <!-- 右下角官方社群入口：QQ群/电报（登录后常驻） -->
+        <div v-if="!showLogin && !showRegister && !showCharacterSelect"
+             class="community-dock" @click.stop>
+            <button type="button" class="community-chip"
+                    title="QQ群 610653957"
+                    @click="openQQCommunity">💬 QQ群</button>
+            <a class="community-chip" href="https://t.me/wapmud"
+               target="_blank" rel="noopener noreferrer">✈️ 电报</a>
+        </div>
+
         <aside v-if="desktopWorldMapOpen && clientLayout !== 'pc'"
                                class="desktop-world-map-overlay desktop-scene-hud"
                                @click.stop>
@@ -2658,19 +2668,19 @@
                         </aside>
 </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1788884478317"></script>
-    <script src="vendor/canvas-confetti.js?v=v1788884478317"></script>
-    <script src="vendor/howler.core.min.js?v=v1788884478317"></script>
-    <script src="vendor/driver.iife.js?v=v1788884478317"></script>
-    <script src="../includes/game-number-format.js?v=v1788884478317" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1789028426373"></script>
+    <script src="vendor/canvas-confetti.js?v=v1789028426373"></script>
+    <script src="vendor/howler.core.min.js?v=v1789028426373"></script>
+    <script src="vendor/driver.iife.js?v=v1789028426373"></script>
+    <script src="../includes/game-number-format.js?v=v1789028426373" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1788884478317';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1789028426373';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1788884478317"></script>
+    <script src="js/app.js?v=v1789028426373"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1788884478317"></script>
+    <script src="../includes/translate.js?v=v1789028426373"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');
