@@ -89,6 +89,9 @@ void discard_player(object|zero player)
 
 int main()
 {
+	/* 异常装备检测生产已暂时关闭；本回归验证闸门本身：
+	 * 测试期恢复检测，结束时还原关闭。 */
+	ITEMSD->set_abnormal_gear_detection_for_test(1);
 	string sender_id="xd99transfer_sender";
 	string receiver_id="xd99transfer_receiver";
 	object sender;
@@ -298,5 +301,6 @@ int main()
 	cleanup_player(receiver_id);
 	werror("同房间玩家赠送/交易：总计%d，通过%d，失败%d\n",
 		results["total"],results["passed"],results["failed"]);
+	ITEMSD->set_abnormal_gear_detection_for_test(0);
 	return results["failed"] ? 1 : 0;
 }

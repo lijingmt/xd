@@ -46,6 +46,9 @@ void destroy_test_player(object|zero player)
 
 int main()
 {
+	/* 生产已暂时关闭异常装备检测（误伤80%新掉落）；本回归仍
+	 * 验证分类算法本身：测试期恢复，结束时还原关闭状态。 */
+	int detection_was=ITEMSD->set_abnormal_gear_detection_for_test(1);
 	object player=create_test_player("xd01testunitboomgear");
 	object|zero original=this_player();
 	string error_desc="";
@@ -456,5 +459,6 @@ int main()
 	destroy_test_player(player);
 	werror("爆炸装防御：总计%d，通过%d，失败%d\n",results["total"],
 		results["passed"],results["failed"]);
+	ITEMSD->set_abnormal_gear_detection_for_test(0);
 	return results["failed"] ? 1 : 0;
 }

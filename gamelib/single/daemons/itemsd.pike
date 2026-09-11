@@ -2363,6 +2363,20 @@ private int query_gear_line_ceiling(string attr,int limit,int tier,
 	return (int)((float)limit*rate);
 }
 
+// 2026-09-11 生产误伤：80%+的新掉落被分类判异常，玩家无法赠送/
+// 存储/交易。暂时整体关闭异常装备分类——登录回收、仓库、赠送、
+// 摆摊、家园等所有拦截全部依赖本分类，随开关一并停用。
+// 恢复检测时把 1 改回 0（或修正包络后再开）。
+private int abnormal_gear_detection_disabled = 1;
+
+/** 仅供TestUnit在回归中恢复检测；生产恒为关闭状态。 */
+int set_abnormal_gear_detection_for_test(int enabled)
+{
+	int previous = abnormal_gear_detection_disabled;
+	abnormal_gear_detection_disabled = enabled ? 0 : 1;
+	return previous;
+}
+
 int query_abnormal_gear_class(object item)
 {
 	string base;
@@ -2371,6 +2385,8 @@ int query_abnormal_gear_class(object item)
 	int over_cap=0;
 	int over_envelope=0;
 	int item_level;
+	if(abnormal_gear_detection_disabled)
+		return 0;
 	if(!item || !functionp(item->query_item_rareLevel))
 		return 0;
 	// 定制产物（锻造/兑换/百工等，稀有度11+或带item_from标记，
@@ -2526,6 +2542,8 @@ int query_abnormal_gear_class_by_file(void|string relative)
 	mixed err;
 	array(string) tmp;
 	int result;
+	if(abnormal_gear_detection_disabled)
+		return 0;
 	if(!relative || relative=="")
 		return 0;
 	tmp=relative/"item/";
