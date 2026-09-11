@@ -15,13 +15,24 @@ int pay_convert_equip_yushi(object player,int cost)
 /* 扣费小票：结果页会整页替换输出，tell会丢失；暂存给
  * convert_equip_detail 顶部展示（成功/失败结果都可见扣了多少）。
  * pay失败时由各失败分支自写"未扣费"提示，这里只处理成功。 */
-void stash_convert_fee_note(object player,int cost,int need_money)
+void stash_convert_fee_note(object player,int cost,int need_money,
+	void|int paid_times,void|int per_cost,void|int per_money)
 {
 	string receipt;
 	string note;
+	string per="";
 	if(!player)
 		return;
 	receipt=(string)YUSHID->query_yushi_pay_receipt(player);
+	/* 批量时按次展示费用构成：单次X×N次，合计一次结清。 */
+	if(paid_times>1 && (per_cost>0 || per_money>0)){
+		per="（单次";
+		if(per_cost>0)
+			per+=(string)per_cost+"碎玉";
+		if(per_money>0)
+			per+=(per_cost>0?"+":"")+(string)per_money+"金币";
+		per+="×"+(string)paid_times+"次）";
+	}
 	if(cost>0 || need_money>0){
 		note="【本次扣费】";
 		if(cost>0)
@@ -29,7 +40,7 @@ void stash_convert_fee_note(object player,int cost,int need_money)
 				((string)cost+"碎玉"));
 		if(need_money>0)
 			note+=(cost>0?"，":"")+((string)need_money+"金币");
-		note+="。\n";
+		note+=per+"。\n";
 	}
 	else
 		note="【本次扣费】会员免费，本次未扣除任何碎玉。\n";
@@ -55,6 +66,9 @@ int main(string|zero arg)
 	/* 批量增加属性：flag 6/7/8 = 增加属性×3/×5/×10，一次性连续尝试，
 	 * 每次独立结算成功率和费用，属性到11条上限自动停止。 */
 	int batch_count = 1;
+	int batch_paid_times = 0;//实际尝试次数（小票按次展示）
+	int batch_per_cost = 0;
+	int batch_per_money = 0;
 	string batch_summary = "";
 	if(flag>=6){
 		batch_count = flag==6 ? 3 : (flag==7 ? 5 : 10);
@@ -141,10 +155,14 @@ int main(string|zero arg)
 			write(s);
 			return 1;
 		}
-		if(!YUSHID->have_enough_yushi(me,cost))
-			s += "炼化失败！你身上没有足够的玉石\n";
-		else if(me->query_account()<need_money)
-			s += "炼化失败！你身上没有足够的金钱\n";
+		/* 批量按最坏总额预检：避免余额只够1次的玩家掷完骰子后
+		 * 才在支付环节失败（实际按尝试次数结算，可能少于预检）。 */
+		string batch_pre=batch_count>1 ?
+			"（批量增加需"+(string)batch_count+"次的费用）" : "";
+		if(!YUSHID->have_enough_yushi(me,cost*batch_count))
+			s += "炼化失败！你身上没有足够的玉石"+batch_pre+"\n";
+		else if(me->query_account()<need_money*batch_count)
+			s += "炼化失败！你身上没有足够的金钱"+batch_pre+"\n";
 		else{
 			int attri_num = item->query_item_rareLevel();
 			//werror("====[dubug]  the num of old item's attrabute is "+ attri_num+" =====\n");
@@ -260,11 +278,14 @@ int main(string|zero arg)
 				}
 				if(flag==2 && batch_count>1){
 					/* 批量增加：逐次独立判定成功率（属性条数越多越难），
-					 * 每次无论成败都计费；属性到11条上限自动停止。 */
+					 * 每次无论成败都计费；属性到11条上限自动停止。
+					 * 逐次轨迹✓/✗与属性条数变化完整呈现给玩家。 */
 					int successes = 0;
 					int failures = 0;
 					int attempts = 0;
 					int ran_one = 0;
+					int start_attrs = attri_num;
+					string trace = "";
 					log_consume = "convert_add";
 					while(attri_num<11 && attempts<batch_count){
 						ran_one = ran;
@@ -277,15 +298,23 @@ int main(string|zero arg)
 						if(ran_one>random(1000)){
 							attri_num++;
 							successes++;
+							trace += "✓";
 						}
-						else
+						else{
 							failures++;
+							trace += "✗";
+						}
 						attempts++;
 					}
+					batch_paid_times = attempts;
+					batch_per_cost = cost;
+					batch_per_money = need_money;
 					cost *= attempts;
 					need_money *= attempts;
-					batch_summary = "【批量增加】共尝试"+attempts+"次：成功"+
-						successes+"次，失败"+failures+"次";
+					batch_summary = "【批量增加】"+attempts+"次："+
+						trace+"（成功"+successes+"次，失败"+
+						failures+"次），属性"+start_attrs+"条→"+
+						attri_num+"条";
 					if(successes>0)
 						ret_flag = 2;//至少成功一次
 					else{
@@ -298,7 +327,9 @@ int main(string|zero arg)
 							write(s);
 							return 1;
 						}
-						stash_convert_fee_note(me,cost,need_money);
+						stash_convert_fee_note(me,cost,need_money,
+							batch_paid_times,batch_per_cost,
+							batch_per_money);
 						if(batch_summary!="")
 							me["/tmp/convert_fee_note"]=
 								(string)me["/tmp/convert_fee_note"]+
@@ -479,7 +510,8 @@ int main(string|zero arg)
 					write(s);
 					return 1;
 				}
-				stash_convert_fee_note(me,cost,need_money);
+				stash_convert_fee_note(me,cost,need_money,
+					batch_paid_times,batch_per_cost,batch_per_money);
 				if(special_name!=""){
 					string stone_cn = special_name=="binglanyushi" ? "冰蓝玉石" :
 						special_name=="huposhi" ? "琥珀石" : "翠晶石";
