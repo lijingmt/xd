@@ -16,13 +16,25 @@ int pay_convert_equip_yushi(object player,int cost)
  * convert_equip_detail 顶部展示（成功/失败结果都可见扣了多少）。
  * pay失败时由各失败分支自写"未扣费"提示，这里只处理成功。 */
 void stash_convert_fee_note(object player,int cost,int need_money,
-	void|int paid_times,void|int per_cost,void|int per_money)
+	void|int paid_times,void|int per_cost,void|int per_money,
+	void|string label)
 {
 	string receipt;
 	string note;
 	string per="";
 	if(!player)
 		return;
+	/* 持久化炼化扣费历史（最近20条），详情页在小票上方展示。 */
+	if(label && label!=""){
+		array history=player["/plus/convert_fee_history"];
+		if(!arrayp(history))
+			history=({});
+		history=({(["t":time(),"label":label,
+			"cost":cost,"money":need_money])})+history;
+		if(sizeof(history)>20)
+			history=history[..19];
+		player["/plus/convert_fee_history"]=copy_value(history);
+	}
 	receipt=(string)YUSHID->query_yushi_pay_receipt(player);
 	/* 批量时按次展示费用构成：单次X×N次，合计一次结清。 */
 	if(paid_times>1 && (per_cost>0 || per_money>0)){
@@ -329,7 +341,10 @@ int main(string|zero arg)
 						}
 						stash_convert_fee_note(me,cost,need_money,
 							batch_paid_times,batch_per_cost,
-							batch_per_money);
+							batch_per_money,
+							item_name_cn+" 增加属性"+
+							(batch_paid_times>1 ?
+								"×"+batch_paid_times : ""));
 						if(batch_summary!="")
 							me["/tmp/convert_fee_note"]=
 								(string)me["/tmp/convert_fee_note"]+
@@ -360,7 +375,8 @@ int main(string|zero arg)
 						write(s);
 						return 1;
 					}
-					stash_convert_fee_note(me,cost,need_money);
+					stash_convert_fee_note(me,cost,need_money,
+						0,0,0,"增加属性 "+item_name_cn);
 					if(batch_summary!="")
 						me["/tmp/convert_fee_note"]=
 							(string)me["/tmp/convert_fee_note"]+
@@ -511,7 +527,12 @@ int main(string|zero arg)
 					return 1;
 				}
 				stash_convert_fee_note(me,cost,need_money,
-					batch_paid_times,batch_per_cost,batch_per_money);
+					batch_paid_times,batch_per_cost,batch_per_money,
+					(ret_flag==1 ? "转化 "+item_name_cn :
+					 "增加属性"+
+					 (batch_paid_times>1 ?
+						"×"+batch_paid_times : "")+
+					 " "+item_name_cn));
 				if(special_name!=""){
 					string stone_cn = special_name=="binglanyushi" ? "冰蓝玉石" :
 						special_name=="huposhi" ? "琥珀石" : "翠晶石";

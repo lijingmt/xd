@@ -47,15 +47,36 @@ int main(string|zero arg)
 			s += "增加失败！(T_T)\n";
 		else if(flag == 4)
 			s += "清零成功！(^0^)\n";
-		/* 一次性扣费小票：由convert_equip_confirm支付成功后暂存，
-		 * 这里展示并清除（浏览打开时无小票，不影响）。
-		 * 文案避开RN支付过滤词（充值等），否则整行会被客户端屏蔽。 */
+		/* 扣费历史（最近5条）+ 本次扣费小票：小票由confirm支付成功后
+		 * 暂存，这里展示并清除；历史持久化在/plus，结果页跳过第0条
+		 * （那就是本次，小票已在下方展示）。文案避开RN支付过滤词。 */
 		mixed raw_note=me["/tmp/convert_fee_note"];
 		string fee_note=stringp(raw_note) ? raw_note : "";
-		if(fee_note!=""){
+		if(fee_note!="")
 			me->m_delete_foruser("/tmp/convert_fee_note");
-			s += fee_note;
+		array fee_history=me["/plus/convert_fee_history"];
+		if(arrayp(fee_history) && sizeof(fee_history)){
+			int skip_current=fee_note!="" ? 1 : 0;
+			int shown=0;
+			for(int hi=skip_current;
+			   hi<sizeof(fee_history) && shown<5;hi++){
+				mapping one=fee_history[hi];
+				mapping lt;
+				if(!mappingp(one))
+					continue;
+				lt=localtime((int)one["t"]);
+				s+=sprintf("· %02d:%02d %s 扣%d碎玉%s\n",
+					(int)lt["hour"],(int)lt["min"],
+					(string)one["label"],(int)one["cost"],
+					(int)one["money"]>0 ?
+						sprintf("，%d金币",(int)one["money"]) : "");
+				shown++;
+			}
+			if(shown>0)
+				s="【炼化历史】最近"+shown+"次\n"+s;
 		}
+		if(fee_note!="")
+			s += fee_note;
 		rareLevel = item->query_item_rareLevel();
 		canLevel = item->query_item_canLevel();
 		convert_cost=ITEMSD->query_convert_equip_yushi_cost(item);
