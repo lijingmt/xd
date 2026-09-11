@@ -56,6 +56,30 @@ int main(string|zero arg)
 	}
 	s="选择你需要炼化的装备"+
 		(filter=="all" ? "" : "（"+slots[filter]+"）")+"\n";
+	/* 最近炼化扣费历史（最近5条）：玩家从随身洗装入口进来第一眼
+	 * 就能看到花了多少，不用点进具体装备。 */
+	{
+		array fee_history=me["/plus/convert_fee_history"];
+		if(arrayp(fee_history) && sizeof(fee_history)){
+			int shown=0;
+			string history_text="";
+			for(int hi=0;hi<sizeof(fee_history) && shown<5;hi++){
+				mapping one=fee_history[hi];
+				mapping lt;
+				if(!mappingp(one))
+					continue;
+				lt=localtime((int)one["t"]);
+				history_text+=sprintf("· %02d:%02d %s 扣%d碎玉%s\n",
+					(int)lt["hour"],(int)lt["min"],
+					(string)one["label"],(int)one["cost"],
+					(int)one["money"]>0 ?
+						sprintf("，%d金币",(int)one["money"]) : "");
+				shown++;
+			}
+			if(shown>0)
+				s+="【炼化历史】最近"+shown+"次\n"+history_text;
+		}
+	}
 	if(!sizeof(equipped) && !sizeof(loose))
 		s+="没有符合条件的装备。\n";
 	foreach(equipped,object ob)
