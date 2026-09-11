@@ -12,6 +12,30 @@ int pay_convert_equip_yushi(object player,int cost)
 	return YUSHID->pay_yushi(player,cost);
 }
 
+/* 扣费小票：结果页会整页替换输出，tell会丢失；暂存给
+ * convert_equip_detail 顶部展示（成功/失败结果都可见扣了多少）。
+ * pay失败时由各失败分支自写"未扣费"提示，这里只处理成功。 */
+void stash_convert_fee_note(object player,int cost,int need_money)
+{
+	string receipt;
+	string note;
+	if(!player)
+		return;
+	receipt=(string)YUSHID->query_yushi_pay_receipt(player);
+	if(cost>0 || need_money>0){
+		note="【本次扣费】";
+		if(cost>0)
+			note+=(receipt!="" ? receipt :
+				((string)cost+"碎玉"));
+		if(need_money>0)
+			note+=(cost>0?"，":"")+((string)need_money+"金币");
+		note+="。\n";
+	}
+	else
+		note="【本次扣费】会员免费，本次未扣除任何碎玉。\n";
+	player["/tmp/convert_fee_note"]=note;
+}
+
 int main(string|zero arg)
 {
 	string s = "";
@@ -245,6 +269,7 @@ int main(string|zero arg)
 						write(s);
 						return 1;
 					}
+					stash_convert_fee_note(me,cost,need_money);
 					if(cost)
 						cost_s += cost+"|suiyu_value,";
 					//扣除相应的钱
@@ -389,6 +414,14 @@ int main(string|zero arg)
 					s += "炼化失败！玉石状态已经变化，本次没有更换装备\n";
 					write(s);
 					return 1;
+				}
+				stash_convert_fee_note(me,cost,need_money);
+				if(special_name!=""){
+					string stone_cn = special_name=="binglanyushi" ? "冰蓝玉石" :
+						special_name=="huposhi" ? "琥珀石" : "翠晶石";
+					me["/tmp/convert_fee_note"]=
+						(string)me["/tmp/convert_fee_note"]+
+						"【辅助材料】"+stone_cn+"×1。\n";
 				}
 				if(cost)
 					cost_s += cost+"|suiyu_value,";

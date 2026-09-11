@@ -53,6 +53,8 @@ int main(string|zero arg)
 			}
 			item->set_convert_count(0);
 			me->remove_combine_item("zijinyushi",1);
+			/* 结果页整页替换输出，扣费提示由小票带到详情页顶部。 */
+			me["/tmp/convert_fee_note"]="【本次扣费】紫金玉石×1。\n";
 			me->command("convert_equip_detail "+item_name+" 4");
 			return 1;
 		}

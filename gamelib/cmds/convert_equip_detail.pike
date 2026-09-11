@@ -47,6 +47,13 @@ int main(string|zero arg)
 			s += "增加失败！(T_T)\n";
 		else if(flag == 4)
 			s += "清零成功！(^0^)\n";
+		/* 一次性扣费小票：由convert_equip_confirm支付成功后暂存，
+		 * 这里展示并清除（浏览打开时无小票，不影响）。 */
+		string fee_note=(string)me["/tmp/convert_fee_note"];
+		if(fee_note!=""){
+			me->m_delete_foruser("/tmp/convert_fee_note");
+			s += fee_note;
+		}
 		rareLevel = item->query_item_rareLevel();
 		canLevel = item->query_item_canLevel();
 		convert_cost=ITEMSD->query_convert_equip_yushi_cost(item);

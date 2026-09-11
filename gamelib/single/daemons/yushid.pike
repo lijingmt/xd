@@ -365,6 +365,9 @@ int reconcile_wallet_payment(object player)
 int pay_yushi(object player,int num)
 {
 	array(mapping(string:mixed)) removals=({});
+	/* 扣费小票：成功路径写入明细，失败路径清空。跳转型命令（洗装等）
+	 * 的结果页会整页替换输出，tell会丢失，小票由结果页读取展示。 */
+	player["/tmp/yushi_pay_receipt"] = "";
 	if(num < 0 || !have_enough_yushi(player,num))//如果玉石不够支付，直接返回失败
 		return 0;
 
@@ -431,6 +434,9 @@ int pay_yushi(object player,int num)
 		if(MAP_WORKERD->query_node_role()!="worker")
 			call_out(commit_wallet_payment_after_command,0,player,request_id);
 		tell_object(player,"已优先使用当前人物玉石，不足部分从账号共享充值余额扣除。\n");
+		player["/tmp/yushi_pay_receipt"] = sprintf(
+			"人物玉石折合%d碎玉＋账号共享余额%d碎玉（共%d碎玉）",
+			physical_total,wallet_need,num);
 		return 1;
 	}
 
@@ -505,7 +511,24 @@ int pay_yushi(object player,int num)
 		}
 		tell_object(player,"系统已自动兑换玉石，并找回"+get_yushi_for_desc(change)+"。\n");
 	}
+	{
+		int paid_total = 0;
+		for(int m=1;m<6;m++)
+			if(remove_num[m]>0)
+				paid_total += remove_num[m]*rarelevel_value[m];
+		paid_total -= change;
+		player["/tmp/yushi_pay_receipt"] = sprintf(
+			"人物玉石净扣折合%d碎玉",paid_total);
+	}
 	return 1;
+}
+
+/** 最近一次pay_yushi成功的扣费明细（供跳转型结果页展示）。 */
+string query_yushi_pay_receipt(object player)
+{
+	if(!player)
+		return "";
+	return (string)player["/tmp/yushi_pay_receipt"];
 }
 
 /* 账号级扩充类购买（在线上限/职业位/人物位）统一支付入口：
