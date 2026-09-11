@@ -62,6 +62,8 @@ int main(string|zero arg)
 		array fee_history=me["/plus/convert_fee_history"];
 		if(arrayp(fee_history) && sizeof(fee_history)){
 			int shown=0;
+			int total_jade=0;
+			int total_gold=0;
 			string history_text="";
 			for(int hi=0;hi<sizeof(fee_history) && shown<5;hi++){
 				mapping one=fee_history[hi];
@@ -69,6 +71,8 @@ int main(string|zero arg)
 				if(!mappingp(one))
 					continue;
 				lt=localtime((int)one["t"]);
+				total_jade+=(int)one["cost"];
+				total_gold+=(int)one["money"];
 				history_text+=sprintf("· %02d:%02d %s 扣%d碎玉%s\n",
 					(int)lt["hour"],(int)lt["min"],
 					(string)one["label"],(int)one["cost"],
@@ -76,8 +80,11 @@ int main(string|zero arg)
 						sprintf("，%d金币",(int)one["money"]) : "");
 				shown++;
 			}
-			if(shown>0)
+			if(shown>0){
+				history_text+="以上"+shown+"次合计：扣"+total_jade+"碎玉"+
+					(total_gold>0 ? "，"+total_gold+"金币" : "")+"。\n";
 				s+="【炼化历史】最近"+shown+"次\n"+history_text;
+			}
 		}
 	}
 	if(!sizeof(equipped) && !sizeof(loose))
