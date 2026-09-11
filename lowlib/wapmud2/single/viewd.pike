@@ -274,6 +274,7 @@ $(ob->query_links(arg))
 			搜索物品：[inventory_search ...]
 			[一键穿装:auto_equip]
 			[新手补给商店:newbie_shop]
+			[一键学习书卷:learn_all]
 			[一键安全销毁非装备:cleanup_non_equipment]
 			$(player->view_inventory_batch_sell_entry())
 			$(player->view_inventory_zhuangbei())
@@ -284,6 +285,7 @@ $(ob->query_links(arg))
 			搜索物品：[inventory_search ...]
 			[一键穿装:auto_equip]
 			[新手补给商店:newbie_shop]
+			[一键学习书卷:learn_all]
 			[一键安全销毁非装备:cleanup_non_equipment]
 			$(player->view_inventory_batch_sell_entry())
 			$(player->view_inventory_zhuangbei())
@@ -291,6 +293,7 @@ $(ob->query_links(arg))
 	WAP_VIEWD["/inventory_daoju"]=new(MUD_VIEW,
 #"筛选物品：[inventory_filter category ...]
 			搜索物品：[inventory_search ...]
+			[一键学习书卷:learn_all]
 			[一键安全销毁非装备:cleanup_non_equipment]
 			$(player->view_inventory_daoju())
 			");

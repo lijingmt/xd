@@ -68,16 +68,26 @@ int main(string|zero arg)
 		s+="[提炼排行:refine rank]|[月度榜单:pvp_rank]\n";
 		s+="请选择要提炼的装备：\n";
 		int listed=0;
+		/* 已装备置顶（玩家反馈：常提炼身上穿的件）；其余保持原顺序。 */
+		array equipped_first=({});
+		array rest=({});
 		foreach(all_inventory(me),object ob){
 			if(!is_refinable(ob) ||
 			   !functionp(ob->query_refine_level))
 				continue;
+			if(ob->equiped)
+				equipped_first+=({ob});
+			else
+				rest+=({ob});
+		}
+		foreach(equipped_first+rest,object ob){
 			int level=(int)ob->query_refine_level();
 			mapping costs=REFINED->query_refine_costs(level);
 			int base_rate=REFINED->query_refine_success_rate(level);
 			int rate=REFINED->query_luck_adjusted_rate(me,level);
 			int luck_gain=rate-base_rate;
-			s+="[+"+level+" "+ob->query_name_cn()+":refine "+
+			s+="[+"+level+" "+ob->query_name_cn()+(ob->equiped ?
+				"（已装备）" : "")+":refine "+
 				ob->query_name()+"]("+success_desc(rate)+
 				(luck_gain>0 ? "(加成+"+success_desc(luck_gain)+")" : "")+
 				"/"+costs["jade"]+"玉+"+costs["stone"]+"石)";

@@ -48,7 +48,8 @@ string view_cluster_user_list_row(mapping user)
 	if(userid=="" || name_cn=="" || !qqlist_zone_visible(userid))
 		return "";
 	data = name_cn+"("+profession+") "+gender+" "+idle+" *"+position;
-	data += " [加为好友:qqlist "+userid+"] [发消息:tell "+userid+"]";
+	data += " [加为好友:qqlist "+userid+"] [发消息:tell "+userid+"]"+
+		"[邀请组队:term_assist "+userid+"]";
 	if(qqlist_races_can_socialize(
 		(string)this_object()->query_raceId(),race_id) && room_path!="")
 		data += "[传送过去:qge74hye "+room_path+"]";
@@ -136,9 +137,9 @@ string view_user_list(){
 			string room_path = file_name(env)-ROOT -"/gamelib/d/";
 			postions = (string)env->query_name_cn();
 			if(this_object()->can_socialize_with(list[j]))
-				data+=(string)list[j]->query_name_cn()+"("+list[j]->query_profe_cn(list[j]->query_profeId())+")"+" "+gender+" "+idle+" *"+postions+" [加为好友:qqlist "+(string)list[j]->query_name()+"] [发消息:tell "+(string)list[j]->query_name()+"][传送过去:qge74hye "+ room_path + "]\n\n";
+				data+=(string)list[j]->query_name_cn()+"("+list[j]->query_profe_cn(list[j]->query_profeId())+")"+" "+gender+" "+idle+" *"+postions+" [加为好友:qqlist "+(string)list[j]->query_name()+"] [发消息:tell "+(string)list[j]->query_name()+"][邀请组队:term_assist "+(string)list[j]->query_name()+"][传送过去:qge74hye "+ room_path + "]\n\n";
 			else
-				data+=(string)list[j]->query_name_cn()+"("+list[j]->query_profe_cn(list[j]->query_profeId())+")"+" "+gender+" "+idle+" *"+postions+" [加为好友:qqlist "+(string)list[j]->query_name()+"] [发消息:tell "+(string)list[j]->query_name()+"]传送过去\n\n";
+				data+=(string)list[j]->query_name_cn()+"("+list[j]->query_profe_cn(list[j]->query_profeId())+")"+" "+gender+" "+idle+" *"+postions+" [加为好友:qqlist "+(string)list[j]->query_name()+"] [发消息:tell "+(string)list[j]->query_name()+"][邀请组队:term_assist "+(string)list[j]->query_name()+"]传送过去\n\n";
 		};
 	}
 	return data;

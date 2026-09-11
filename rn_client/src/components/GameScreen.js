@@ -540,6 +540,7 @@ export default function GameScreen() {
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [parallelCap, setParallelCap] = useState(store.parallelLimit);
   const [searchText, setSearchText] = useState('');
   const [charListOpen, setCharListOpen] = useState(false);
   const [loginAllBusy, setLoginAllBusy] = useState(false);
@@ -654,6 +655,29 @@ export default function GameScreen() {
     import('../utils/themeStorage.js').then(({ injectableStorage }) =>
       injectableStorage()).then(st =>
         st.setItem('xiand.onboarding_done', '1')).catch(() => {});
+  };
+
+  /* 并行角色上限（玩家反馈#8）：本地可调并持久化。 */
+  useEffect(() => {
+    import('../utils/themeStorage.js').then(({ injectableStorage }) =>
+      injectableStorage()).then(st =>
+        st.getItem('xiand.parallel_limit')).then(v => {
+      const n=parseInt(v,10);
+      if(n>0){
+        useGameStore.setState({ parallelLimit: n });
+        setParallelCap(n);
+      }
+    }).catch(() => {});
+  }, []);
+  const cycleParallelCap = () => {
+    const options=[10,20,30,50];
+    const next=options[(options.indexOf(parallelCap)+1)%sizeof(options)];
+    setParallelCap(next);
+    useGameStore.setState({ parallelLimit: next });
+    import('../utils/themeStorage.js').then(({ injectableStorage }) =>
+      injectableStorage()).then(st =>
+        st.setItem('xiand.parallel_limit', String(next))).catch(() => {});
+    toast(`并行角色上限已设为 ${next}`);
   };
 
   /* 命令失败即时反馈（画面已自动恢复，别让玩家对着旧帧猜）。 */
@@ -1657,6 +1681,9 @@ export default function GameScreen() {
               并行挂机 {Object.keys(store.sessions || {}).length}/
               {store.parallelLimit}
             </Text>
+            <MenuRow icon="👥"
+              label={`并行角色上限：${parallelCap}（点击调整）`}
+              onPress={cycleParallelCap} />
             <MenuRow icon={uiSettings.combatEffects ? '✨' : '○'}
               label={`视觉特效：${uiSettings.combatEffects ? '开启' : '关闭'}`}
               onPress={() => updateUiSettings({
