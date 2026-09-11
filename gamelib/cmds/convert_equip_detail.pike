@@ -48,8 +48,10 @@ int main(string|zero arg)
 		else if(flag == 4)
 			s += "清零成功！(^0^)\n";
 		/* 一次性扣费小票：由convert_equip_confirm支付成功后暂存，
-		 * 这里展示并清除（浏览打开时无小票，不影响）。 */
-		string fee_note=(string)me["/tmp/convert_fee_note"];
+		 * 这里展示并清除（浏览打开时无小票，不影响）。
+		 * 文案避开RN支付过滤词（充值等），否则整行会被客户端屏蔽。 */
+		mixed raw_note=me["/tmp/convert_fee_note"];
+		string fee_note=stringp(raw_note) ? raw_note : "";
 		if(fee_note!=""){
 			me->m_delete_foruser("/tmp/convert_fee_note");
 			s += fee_note;
