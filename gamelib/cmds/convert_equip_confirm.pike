@@ -51,9 +51,17 @@ int main(string|zero arg)
 	int rareLevel = 0;//物品的稀有等级
 	int cost = 0;//需要的玉石数
 	int ret_flag = 1;//标识是转化成功，还是增加成功
-	int vip_flag = 0;//vip标志位
+	int vip_flag = 0;
+	/* 批量增加属性：flag 6/7/8 = 增加属性×3/×5/×10，一次性连续尝试，
+	 * 每次独立结算成功率和费用，属性到11条上限自动停止。 */
+	int batch_count = 1;
+	string batch_summary = "";
+	if(flag>=6){
+		batch_count = flag==6 ? 3 : (flag==7 ? 5 : 10);
+		flag = 2;
+	}//vip标志位
 	if(!arg || sscanf(arg,"%s %s %d %d %d",item_name,item_type,cost,flag,vip_flag)<4 ||
-	   flag<1 || flag>5 || (vip_flag!=0 && vip_flag!=1)){
+	   flag<1 || flag>8 || (vip_flag!=0 && vip_flag!=1)){
 		write("炼化参数无效。\n[返回:convert_equip_list]\n[返回游戏:look]\n");
 		return 1;
 	}
@@ -250,7 +258,59 @@ int main(string|zero arg)
 						return 1;
 					}
 				}
-				if(ran>random(1000)){
+				if(flag==2 && batch_count>1){
+					/* 批量增加：逐次独立判定成功率（属性条数越多越难），
+					 * 每次无论成败都计费；属性到11条上限自动停止。 */
+					int successes = 0;
+					int failures = 0;
+					int attempts = 0;
+					int ran_one = 0;
+					log_consume = "convert_add";
+					while(attri_num<11 && attempts<batch_count){
+						ran_one = ran;
+						switch(attri_num){
+							case 7: ran_one=80; break;
+							case 8: ran_one=50; break;
+							case 9: ran_one=20; break;
+							case 10: ran_one=3; break;
+						}
+						if(ran_one>random(1000)){
+							attri_num++;
+							successes++;
+						}
+						else
+							failures++;
+						attempts++;
+					}
+					cost *= attempts;
+					need_money *= attempts;
+					batch_summary = "【批量增加】共尝试"+attempts+"次：成功"+
+						successes+"次，失败"+failures+"次";
+					if(successes>0)
+						ret_flag = 2;//至少成功一次
+					else{
+						/* 批量全部失败：不走单次失败分支，必须在此
+						 * 完成扣费与金币扣除，否则会漏费。 */
+						ret_flag = 3;
+						new_item_name = "failed";
+						if(!pay_convert_equip_yushi(me,cost)){
+							s += "炼化失败！玉石状态已经变化，本次没有扣费\n";
+							write(s);
+							return 1;
+						}
+						stash_convert_fee_note(me,cost,need_money);
+						if(batch_summary!="")
+							me["/tmp/convert_fee_note"]=
+								(string)me["/tmp/convert_fee_note"]+
+								batch_summary+"\n";
+						if(cost)
+							cost_s += cost+"|suiyu_value,";
+						if(need_money)
+							me->del_account(need_money);
+					}
+				//		werror("====[dubug] i have set the num to be:"+ attri_num+" =====\n");
+				}
+				else if(ran>random(1000)){
 					log_consume = "convert_add";
 					attri_num++;
 					if(flag==4) attri_num=2;//使用琥珀石得到两个属性的装备
@@ -270,6 +330,10 @@ int main(string|zero arg)
 						return 1;
 					}
 					stash_convert_fee_note(me,cost,need_money);
+					if(batch_summary!="")
+						me["/tmp/convert_fee_note"]=
+							(string)me["/tmp/convert_fee_note"]+
+							batch_summary+"\n";
 					if(cost)
 						cost_s += cost+"|suiyu_value,";
 					//扣除相应的钱
@@ -423,6 +487,10 @@ int main(string|zero arg)
 						(string)me["/tmp/convert_fee_note"]+
 						"【辅助材料】"+stone_cn+"×1。\n";
 				}
+				if(batch_summary!="")
+					me["/tmp/convert_fee_note"]=
+						(string)me["/tmp/convert_fee_note"]+
+						batch_summary+"\n";
 				if(cost)
 					cost_s += cost+"|suiyu_value,";
 				if(need_money)

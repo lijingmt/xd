@@ -7,7 +7,10 @@ int main(string|zero arg)
 	string item_name = "";
 	string item_type = "";
 	int item_cost = 0;
-	if(!arg || sscanf(arg,"%s %s %d",item_name,item_type,item_cost)!=3){
+	int forward_flag = 2;//可选批量增加：6/7/8 = ×3/×5/×10
+	if(!arg || sscanf(arg,"%s %s %d %d",item_name,item_type,item_cost,
+		forward_flag)<3 || (forward_flag!=2 && forward_flag<6) ||
+		forward_flag>8){
 		write("炼化参数无效。\n[返回游戏:look]\n");
 		return 1;
 	}
@@ -36,8 +39,11 @@ int main(string|zero arg)
 	item_cost = item_cost* vip_off_list[vip_level]/10;
 	if(vip_level)
 	{
-		s += "尊敬的"+ me->query_name_cn()+",你现在是"+vip_name+",你执行本操作只需花费"+ YUSHID->get_yushi_for_desc(item_cost)+"\n";
-		s += "[确认:convert_equip_confirm " + item_name+" "+item_type+" "+ item_cost+ " 2 1]\n";
+		s += "尊敬的"+ me->query_name_cn()+",你现在是"+vip_name+
+			(forward_flag>=6 ? "，批量增加每次" : "，你执行本操作")+
+			"只需花费"+ YUSHID->get_yushi_for_desc(item_cost)+
+			(forward_flag>=6 ? "（按实际尝试次数结算）" : "")+"\n";
+		s += "[确认:convert_equip_confirm " + item_name+" "+item_type+" "+ item_cost+ " "+forward_flag+" 1]\n";
 		s += "[返回:convert_equip_detail " + item_name +" 0]\n";	
 	}
 	else

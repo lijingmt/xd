@@ -115,7 +115,13 @@ int main(string|zero arg)
 			s += "[转化次数清零:convert_equip_reset "+item->query_name()+"](x"+have_zijinyushi+")\n";}
 			s += "增加需要："+YUSHID->get_yushi_for_desc(add_cost)+","+s_money+"\n";
 			s += "[增加属性:convert_equip_confirm "+item->query_name()+" "+item->query_item_type()+" "+add_cost+" 2 0]\n";
+			s += "[增加属性×3:convert_equip_confirm "+item->query_name()+" "+item->query_item_type()+" "+add_cost+" 6 0]\n";
+			s += "[增加属性×5:convert_equip_confirm "+item->query_name()+" "+item->query_item_type()+" "+add_cost+" 7 0]\n";
+			s += "[增加属性×10:convert_equip_confirm "+item->query_name()+" "+item->query_item_type()+" "+add_cost+" 8 0]\n";
 			s += "[会员优惠增加属性:convert_equip_vip_off "+item->query_name()+" "+item->query_item_type()+" "+add_cost+" 2]\n";
+			s += "[会员优惠×3:convert_equip_vip_off "+item->query_name()+" "+item->query_item_type()+" "+add_cost+" 6]|"+
+				"[会员优惠×5:convert_equip_vip_off "+item->query_name()+" "+item->query_item_type()+" "+add_cost+" 7]|"+
+				"[会员优惠×10:convert_equip_vip_off "+item->query_name()+" "+item->query_item_type()+" "+add_cost+" 8]\n";
 			if(item->query_item_rareLevel()<7)
 			s += "[冰蓝玉石辅助增加:convert_equip_confirm "+item->query_name()+" "+item->query_item_type()+" "+add_cost+" 3](x"+have_binglanyushi+")\n";
 			if(item->query_item_rareLevel()==0){
