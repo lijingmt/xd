@@ -1188,13 +1188,27 @@ void fight_die_single(object env,void|object credited_killer)
 		if(room_type && room_type == "rookie")
 			pro_add = 3000; //新手村的怪，都有一定的幸运加成。
 		//end of evan added 2008-04-24
+		// 组队幸运（2026-09-12玩家反馈：组队打boss幸运按0算，几乎
+		// 只掉优良）：首攻者/补结算者的幸运不再独占掉落判定，改为
+		// 取当前仍在战斗中的队员最高幸运；单人杀怪取值不变。
+		int drop_luck = first->query_lunck();
+		foreach(indices(this_object()->targets),object member){
+			if(!member || !functionp(member->query_lunck) ||
+			   !functionp(member->query_term))
+				continue;
+			if((string)member->query_term()!=
+				(string)first->query_term())
+				continue;
+			if((int)member->query_lunck()>drop_luck)
+				drop_luck=(int)member->query_lunck();
+		}
 		object ob = ITEMSD->get_item(this_object()->query_level(),
-			first->query_level(),first->query_lunck()+pro_add,
+			first->query_level(),drop_luck+pro_add,
 			PERSONAL_DIFFICULTYD->query_current_level(first),first);
 		//掉落特殊物品
 		object ob_spec = ITEMSD->get_spec_item(
 			this_object()->query_level(), first->query_level(),
-			first->query_lunck()+pro_add,
+			drop_luck+pro_add,
 			PERSONAL_DIFFICULTYD->query_rare_drop_percent(first));
 		//掉落宝石 caijie 080807
 		object ob_shi = ITEMSD->get_worlddrop_item(this_object()->query_level(),first->query_level());
