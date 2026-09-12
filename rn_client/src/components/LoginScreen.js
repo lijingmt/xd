@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator,
+  ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Modal,
 } from 'react-native';
+import TermsOfServiceScreen from './TermsOfServiceScreen.js';
 import { useGameStore } from '../store/useGameStore.js';
 import * as api from '../api/mudApi.js';
 import { WAN_API_BASE, LAN_API_BASE } from '../api/mudApi.js';
@@ -12,6 +13,8 @@ import {
 } from '../utils/savedAccounts.js';
 
 export default function LoginScreen() {
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
   const {
     partitions, loadPartitions, login, busy, error, apiBase, setApiBase,
   } = useGameStore();
@@ -102,7 +105,13 @@ export default function LoginScreen() {
   const openPartitions = (partitions || []).filter(p => p.login_open !== 0);
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
+    <KeyboardAvoidingView style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}>
+    <ScrollView style={styles.screen} contentContainerStyle={
+      styles.container}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}>
       <TouchableOpacity style={styles.brandGlow} activeOpacity={0.9}
         onPress={tapLogo} disabled={devUnlock}>
         <View style={styles.brandMark}>
@@ -209,8 +218,10 @@ export default function LoginScreen() {
             style={[styles.loginButton,
               (busy || !partition || !userid || !password) &&
                 styles.loginButtonDisabled]}
-            disabled={busy || !partition || !userid || !password}
+            disabled={busy || !partition || !userid || !password ||
+              !agreedToTerms}
             onPress={() => {
+              if (!agreedToTerms) return;
               setLoginProgress('正在连接…');
               setTimeout(() => setLoginProgress('正在验证…'), 800);
               setTimeout(() => setLoginProgress('正在加载…'), 1600);
@@ -238,6 +249,22 @@ export default function LoginScreen() {
                 </Text>}
           </TouchableOpacity>
         )}
+        <TouchableOpacity
+          style={styles.termsRow}
+          onPress={() => setAgreedToTerms(!agreedToTerms)}
+          activeOpacity={0.76}>
+          <View style={[styles.checkbox,
+            agreedToTerms && styles.checkboxChecked]}>
+            {agreedToTerms && <Text style={styles.checkmark}>✓</Text>}
+          </View>
+          <Text style={styles.termsText}>
+            我已阅读并同意
+            <Text style={styles.termsLink}
+              onPress={e => { e.stopPropagation(); setShowTerms(true); }}>
+              《用户服务协议》
+            </Text>
+          </Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.switchRow}
           onPress={() => {
@@ -291,6 +318,11 @@ export default function LoginScreen() {
 
       <Text style={styles.footer}>挂机在服务器持续运行 · 关闭客户端也不停</Text>
     </ScrollView>
+    <Modal visible={showTerms} animationType="slide"
+      onRequestClose={() => setShowTerms(false)}>
+      <TermsOfServiceScreen onClose={() => setShowTerms(false)} />
+    </Modal>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -377,6 +409,25 @@ const styles = StyleSheet.create({
   partitionChipActive: { borderColor: '#d4af37', backgroundColor: '#2d2410' },
   partitionText: { color: '#a89aa8', fontSize: 14 },
   partitionTextActive: { color: '#ffd700' },
+  termsRow: {
+    flexDirection: 'row', alignItems: 'center',
+    minHeight: 42, marginTop: -4, marginBottom: 10,
+    paddingHorizontal: 10, paddingVertical: 8,
+    borderRadius: 10, borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.35)',
+    backgroundColor: 'rgba(212,175,55,0.08)',
+  },
+  checkbox: {
+    width: 22, height: 22, borderRadius: 6,
+    borderWidth: 1.5, borderColor: 'rgba(212,175,55,0.7)',
+    marginRight: 10, justifyContent: 'center', alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#d4af37', borderColor: '#d4af37',
+  },
+  checkmark: { color: '#1a141c', fontSize: 12, fontWeight: '700' },
+  termsText: { flex: 1, fontSize: 11, color: '#c8b8c8' },
+  termsLink: { color: '#ffd700', textDecorationLine: 'underline' },
   switchRow: {
     alignItems: 'center', paddingVertical: 12, marginTop: 2,
   },
