@@ -186,6 +186,12 @@ private string render_pet_gear(mapping gear_state,string pet_id)
 	s += "[凝炼兽铠:pet gearforge "+pet_id+" beast_armor] "+
 		"[凝炼灵饰:pet gearforge "+pet_id+" spirit_charm] "+
 		"[凝炼灵核:pet gearforge "+pet_id+" spirit_core]\n";
+	s += "[批量凝炼兽铠x5:pet gearforgebatch "+pet_id+" beast_armor 5]"+
+		"[x10:pet gearforgebatch "+pet_id+" beast_armor 10]|"+
+		"[批量凝炼灵饰x5:pet gearforgebatch "+pet_id+" spirit_charm 5]"+
+		"[x10:pet gearforgebatch "+pet_id+" spirit_charm 10]|"+
+		"[批量凝炼灵核x5:pet gearforgebatch "+pet_id+" spirit_core 5]"+
+		"[x10:pet gearforgebatch "+pet_id+" spirit_core 10]\n";
 	s += "[一键分解凡品:pet gearbatchdismantle "+pet_id+" 1]|"+
 		"[一键分解凡品良品:pet gearbatchdismantle "+pet_id+" 2]\n";
 	s += "[学习主人技能:pet skill "+pet_id+"]|[返回宠物:pet detail "+
@@ -680,6 +686,39 @@ int main(string|zero arg)
 		message = (string)PETD->unequip_pet_gear(me,parts[1],parts[2])["message"];
 	else if(parts[0]=="gearforge" && sizeof(parts)>=3)
 		message = (string)PETD->forge_pet_gear(me,parts[2])["message"];
+	else if(parts[0]=="gearforgebatch" && sizeof(parts)>=4){
+		int batch_count;
+		mapping batch;
+		string summary;
+		mapping counts;
+		array(int) qs;
+		int qi;
+		if(sscanf(parts[3],"%d",batch_count)!=1 || batch_count<1)
+			message = "批量凝炼件数无效。";
+		else{
+			batch = PETD->forge_pet_gear_batch(me,parts[2],batch_count);
+			summary = "【批量凝炼】成功"+(int)batch["forged"]+"件";
+			counts = batch["quality_counts"];
+			if(mappingp(counts) && sizeof(counts)){
+				array(string) qnames = ({"","凡品","良品","珍品","神品"});
+				summary += "（";
+				qs = sort(indices(counts));
+				for(qi=sizeof(qs)-1;qi>=0;qi--){
+					summary += qnames[qs[qi]]+
+						(string)counts[qs[qi]];
+					if(qi>0)
+						summary += "、";
+				}
+				summary += "）";
+			}
+			if(mappingp(batch["best_gear"]))
+				summary += "，最佳："+(string)batch["best_gear"]["quality_name"]+
+					"·"+(string)batch["best_gear"]["name"];
+			if((string)batch["stopped_reason"]!="")
+				summary += "。"+(string)batch["stopped_reason"];
+			message = summary;
+		}
+	}
 	else if(parts[0]=="geardismantle" && sizeof(parts)>=3)
 		message = (string)PETD->dismantle_pet_gear(me,parts[2])["message"];
 	else if(parts[0]=="gearbatchdismantle" && sizeof(parts)>=3){

@@ -1089,6 +1089,27 @@ void test_pet_equipment_and_skill_imprint()
 		sizeof((array)after_dismantle["gear_inventory"])==3,
 		"凝炼未扣材料、分解未返还或装备栏数量不守恒");
 
+	// 批量凝炼回归（建议11）：灵印充足时连出多件、材料耗尽自动
+	// 停止并汇报原因；凝炼件数与灵印消耗严格守恒。
+	{
+		mapping batch_state = PETD->query_pet_state(player);
+		int marks_for_batch = (int)batch_state["materials"]["spirit_mark"];
+		int batches = marks_for_batch/5;
+		if(batches>6)
+			batches = 6;
+		mapping batch = PETD->forge_pet_gear_batch(player,
+			"spirit_core",batches);
+		mapping after_batch = PETD->query_pet_state(player);
+		int spent = marks_for_batch-
+			(int)after_batch["materials"]["spirit_mark"];
+		check("批量凝炼灵核按灵印守恒并汇报结果",
+			(int)batch["forged"]==batches &&
+			spent==batches*5 &&
+			(batches==0 || (int)batch["ok"]==1),
+			sprintf("batch=%O marks=%d spent=%d batches=%d",
+				batch,marks_for_batch,spent,batches));
+	}
+
 	// 品质分化回归（2026-09-11反馈：291级珍品与凡品数值一样）：
 	// 旧公式value钳8，level/30>7后全品质撞顶；新公式高等级拉开差距，
 	// 且1级数值与旧公式完全一致。

@@ -387,6 +387,46 @@ mapping(string:mixed) forge_pet_gear(object player,string slot)
 	return result;
 }
 
+/** 批量凝炼（玩家反馈建议11）：一次连续凝炼N件同槽位宠物装备。
+ * 逐件走 forge_pet_gear 的全部校验（灵印5/件、装备栏容量、战斗态），
+ * 材料不足或栏满时停止并汇总；不跳过任何安全检查。 */
+mapping(string:mixed) forge_pet_gear_batch(object player,string slot,
+	int count)
+{
+	mapping(string:mixed) result = ([
+		"ok":0,"forged":0,"quality_counts":([]),
+		"stopped_reason":"","best_gear":0,
+	]);
+	array(mapping(string:mixed)) best_by_quality = ({});
+	int forged = 0;
+	int i;
+	if(!player || count<1)
+		return result;
+	if(count>50)
+		count = 50;
+	for(i=0;i<count;i++){
+		mapping one = forge_pet_gear(player,slot);
+		if(!(int)one["ok"]){
+			result["stopped_reason"] =
+				(string)one["message"];
+			break;
+		}
+		forged++;
+		mapping gear = (mapping)one["gear"];
+		if(mappingp(gear)){
+			int q = (int)gear["quality"];
+			result["quality_counts"][q] =
+				(int)result["quality_counts"][q]+1;
+			if(!mappingp(result["best_gear"]) ||
+			   q>(int)result["best_gear"]["quality"])
+				result["best_gear"] = copy_value(gear);
+		}
+	}
+	result["forged"] = forged;
+	result["ok"] = forged>0 ? 1 : 0;
+	return result;
+}
+
 mapping(string:mixed) dismantle_pet_gear(object player,string gear_id)
 {
 	mapping result = (["ok":0,"message":"宠物装备没有分解。"]);
