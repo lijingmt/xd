@@ -35,6 +35,13 @@ else:
 io.open(path,'w',encoding='utf-8').write(s)
 EOF
   echo "[sync] pbxproj: $VERSION / build $BUILD / team $TEAM_ID"
+  # Info.plist 版本必须是构建变量，prebuild 会重置成字面量旧版本。
+  PLIST="ios/wapmud/Info.plist"
+  if [ -f "$PLIST" ]; then
+    plutil -replace CFBundleShortVersionString -string '$(MARKETING_VERSION)' "$PLIST"
+    plutil -replace CFBundleVersion -string '$(CURRENT_PROJECT_VERSION)' "$PLIST"
+    echo "[sync] Info.plist version variables restored"
+  fi
 fi
 
 GRADLE="android/app/build.gradle"
