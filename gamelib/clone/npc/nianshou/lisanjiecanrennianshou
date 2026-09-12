@@ -31,5 +31,25 @@ string query_links(void|int count){
 	return ::query_links(count);
 }
 void fight_die(){
+	// 终极年兽强化掉落（玩家反馈：1京血量几十年才打死，原掉落
+	// 只有三颗灵石不值得）。击杀者按Boss通用路径额外获得保底：
+	// 淬炼石×3 + 离火玉×2；普通装备掉落走全队最高幸运+难度补偿。
+	object killer = who_fight_npc ? find_player(who_fight_npc) : 0;
+	if(killer){
+		for(int i=0;i<3;i++)
+			catch{
+				object stone=clone(ROOT+
+					"/gamelib/clone/item/material/cuilianshi");
+				if(stone) stone->move(killer);
+			};
+		for(int i=0;i<2;i++)
+			catch{
+				object jade=clone(ROOT+
+					"/gamelib/clone/item/material/lihuoyu");
+				if(jade) jade->move(killer);
+			};
+		tell_object(killer,"【离三界】残忍年兽轰然倒下，"+
+			"额外掉落淬炼石×3、离火玉×2！\n");
+	}
 	::fight_die();
 }

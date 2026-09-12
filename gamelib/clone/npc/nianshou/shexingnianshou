@@ -31,5 +31,23 @@ string query_links(void|int count){
 	return ::query_links(count);
 }
 void fight_die(){
+	// 蛇形年兽（1京兆血量终极隐藏Boss）强化保底掉落：原掉落只有
+	// 女娲灵石，几十年的击杀成本不值得。额外保底淬炼石×10+离火玉×6。
+	object killer = who_fight_npc ? find_player(who_fight_npc) : 0;
+	if(killer){
+		for(int i=0;i<10;i++)
+			catch{
+				object stone=clone(ROOT+
+					"/gamelib/clone/item/material/cuilianshi");
+				if(stone) stone->move(killer);
+			};
+		for(int i=0;i<6;i++)
+			catch{
+				object jade=clone(ROOT+
+					"/gamelib/clone/item/material/lihuoyu");
+				if(jade) jade->move(killer);
+			};
+		tell_object(killer,"蛇形年兽终于倒下，额外掉落淬炼石×10、离火玉×6！\n");
+	}
 	::fight_die();
 }
