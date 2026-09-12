@@ -1202,6 +1202,16 @@ void fight_die_single(object env,void|object credited_killer)
 			if((int)member->query_lunck()>drop_luck)
 				drop_luck=(int)member->query_lunck();
 		}
+		// BUG8：难度补偿掉落幸运。高难度伤害降低但普通装备掉落
+		// 幸运此前不随难度变（套装/稀有掉落已有独立百分比），
+		// 按 rare_drop_percent 同比例放大 pro_add，高难值得打。
+		{
+			int difficulty_drop_bonus = PERSONAL_DIFFICULTYD->
+				query_rare_drop_percent(first);
+			if(difficulty_drop_bonus>100)
+				pro_add += pro_add*
+					(difficulty_drop_bonus-100)/100;
+		}
 		object ob = ITEMSD->get_item(this_object()->query_level(),
 			first->query_level(),drop_luck+pro_add,
 			PERSONAL_DIFFICULTYD->query_current_level(first),first);
