@@ -192,5 +192,7 @@
 #define TIMED_EVENTD ((object)(ROOT "/gamelib/single/daemons/timed_eventd.pike"))
 //帮派扩展：建设/帮贡/帮派BOSS/帮派幻境/帮贡商店
 #define BANGPAI_EXTD ((object)(ROOT "/gamelib/single/daemons/bangpai_extd.pike"))
+//三战斗系统：输出/幸运/PK装备+技能逻辑一键切换
+#define BATTLE_SYSTEMD ((object)(ROOT "/gamelib/single/daemons/battle_systemd.pike"))
 
 #endif // _GAMELIB_H_

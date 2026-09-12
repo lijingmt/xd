@@ -1802,6 +1802,23 @@ int set_selected_auto_skill(object me,string name,void|int slot)
 	return 1;
 }
 
+/** 战斗系统切换用：整体恢复一套手动技能队列（逐项复验归属）。 */
+int restore_auto_skill_queue(object me,array(string) queue)
+{
+	if(!me || !arrayp(queue))
+		return 0;
+	persist_auto_skill_queue(me,({"","",""}));
+	for(int i=0;i<AUTOFIGHT_SKILL_QUEUE_SIZE && i<sizeof(queue);i++)
+		if(stringp(queue[i]) && queue[i]!="")
+			set_selected_auto_skill(me,queue[i],i+1);
+	if(query_auto_skill_queue(me)*""=="")
+		me["/plus/autofight_skill_mode"]="off";
+	else
+		me["/plus/autofight_skill_mode"]="manual";
+	me["/tmp/autofight_skill_refresh_at"] = 0;
+	return 1;
+}
+
 int clear_auto_skill_slot(object me,int slot)
 {
 	array(string) queue;
