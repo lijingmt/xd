@@ -1333,12 +1333,15 @@ void fight_die()
 					//是团队杀死,得到荣誉值，平均分配///////////////
 					if(gain_honer>0){
 						string tmp = "";
-						if(enemy->query_raceId()=="human")
-							tmp += "仙气";
-						else if(enemy->query_raceId()=="third")
+						// 气类型按被杀者阵营判定（与NPC掉落一致：人形→妖气，
+						// 妖怪→仙气，中立→灵气）。旧代码误用击杀者raceId，
+						// 导致击杀中立无灵气、中立击杀仙妖显示错气。
+						if(me->query_raceId()=="human")
+							tmp += "妖气";
+						else if(me->query_raceId()=="third")
 							tmp += "灵气";
 						else
-							tmp += "妖气";
+							tmp += "仙气";
 						//荣誉点数量不变，然后平均分配给每个打怪的队员
 						//如果只有一个人打，就把钱给那个打怪的队员了
 						//1.先得到当前打这个怪的队员人数
@@ -1440,12 +1443,13 @@ void fight_die()
 			if(enemy->query_level()-my_level<=5){
 				if(gain_honer>0){
 					string tmp = "";
-					if(enemy->query_raceId()=="human")
-						tmp += "仙气";
-					else if(enemy->query_raceId()=="third")
+					// 同上：按被杀者阵营给气类型（BUG5修复）。
+					if(me->query_raceId()=="human")
+						tmp += "妖气";
+					else if(me->query_raceId()=="third")
 						tmp += "灵气";
 					else
-						tmp += "妖气";
+						tmp += "仙气";
 					//加入特药的荣誉加成，由liaocheng于07/11/21添加
 					int te_honer = enemy->query_buff("te_honer",1);
 					if(te_honer){

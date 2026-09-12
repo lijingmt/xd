@@ -1106,12 +1106,19 @@ mapping query_player_state(object player)
         result["gender"] = gender || "";
 
         // 玩家当前选择的头像，供 Vue 顶部状态栏直接显示。
+        // 图片开关"全部关闭"（character=close）时置空：玩家反馈关闭
+        // 全部图片后自己的头像仍在客户端常驻显示。
         string avatar = "";
-        if(player->user_pic && player->user_pic != "") {
+        mapping pic_flag = player->pic_flag;
+        if(player->user_pic && player->user_pic != "" &&
+           (!mappingp(pic_flag) || (string)pic_flag["character"] != "close")) {
             avatar = "/images/" + player->user_pic + ".gif";
         }
         result["avatar"] = avatar;
-		result["avatar_id"] = (string)(player->user_pic || "");
+        result["avatar_id"] = (string)(player->user_pic || "");
+        result["pic_character_off"] =
+            mappingp(pic_flag) && (string)pic_flag["character"] == "close"
+            ? 1 : 0;
 		result["sex"] = (string)(player->sex || "");
 
         // 称谓

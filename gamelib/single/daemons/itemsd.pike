@@ -700,6 +700,20 @@ object get_item(int npclevel,int playerlevel,int playerluck,
 		else if(ran<=three) attribute_count=3;
 		else if(ran<=two) attribute_count=2;
 		else if(ran<=one) attribute_count=1;
+		// 高幸运突破幻化天花板（玩家反馈建议10）：幸运0时概率为0，
+		// 幸运2000时空觉约1.6%、破空0.8%、寂灭0.3%、三摩地0.1%，
+		// 逐档递减；只有已经掷到7词条的掉落才有资格参与突破。
+		if(attribute_count>=7 && playerluck>0 && npclevel>=101){
+			int ran2=random(100000)+1;
+			int p11=(int)(playerluck*1.0);
+			int p10=(int)(playerluck*3.0);
+			int p9=(int)(playerluck*8.0);
+			int p8=(int)(playerluck*16.0);
+			if(ran2<=p11) attribute_count=11;
+			else if(ran2<=p10) attribute_count=10;
+			else if(ran2<=p9) attribute_count=9;
+			else if(ran2<=p8) attribute_count=8;
+		}
 		if(sizeof(newmoon_collection))
 			attribute_count=max(attribute_count,
 				(int)newmoon_collection["min_affixes"]);
