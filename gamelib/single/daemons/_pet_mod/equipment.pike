@@ -96,9 +96,14 @@ private mapping(string:mixed) make_pet_gear_unlocked(mapping record,
 	gear_id = new_pet_id_unlocked(record);
 	if(gear_id=="")
 		return ([]);
-	value = quality+1+level_requirement/30;
-	if(value>8)
-		value = 8;
+	/* 旧公式把value硬钳在8：291级时level/30=9，凡品~神品全部撞顶，
+	 * 珍品凡品属性完全一样（玩家反馈）。改为品质随等级放大：
+	 * 1级时与旧值完全一致（q1=2/q4=5），高等级重新拉开差距。
+	 * L291：凡品12/良品15/珍品18/神品21；L400最高约25。 */
+	value = quality+1+level_requirement/30+
+		quality*level_requirement/150;
+	if(value>40)
+		value = 40;
 	if(slot=="beast_armor"){
 		attributes["life"] = value;
 		attributes["defense"] = value;
@@ -471,6 +476,14 @@ mapping(string:mixed) dismantle_pet_gear_batch(object player,
 }
 
 /** TestUnit-only：按指定品质注入一件未穿戴灵宠装备。 */
+/** 仅TestUnit：按等级直接计算灵宠装备属性值，验证品质分化。 */
+int test_pet_gear_value_for(int quality,int level_requirement)
+{
+	int value = quality+1+level_requirement/30+
+		quality*level_requirement/150;
+	return value>40 ? 40 : value;
+}
+
 mapping(string:mixed) test_forge_pet_gear_quality(object player,
 	string slot,int quality)
 {

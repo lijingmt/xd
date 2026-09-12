@@ -1089,6 +1089,25 @@ void test_pet_equipment_and_skill_imprint()
 		sizeof((array)after_dismantle["gear_inventory"])==3,
 		"凝炼未扣材料、分解未返还或装备栏数量不守恒");
 
+	// 品质分化回归（2026-09-11反馈：291级珍品与凡品数值一样）：
+	// 旧公式value钳8，level/30>7后全品质撞顶；新公式高等级拉开差距，
+	// 且1级数值与旧公式完全一致。
+	check("灵宠装备高等级品质分化且低等级保持旧值",
+		PETD->test_pet_gear_value_for(1,1)==2 &&
+		PETD->test_pet_gear_value_for(4,1)==5 &&
+		PETD->test_pet_gear_value_for(1,291)>0 &&
+		PETD->test_pet_gear_value_for(3,291)>
+			PETD->test_pet_gear_value_for(1,291) &&
+		PETD->test_pet_gear_value_for(4,291)>
+			PETD->test_pet_gear_value_for(3,291) &&
+		PETD->test_pet_gear_value_for(4,400)<=40,
+		sprintf("q1L1=%d q4L1=%d q1L291=%d q3L291=%d q4L291=%d",
+			PETD->test_pet_gear_value_for(1,1),
+			PETD->test_pet_gear_value_for(4,1),
+			PETD->test_pet_gear_value_for(1,291),
+			PETD->test_pet_gear_value_for(3,291),
+			PETD->test_pet_gear_value_for(4,291)));
+
 	// 一键分解：注入已知品质的闲置件，验证只清低品质并按件返还。
 	mapping low_a = PETD->test_forge_pet_gear_quality(player,
 		"beast_armor",1);
