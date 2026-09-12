@@ -18,6 +18,17 @@ int main(string|zero arg)
 		            s += "已参与帮战！(霸气："+BANGZHAND->query_bang_baqi(me->bangid)+")\n";
 		s += BANGD->query_nums(me->bangid,"online",me->query_name())+
 			"在线/"+BANGD->query_nums(me->bangid,"all",me->query_name())+"人\n";
+		// 帮派建设概览（建议7）：等级/建设度/我的帮贡与全部玩法入口。
+		mapping gang_summary = BANGPAI_EXTD->query_gang_summary(me);
+		if(gang_summary){
+			s += "帮派等级："+(string)(int)gang_summary["level"]+"级"+
+				((int)gang_summary["next_cost"]>0 ?
+				"（下一级还需 "+
+				format_game_number((int)gang_summary["next_cost"])+"建设度）" :
+				"（已满级）")+
+				"　我的帮贡："+
+				format_game_number((int)gang_summary["my_contrib"])+"\n";
+		}
 		s += "今日帮派通告：";
 		s += BANGD->query_bang_notice(me->bangid)+"\n";
 		s += "帮派聊天：\n";
@@ -40,6 +51,7 @@ int main(string|zero arg)
 			s += "[查看申请:bang_view_apply]\n";
 		}
 		s += "[帮派手册:bang_readme]\n";
+		s += "[帮派建设:bang_donate 0]\n";
 		s += "[退出帮派:bang_quit]\n";
 	}
 	s += "[帮战排行榜:bz_top_list]\n";

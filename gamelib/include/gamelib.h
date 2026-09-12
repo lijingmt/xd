@@ -190,5 +190,7 @@
 #define PLAYER_TRANSFERD ((object)(ROOT "/gamelib/single/daemons/player_transferd.pike"))
 //每日限时原创玩法：天衡绝境（PVP）与九曜镇渊（PVE）
 #define TIMED_EVENTD ((object)(ROOT "/gamelib/single/daemons/timed_eventd.pike"))
+//帮派扩展：建设/帮贡/帮派BOSS/帮派幻境/帮贡商店
+#define BANGPAI_EXTD ((object)(ROOT "/gamelib/single/daemons/bangpai_extd.pike"))
 
 #endif // _GAMELIB_H_

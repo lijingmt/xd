@@ -95,21 +95,37 @@ int grant_kill_experience(object player,int base_exp,void|int team_count,
 	void|int team_pool_percent)
 {
 	int buff_percent;
+	int gang_bonus_percent;
 	mapping(string:int) reward;
 	int actual_exp;
 	string bonus_tips = "";
 	string interface_tip = "";
 	string team_tip = "";
+	string gang_tip = "";
 	string message = "";
 	if(!player || base_exp<=0)
 		return 0;
 	buff_percent = (int)player->query_buff("te_exp",1)+
 		(int)player->query_buff("attri_exp",1);
+	// 帮派建设等级加成：与药品加成同口径作用于基础经验。
+	// 提示按比例拆分，避免把帮派加成误报成药品加成。
+	gang_bonus_percent = BANGPAI_EXTD->
+		query_gang_exp_bonus_percent(player);
+	if(gang_bonus_percent>0)
+		buff_percent += gang_bonus_percent;
 	reward = player->add_kill_exp_with_bonus(base_exp,buff_percent,2);
 	actual_exp = reward["actual_exp"];
-	if(reward["buff_bonus"]>0)
-		bonus_tips += "§6经验药品加成：额外获得 "+
-			format_game_number(reward["buff_bonus"])+" 点经验值§r";
+	if(gang_bonus_percent>0)
+		gang_tip = "§y【帮派建设+"+(string)gang_bonus_percent+"%】§r ";
+	if(reward["buff_bonus"]>0){
+		int drug_bonus = buff_percent>0 ?
+			reward["buff_bonus"]*
+			(buff_percent-gang_bonus_percent)/buff_percent :
+			reward["buff_bonus"];
+		if(drug_bonus>0)
+			bonus_tips += "§6经验药品加成：额外获得 "+
+				format_game_number(drug_bonus)+" 点经验值§r";
+	}
 	if(reward["event_bonus"]>0){
 		if(sizeof(bonus_tips))
 			bonus_tips += "\n";
@@ -134,8 +150,8 @@ int grant_kill_experience(object player,int base_exp,void|int team_count,
 			"%基础经验，本人份额已计入下方结果。§r";
 	if(sizeof(team_tip))
 		message += team_tip+"\n";
-	message += interface_tip+"你得到了 "+format_game_number(actual_exp)+
-		" 点经验。\n";
+	message += gang_tip+interface_tip+"你得到了 "+
+		format_game_number(actual_exp)+" 点经验。\n";
 	if(sizeof(bonus_tips))
 		message += "（"+bonus_tips+"）\n";
 	player->query_if_levelup();

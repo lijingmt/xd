@@ -937,60 +937,24 @@ int create_bang(object creater,string bang_name)
 }
 
 //获得当前帮派列表
+// 2026-09-12 建议7：跨阵营入帮。帮派id奇偶只保留为“创建阵营”的
+// 历史标签（帮战个体加成仍按玩家自身阵营计算），任何阵营玩家都
+// 能浏览并申请全部帮派；列表内容对三个阵营完全一致。
 string query_bang_list(object player)
 {
 	string s = "";
 	int flag = 0;
-	string prof = player->query_raceId();
-	if(prof == "monst"){
-		foreach(indices(bang_list),int bangid){
-			if(bangid == 0)
-				continue;
-			if(!bang_allows_user(bangid,player->query_name()))
-				continue;
-			if(bangid%2 == 1){
-				string bang_name = bang_list[bangid][0];
-				if(flag%2 == 0)
-					s += "[＜"+bang_name+"＞:bang_apply_in "+bangid+" 0] | ";
-				else
-					s += "[＜"+bang_name+"＞:bang_apply_in "+bangid+" 0]\n";
-				flag += 1;
-			}
-			else
-				continue;
-		}
-	}
-	else if(prof == "human"){
-		foreach(indices(bang_list),int bangid){
-			if(bangid == 0)
-				continue;
-			if(!bang_allows_user(bangid,player->query_name()))
-				continue;
-			if(bangid%2 == 0){
-				string bang_name = bang_list[bangid][0];
-				if(flag%2 == 0)
-					s += "[＜"+bang_name+"＞:bang_apply_in "+bangid+" 0] | ";
-				else
-					s += "[＜"+bang_name+"＞:bang_apply_in "+bangid+" 0]\n";
-				flag += 1;
-			}
-			else
-				continue;
-		}
-	}
-	else if(prof == "third"){
-		foreach(sort(indices(bang_list)),int bangid){
-			if(bangid == 0)
-				continue;
-			if(!bang_allows_user(bangid,player->query_name()))
-				continue;
-			string bang_name = bang_list[bangid][0];
-			if(flag%2 == 0)
-				s += "[＜"+bang_name+"＞:bang_apply_in "+bangid+" 0] | ";
-			else
-				s += "[＜"+bang_name+"＞:bang_apply_in "+bangid+" 0]\n";
-			flag += 1;
-		}
+	foreach(sort(indices(bang_list)),int bangid){
+		if(bangid == 0)
+			continue;
+		if(!bang_allows_user(bangid,player->query_name()))
+			continue;
+		string bang_name = bang_list[bangid][0];
+		if(flag%2 == 0)
+			s += "[＜"+bang_name+"＞:bang_apply_in "+bangid+" 0] | ";
+		else
+			s += "[＜"+bang_name+"＞:bang_apply_in "+bangid+" 0]\n";
+		flag += 1;
 	}
 	return s;
 }

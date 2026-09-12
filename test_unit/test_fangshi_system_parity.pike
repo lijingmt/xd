@@ -522,6 +522,10 @@ void test_guild_runtime()
 	test_start("方士可查看两边帮派且建帮归属跟随所在阵营城市");
 	object fangshi =
 		create_player("__testunit_parity_bang__","third","fangshi",40);
+	object human_player =
+		create_player("__testunit_parity_bang_h__","human","jianxian",40);
+	object monst_player =
+		create_player("__testunit_parity_bang_m__","monst","kuangyao",40);
 	object human_square =
 		(object)(ROOT+"/gamelib/d/congxianzhen/congxianzhenguangchang");
 	object monst_square =
@@ -542,12 +546,24 @@ void test_guild_runtime()
 	if(err)
 		error_desc = describe_error(err);
 
-	if(!err && human_side=="human" && monst_side=="monst" &&
-	   search(bang_source,"else if(prof == \"third\")")!=-1)
+	// 2026-09-12 建议7起三个阵营共用同一份全量帮派列表（跨阵营入帮）。
+	int unified_lists = 0;
+	mixed list_err = catch {
+		string list_human = BANGD->query_bang_list(human_player);
+		string list_monst = BANGD->query_bang_list(monst_player);
+		string list_third = BANGD->query_bang_list(fangshi);
+		unified_lists = list_human==list_monst &&
+			list_monst==list_third;
+	};
+	if(!err && !list_err && human_side=="human" && monst_side=="monst" &&
+	   unified_lists &&
+	   search(bang_source,"bangid%2")<0)
 		test_pass();
 	else
-		test_fail("帮派双边列表或建帮归属失败: "+error_desc);
+		test_fail("帮派列表未跨阵营统一或建帮归属失败: "+error_desc);
 	destroy_player(fangshi);
+	destroy_player(human_player);
+	destroy_player(monst_player);
 }
 
 void test_social_runtime()
