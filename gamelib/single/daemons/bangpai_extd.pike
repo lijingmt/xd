@@ -43,3 +43,4 @@ private int bangpai_ext_state_file_override;
 #include "_bangpai_mod/core.pike"
 #include "_bangpai_mod/boss.pike"
 #include "_bangpai_mod/illusion.pike"
+#include "_bangpai_mod/shop.pike"

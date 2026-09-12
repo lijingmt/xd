@@ -52,7 +52,7 @@ int main(string|zero arg)
 		}
 		s += "[帮派手册:bang_readme]\n";
 		s += "[帮派建设:bang_donate 0]|[帮派BOSS:bang_boss]|"+
-			"[帮派幻境:bang_illusion]\n";
+			"[帮派幻境:bang_illusion]|[帮贡商店:bang_shop]\n";
 		s += "[退出帮派:bang_quit]\n";
 	}
 	s += "[帮战排行榜:bz_top_list]\n";
