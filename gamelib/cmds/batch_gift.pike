@@ -69,15 +69,20 @@ private void store_selected(object sender,string recipient_id,
 	sender["/tmp/batch_gift/items"]=selected_refs;
 }
 
-private string render_page(object sender,object recipient,int page)
+// 供TestUnit直接断言搜索/翻页渲染结果，页面文本与玩家实际所见一致。
+string render_page(object sender,object recipient,int page)
 {
 	array(object) selected=query_selected(sender,
 		(string)recipient->query_name());
 	string category=(string)sender["/tmp/batch_gift/category"];
+	mixed raw_keyword=sender["/tmp/batch_gift/keyword"];
+	string keyword=stringp(raw_keyword) ? (string)raw_keyword : "";
 	mapping(string:string) labels=
 		sender->query_inventory_browser_category_labels();
 	if(!valid_gift_filter(sender,category))
 		category="";
+	if(sizeof(keyword)>96)
+		keyword="";
 	array(mapping(string:mixed)) rows=({});
 	mapping(string:int) name_counts=([]);
 	foreach(all_inventory(sender),object item){
@@ -87,6 +92,10 @@ private string render_page(object sender,object recipient,int page)
 			continue;
 		if(category!="" && category!="all" &&
 		   (string)sender->query_inventory_browser_category(item)!=category)
+			continue;
+		if(keyword!="" && search(lower_case((string)item->query_name()+
+			" "+(string)item->query_name_cn()+" "+
+			(string)item->query_short()),lower_case(keyword))==-1)
 			continue;
 		name=(string)item->query_name();
 		index=(int)name_counts[name];
@@ -115,6 +124,12 @@ private string render_page(object sender,object recipient,int page)
 				(string)recipient->query_name()+" "+one+"]";
 	}
 	out+="\n";
+	out+="关键词：[submit 搜索:batch_gift_filter "+
+		(string)recipient->query_name()+" search ...] "+
+		"[清除:batch_gift_filter "+
+		(string)recipient->query_name()+" clear]\n";
+	if(keyword!="")
+		out+="当前关键词："+safe_label(keyword)+"\n";
 	if(!sizeof(rows))
 		out+="当前没有可赠送物品。\n";
 	for(int position=start;position<end;position++){
@@ -132,7 +147,9 @@ private string render_page(object sender,object recipient,int page)
 			" "+(page-1)+"] ";
 	if(page+1<pages)
 		out+="[下一页:batch_gift page "+(string)recipient->query_name()+
-			" "+(page+1)+"]";
+			" "+(page+1)+"] "+
+			"[尾页:batch_gift page "+(string)recipient->query_name()+
+			" "+(pages-1)+"]";
 	out+="\n";
 	if(sizeof(selected))
 		out+="[发出"+sizeof(selected)+"件赠送请求:batch_gift offer "+

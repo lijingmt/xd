@@ -246,7 +246,8 @@ int main(string|zero arg)
 		if(page>0)
 			s += "[上一页:personal_storage "+mode+" "+(page-1)+"] ";
 		if(page<max_page)
-			s += "[下一页:personal_storage "+mode+" "+(page+1)+"]";
+			s += "[下一页:personal_storage "+mode+" "+(page+1)+"] "+
+				"[尾页:personal_storage "+mode+" "+max_page+"]";
 		s += "\n[切换操作:personal_storage]\n";
 	}
 	s += "[账号共享仓库:account_storage]\n[返回游戏:look]\n";

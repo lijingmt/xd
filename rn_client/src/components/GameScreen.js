@@ -163,13 +163,17 @@ function SuiyuRechargeChip({ onOpen, value }) {
       }),
     ])).start();
     let st = null;
+    const today = new Date().toISOString().slice(0, 10);
+    const shownTodayRef = { current: false };
     import('../utils/themeStorage.js').then(({ injectableStorage }) => {
       injectableStorage().then(storage => {
         st = storage;
         return storage.getItem('xiand.recharge_tip_muted_until');
       }).then(v => {
-        const today = new Date().toISOString().slice(0, 10);
         if (v === today) mutedTodayRef.current = true;
+        return st.getItem('xiand.recharge_tip_last_shown');
+      }).then(v => {
+        if (v === today) shownTodayRef.current = true;
       }).catch(() => {});
     }).catch(() => {});
     const muteToday = () => {
@@ -177,20 +181,21 @@ function SuiyuRechargeChip({ onOpen, value }) {
       if (st) st.setItem('xiand.recharge_tip_muted_until',
         new Date().toISOString().slice(0, 10)).catch(() => {});
     };
-    /* 首次4秒出现；之后每3分钟再弹（当日已静音则不再打扰）。 */
-    const showTip = () => { if (!mutedTodayRef.current) setTipVisible(true); };
+    /* 每日至多自动弹一次（当日已静音/已弹过不再打扰）；💎常驻发光保留。 */
+    const showTip = () => {
+      if (mutedTodayRef.current || shownTodayRef.current) return;
+      shownTodayRef.current = true;
+      if (st) st.setItem('xiand.recharge_tip_last_shown', today)
+        .catch(() => {});
+      setTipVisible(true);
+    };
     const t1 = setTimeout(() => {
       if (!tippedRef.current) { tippedRef.current = true; showTip(); }
     }, 4000);
     const t2 = setTimeout(() => setTipVisible(false), 16000);
-    const repeater = setInterval(() => {
-      showTip();
-      setTimeout(() => setTipVisible(false), 12000);
-    }, 180000);
     muteTodayRef.current = muteToday;
     return () => {
       clearTimeout(t1); clearTimeout(t2);
-      clearInterval(repeater);
     };
   }, [glow]);
   const shadow = glow.interpolate({
@@ -573,6 +578,17 @@ export default function GameScreen() {
     }
   };
   const [deleteOpen, setDeleteOpen] = useState(false);
+  /* 碎玉不足失败横幅（iOS）：紧贴失败行给内购充值入口。 */
+  const [jadeHint, setJadeHint] = useState(null);
+  const jadeHintCooldownRef = useRef(0);
+  const jadeCostHintShownRef = useRef(false);
+  useEffect(() => {
+    import('../utils/themeStorage.js').then(({ injectableStorage }) =>
+      injectableStorage().then(storage =>
+        storage.getItem('xiand.jade_cost_hint_shown'))
+    ).then(v => { if (v === '1') jadeCostHintShownRef.current = true; })
+     .catch(() => {});
+  }, []);
   const [uiSettings, setUiSettings] = useState(DEFAULT_UI_SETTINGS);
   const [activeTab, setActiveTab] = useState('');
   const [floaters, setFloaters] = useState([]);
@@ -806,6 +822,48 @@ export default function GameScreen() {
     const newLines = store.lines.slice(Math.min(
       prevLineCountRef.current, store.lines.length));
     prevLineCountRef.current = store.lines.length;
+    /* 碎玉不足失败引导（iOS）：60秒冷却内不重复弹，避免批量操作刷屏。 */
+    if (Platform.OS === 'ios' &&
+        jadeHintCooldownRef.current < Date.now()) {
+      for (const line of newLines) {
+        const text = ((line && line.segments) || [])
+          .map(s => (s.type === 'text'
+            ? (s.parts || []).map(p => p.content || '').join('')
+            : '')).join('');
+        if (text.indexOf('碎玉不足') !== -1) {
+          jadeHintCooldownRef.current = Date.now() + 60000;
+          const id = `jade-${Date.now()}`;
+          setJadeHint({ id });
+          setTimeout(() =>
+            setJadeHint(h => (h && h.id === id ? null : h)), 8000);
+          break;
+        }
+      }
+    }
+    /* 首次进入含碎玉消耗按钮的界面给一次性说明（全平台，仅文字）。 */
+    if (!jadeCostHintShownRef.current) {
+      let sawJadeCost = false;
+      for (const line of newLines) {
+        for (const s of (line && line.segments) || []) {
+          if (s && s.type === 'button' &&
+              String(s.label || '').indexOf('碎玉') !== -1) {
+            sawJadeCost = true;
+            break;
+          }
+        }
+        if (sawJadeCost) break;
+      }
+      if (sawJadeCost) {
+        jadeCostHintShownRef.current = true;
+        import('../utils/themeStorage.js').then(({ injectableStorage }) =>
+          injectableStorage().then(storage =>
+            storage.setItem('xiand.jade_cost_hint_shown', '1'))
+        ).catch(() => {});
+        toast(Platform.OS === 'ios'
+          ? '💎 此操作将消耗碎玉；余额不足时可在右上角💎入口充值'
+          : '💎 此操作将消耗碎玉，请提前备足余额');
+      }
+    }
     const events = parseBattleLines(newLines);
     /* 累积战斗统计 */
     applyEvents(statsRef.current, events);
@@ -1274,6 +1332,30 @@ export default function GameScreen() {
             <Text style={[styles.menuIcon, themeStyle.menuIcon]}>☰</Text>
           </TouchableOpacity>
         </View>
+
+        {/* 碎玉不足失败横幅（iOS）：失败行出现时直接给充值入口 */}
+        {!!jadeHint && Platform.OS === 'ios' && (
+          <View style={styles.jadeHintBar}>
+            <Text style={styles.jadeHintText} numberOfLines={1}>
+              💎 碎玉不足，本次操作未完成
+            </Text>
+            <TouchableOpacity
+              style={styles.jadeHintBtn}
+              activeOpacity={0.7}
+              onPress={() => {
+                setJadeHint(null);
+                lastUserNavRef.current = Date.now();
+                setRechargeOpen(true);
+              }}>
+              <Text style={styles.jadeHintBtnText}>充值</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              onPress={() => setJadeHint(null)}>
+              <Text style={styles.jadeHintClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* 三条属性条：生命/法力/精力（字号跟随全局缩放） */}
         <View style={styles.statRows}>
@@ -2394,6 +2476,19 @@ const styles = StyleSheet.create({
     paddingVertical: 2, paddingHorizontal: 6,
   },
   rechargeTipCloseText: { color: '#b8a060', fontSize: 10 },
+  jadeHintBar: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(58,42,16,0.96)',
+    borderBottomWidth: 1, borderBottomColor: 'rgba(255,215,0,0.45)',
+    paddingHorizontal: 10, paddingVertical: 6, gap: 8,
+  },
+  jadeHintText: { color: '#ffd700', fontSize: 13, flexShrink: 1 },
+  jadeHintBtn: {
+    backgroundColor: '#ffd700', borderRadius: 6,
+    paddingHorizontal: 12, paddingVertical: 4,
+  },
+  jadeHintBtnText: { color: '#241a05', fontSize: 13, fontWeight: '700' },
+  jadeHintClose: { color: '#b8a060', fontSize: 14, paddingHorizontal: 2 },
   feedToolbar: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'flex-end', paddingHorizontal: 10, gap: 8,
