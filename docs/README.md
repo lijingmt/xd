@@ -125,3 +125,5 @@ React Native + Expo。并行多角色（本地可调上限 10-50）、一键登�
 ---
 
 克隆后遇到问题？QQ 群 610653957 · 电报 https://t.me/wapmud
+
+**English version: [README.en.md](README.en.md)** — the same guide in English for international players and contributors.
