@@ -2295,6 +2295,8 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 	power_percent = skill->query_lingyi_aoe_power_percent();
 	caster->begin_recent_aoe_battle_report(
 		skill->query_name(),skill->query_name_cn());
+	int aoe_total_damage = 0;
+	int aoe_total_defeated = 0;
 	foreach(targets,object target){
 		int hit = 0;
 		int defeated = 0;
@@ -2396,8 +2398,10 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 		if(damage<0)
 			damage = 0;
 		actual_damage = damage>target_life ? target_life : damage;
+		aoe_total_damage += actual_damage;
 		if(damage>=target_life){
 			defeated = 1;
+			aoe_total_defeated++;
 			target->set_life(0);
 			target->set_aoe_defeat_credit(caster);
 		}
@@ -2442,9 +2446,16 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 			target->reduce_fight_wear_armor(1);
 		}
 	}
+	// BUG4修复：施法者此前只看到"覆盖N名目标"，看不到任何伤害数字
+	// （逐目标伤害文案只发给受击者）。汇总合计伤害写进施法者文案，
+	// 客户端"你...造成X点伤害"即可弹出群攻伤害飘字与施法动画。
 	tell_object(caster,"你施放"+skill->query_name_cn()+
 		(balanced ? "，群体攻势覆盖" : "，药雾覆盖")+
-		sizeof(targets)+"名合法目标；战斗小窗将保留本次战果。\n");
+		sizeof(targets)+"名合法目标，合计造成"+
+		format_game_number(aoe_total_damage)+"点伤害"+
+		(aoe_total_defeated>0 ?
+			"，击败"+aoe_total_defeated+"名目标" : "")+
+		"；战斗小窗将保留本次战果。\n");
 	return sizeof(targets);
 }
 
