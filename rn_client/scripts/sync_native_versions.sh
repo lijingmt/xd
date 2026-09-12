@@ -62,6 +62,34 @@ if [ -d android ] && [ ! -f android/local.properties ]; then
   echo "[sync] android/local.properties restored"
 fi
 
+# prebuild 会丢掉 release 签名配置（默认退回 debug 签名，Play 必拒）。
+KS_FILE="$HOME/Documents/xiandao/xiandao-upload.keystore"
+KS_PASS="xiandao2026store"
+KS_ALIAS="xiandao"
+if [ -f "$KS_FILE" ] && [ -f android/app/build.gradle ] && \
+   ! grep -q "xiandao-upload.keystore" android/app/build.gradle; then
+  python3 - "$KS_FILE" "$KS_PASS" "$KS_ALIAS" <<'PYEOF'
+import sys,io,re
+ks,passwd,alias=sys.argv[1:4]
+p='android/app/build.gradle'
+s=io.open(p,encoding='utf-8').read()
+m=re.search(r'signingConfigs \{',s)
+if m and 'signingConfigs.release' not in s.split('buildTypes')[0]:
+    inject="\n        release {\n"+
+        "            // 上传密钥放在 Documents（prebuild 会整目录重建 android/）。\n"+
+        "            storeFile file('"+ks+"')\n"+
+        "            storePassword '"+passwd+"'\n"+
+        "            keyAlias '"+alias+"'\n"+
+        "            keyPassword '"+passwd+"'\n"+
+        "        }"
+    s=s[:m.end()]+inject+s[m.end():]
+    s=s.replace('release {\n            // Caution! In production, you need to generate your own keystore file.\n            // see https://reactnative.dev/docs/signed-apk-android.\n            signingConfig signingConfigs.debug',
+                'release {\n            signingConfig signingConfigs.release')
+    io.open(p,'w',encoding='utf-8').write(s)
+    print('[sync] release signing restored')
+PYEOF
+fi
+
 # prebuild 可能丢掉 R8 开关（默认 false）；发布必须保持开启。
 if [ -f android/gradle.properties ] && \
    ! grep -q "android.enableMinifyInReleaseBuilds" android/gradle.properties; then

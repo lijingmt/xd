@@ -16,6 +16,8 @@
 
 // TestUnit时钟注入：非零时用该值替代time()。
 private int bangpai_illusion_clock_override;
+// 补结算进行中标记：防止 state() 与 settle() 相互递归。
+private int bangpai_illusion_settling;
 
 private int bangpai_illusion_now()
 {
@@ -67,11 +69,27 @@ private mapping bangpai_illusion_state(int bangid,void|int create)
 	illusion = gang["illusion"];
 	if(!mappingp(illusion) ||
 	   (string)(illusion["date"] || "")!=bangpai_ext_today()){
-		if(!create && !mappingp(illusion))
-			return 0;
-		gang["illusion"] = (["date":bangpai_ext_today(),
-			"kills":([]),"entered":({}),"settled":0,
-			"week_key":""]);
+		// 跨日补结算：窗口已过但一直无人触发结算时，先按旧状态
+		// 结清奖励（帮贡照发、在线者得淬炼石），再重置当日状态，
+		// 防止午夜后场次与击杀被日期重置吞掉。
+		if(mappingp(illusion) && !bangpai_illusion_settling &&
+		   (string)(illusion["week_key"] || "")!="" &&
+		   !(int)(illusion["settled"] || 0) &&
+		   bangpai_illusion_now()>=
+			(int)((string)illusion["week_key"])[1..]){
+			bangpai_illusion_settling = 1;
+			catch{ bangpai_illusion_settle(bangid); };
+			bangpai_illusion_settling = 0;
+			illusion = gang["illusion"];
+		}
+		if(!mappingp(illusion) ||
+		   (string)(illusion["date"] || "")!=bangpai_ext_today()){
+			if(!create && !mappingp(illusion))
+				return 0;
+			gang["illusion"] = (["date":bangpai_ext_today(),
+				"kills":([]),"entered":({}),"settled":0,
+				"week_key":""]);
+		}
 	}
 	return gang["illusion"];
 }
@@ -209,10 +227,14 @@ int handle_bang_illusion_npc_death(object npc,object|zero killer)
 		mapping illusion = bangpai_illusion_state(bangid,1);
 		if(!illusion)
 			error("帮派状态不可用\n");
-		if(sizeof((mapping)illusion["kills"])>
+		// 封顶口径是全帮总击杀数（30分钟窗口内），不是有战绩的人数。
+		int total_kills = 0;
+		mapping kills = illusion["kills"];
+		foreach(indices(kills),string one)
+			total_kills += (int)kills[one];
+		if(total_kills>=
 		   BANGPAI_ILLUSION_MAX_WAVES*BANGPAI_ILLUSION_WAVE_SIZE)
 			return 0;
-		mapping kills = illusion["kills"];
 		kills[name] = (int)(kills[name] || 0)+1;
 		return bangpai_ext_save();
 	});
