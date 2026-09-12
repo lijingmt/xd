@@ -549,6 +549,24 @@ int query_nums(int bangid,string flag,void|string viewer_id)
 	return 0;
 }
 
+//按成员id取中文名（帮派扩展模块的排行/公告展示用）。
+string query_member_name_cn(int bangid,string member_name)
+{
+	mapping names = name_namecn[bangid];
+	if(mappingp(names) && stringp(names[member_name]) &&
+	   sizeof((string)names[member_name]))
+		return (string)names[member_name];
+	object member = find_player(member_name);
+	if(member && functionp(member->query_name_cn)){
+		if(!mappingp(name_namecn[bangid]))
+			name_namecn[bangid] = ([]);
+		name_namecn[bangid][member_name] =
+			(string)member->query_name_cn();
+		return (string)member->query_name_cn();
+	}
+	return member_name;
+}
+
 //获得帮员列表，根据玩家在帮派里的等级来给与不同的权限
 string query_bang_members(object viewer,int bangid,int level)
 {

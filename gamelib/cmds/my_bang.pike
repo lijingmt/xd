@@ -51,7 +51,7 @@ int main(string|zero arg)
 			s += "[查看申请:bang_view_apply]\n";
 		}
 		s += "[帮派手册:bang_readme]\n";
-		s += "[帮派建设:bang_donate 0]\n";
+		s += "[帮派建设:bang_donate 0]|[帮派BOSS:bang_boss]\n";
 		s += "[退出帮派:bang_quit]\n";
 	}
 	s += "[帮战排行榜:bz_top_list]\n";
