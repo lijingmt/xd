@@ -974,6 +974,13 @@
                                     <option value="xlarge">字号：特大</option>
                                 </select>
                             </div>
+                            <button type="button" class="menu-item"
+                                    @click="toggleFixedLayout">
+                                <span class="menu-icon">{{ fontFixedLayout ? '📐' : '↔️' }}</span>
+                                <span>排版模式：{{ fontFixedLayout
+                                    ? '固定（按屏幕自动适配）'
+                                    : '自适应（手动字号）' }}</span>
+                            </button>
                             <div class="menu-divider"></div>
                             <button type="button" class="menu-item" @click="toggleCombatEffects">
                                 <span class="menu-icon">{{ combatEffectsEnabled ? '✨' : '○' }}</span>

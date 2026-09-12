@@ -22,10 +22,10 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1789057256697">
-    <link rel="stylesheet" href="css/app.css?v=v1789057256697">
-    <link rel="stylesheet" href="css/realm.css?v=v1789057256697">
-    <link rel="stylesheet" href="css/pc.css?v=v1789057256697">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1789220244307">
+    <link rel="stylesheet" href="css/app.css?v=v1789220244307">
+    <link rel="stylesheet" href="css/realm.css?v=v1789220244307">
+    <link rel="stylesheet" href="css/pc.css?v=v1789220244307">
 </head>
 <body>
     <div id="app">
@@ -975,6 +975,13 @@
                                     <option value="xlarge">字号：特大</option>
                                 </select>
                             </div>
+                            <button type="button" class="menu-item"
+                                    @click="toggleFixedLayout">
+                                <span class="menu-icon">{{ fontFixedLayout ? '📐' : '↔️' }}</span>
+                                <span>排版模式：{{ fontFixedLayout
+                                    ? '固定（按屏幕自动适配）'
+                                    : '自适应（手动字号）' }}</span>
+                            </button>
                             <div class="menu-divider"></div>
                             <button type="button" class="menu-item" @click="toggleCombatEffects">
                                 <span class="menu-icon">{{ combatEffectsEnabled ? '✨' : '○' }}</span>
@@ -2695,19 +2702,19 @@
                         </aside>
 </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1789057256697"></script>
-    <script src="vendor/canvas-confetti.js?v=v1789057256697"></script>
-    <script src="vendor/howler.core.min.js?v=v1789057256697"></script>
-    <script src="vendor/driver.iife.js?v=v1789057256697"></script>
-    <script src="../includes/game-number-format.js?v=v1789057256697" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1789220244307"></script>
+    <script src="vendor/canvas-confetti.js?v=v1789220244307"></script>
+    <script src="vendor/howler.core.min.js?v=v1789220244307"></script>
+    <script src="vendor/driver.iife.js?v=v1789220244307"></script>
+    <script src="../includes/game-number-format.js?v=v1789220244307" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1789057256697';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1789220244307';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1789057256697"></script>
+    <script src="js/app.js?v=v1789220244307"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1789057256697"></script>
+    <script src="../includes/translate.js?v=v1789220244307"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

@@ -376,6 +376,7 @@ createApp({
             chatPollingInterval: null,  // 聊天轮询定时器
             theme: 'classic',  // classic or dark，默认经典模式
             fontSize: 'small',  // 游戏内容字号，默认使用紧凑的小字号
+            fontFixedLayout: false,  // 建议9 固定排版：按屏幕宽度自动适配字号
             playerStats: null,  // 玩家状态信息
             playerAvatarFailed: false,  // 当前头像加载失败时显示文字回退
             showEquipmentPanel: false,
@@ -5394,13 +5395,39 @@ createApp({
             this.showUiToast(`游戏字号已调整为${labels[this.fontSize]}`, 'info');
         },
 
-        // 应用字号；异常或旧版本残留值统一回退到新的小字号默认值
+        // 应用字号；异常或旧版本残留值统一回退到新的小字号默认值。
+        // 固定排版模式下按视口宽度自动选档（与客户端同口径：
+        // 390px为标准档基准），手动档位被覆盖但保留，切回即恢复。
         applyFontSize() {
             const supportedSizes = ['small', 'normal', 'large', 'xlarge'];
             if (!supportedSizes.includes(this.fontSize)) {
                 this.fontSize = 'small';
             }
+            if (this.fontFixedLayout) {
+                const ratio = window.innerWidth / 390;
+                const derived = ratio <= 0.92 ? 'small'
+                    : ratio <= 1.05 ? 'normal'
+                    : ratio <= 1.28 ? 'large'
+                    : 'xlarge';
+                document.documentElement.setAttribute('data-font-size', derived);
+                return;
+            }
             document.documentElement.setAttribute('data-font-size', this.fontSize);
+        },
+
+        // 切换固定排版（建议9）；开启后随窗口尺寸变化自动重适配。
+        toggleFixedLayout() {
+            this.fontFixedLayout = !this.fontFixedLayout;
+            localStorage.setItem('mud_font_fixed',
+                this.fontFixedLayout ? '1' : '0');
+            this.applyFontSize();
+            this.showUiToast(this.fontFixedLayout
+                ? '已切换固定排版：字号按屏幕宽度自动适配'
+                : '已切换自适应排版：字号恢复手动选择', 'info');
+        },
+
+        handleFixedLayoutResize() {
+            if (this.fontFixedLayout) this.applyFontSize();
         },
 
         // 获取玩家状态
@@ -7383,6 +7410,7 @@ createApp({
 
     beforeUnmount() {
         this.stopDesktopSceneSync();
+        window.removeEventListener('resize', this.handleFixedLayoutResize);
         if (this.desktopWorldMapResizeHandler) {
             window.removeEventListener('resize', this.desktopWorldMapResizeHandler);
             this.desktopWorldMapResizeHandler = null;
@@ -7547,6 +7575,10 @@ createApp({
 
         // 恢复游戏字号；新玩家默认使用更紧凑的 14px。
         this.fontSize = localStorage.getItem('mud_font_size') || 'small';
+        this.fontFixedLayout =
+            localStorage.getItem('mud_font_fixed') === '1';
+        window.addEventListener('resize',
+            this.handleFixedLayoutResize);
         this.applyFontSize();
 
         // 恢复战斗迷你模式设置

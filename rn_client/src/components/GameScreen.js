@@ -27,7 +27,7 @@ import { useGameStore, setRuntimePlatform } from '../store/useGameStore.js';
 import { PROFESSION_OPTIONS } from '../data/characterOptions.js';
 import {
   loadUiSettings, saveUiSettings, FONT_SCALE_OPTIONS, fontScaleFor,
-  DEFAULT_UI_SETTINGS,
+  resolvedFontScale, DEFAULT_UI_SETTINGS,
 } from '../utils/uiSettings.js';
 import { sessionSummary } from '../utils/parallelAfk.js';
 import * as accountApi from '../api/accountApi.js';
@@ -531,6 +531,11 @@ export default function GameScreen() {
     th.menuBorder, th.modalBackground, th.id]);
   const { width: screenW } = useWindowDimensions();
   const isTablet = screenW >= 768;
+  /* 建议9 固定排版：字号随屏幕宽度一次适配；固定模式下不再叠加
+   * 平板额外倍率，避免双重放大。 */
+  const activeFontScale = useMemo(
+    () => resolvedFontScale(uiSettings, screenW),
+    [uiSettings, screenW]);
   const contentMaxW = isTablet ? 720 : 0;
   const listRef = useRef(null);
   const [inputValues, setInputValues] = useState({});
@@ -1361,13 +1366,13 @@ export default function GameScreen() {
         <View style={styles.statRows}>
           <StatBar label="生命" value={status.hp} max={status.hp_max}
             fill={th.battleHp || '#c23a4a'} themeStyle={themeStyle}
-            fontScale={fontScaleFor(uiSettings.fontSize)} />
+            fontScale={activeFontScale} />
           <StatBar label="法力" value={status.mana} max={status.mana_max}
             fill={th.battleMp || '#3a6ac2'} themeStyle={themeStyle}
-            fontScale={fontScaleFor(uiSettings.fontSize)} />
+            fontScale={activeFontScale} />
           <StatBar label="精力" value={status.energy} max={100}
             fill="#3f8a53" themeStyle={themeStyle}
-            fontScale={fontScaleFor(uiSettings.fontSize)} />
+            fontScale={activeFontScale} />
         </View>
 
         {/* 生效中的丹药/特药 buff 药丸（与 Vue active-buff-chip 同源） */}
@@ -1552,7 +1557,9 @@ export default function GameScreen() {
             ctx={{
               send, inputValues, setInputValues, imageBase,
               busy: store.busy,
-              fontScale: fontScaleFor(uiSettings.fontSize) * (isTablet ? 1.25 : 1),
+              fontScale: uiSettings.fixedLayout
+                ? activeFontScale
+                : activeFontScale * (isTablet ? 1.25 : 1),
               textColor: th.text,
               colorPalette: themeId === 'day'
                 ? COLOR_HEX_DAY : COLOR_HEX,
@@ -1771,8 +1778,20 @@ export default function GameScreen() {
               onPress={() => updateUiSettings({
                 combatEffects: !uiSettings.combatEffects,
               })} />
+            <MenuRow icon={uiSettings.fixedLayout ? '📐' : '↔️'}
+              label={`排版模式：${uiSettings.fixedLayout
+                ? '固定（按屏幕自动适配）' : '自适应（手动字号）'}`}
+              onPress={() => {
+                const next = !uiSettings.fixedLayout;
+                updateUiSettings({ fixedLayout: next });
+                toast(next
+                  ? '已切换固定排版：字号按屏幕宽度自动适配'
+                  : '已切换自适应排版：字号恢复手动选择', 'success');
+              }} />
             <View style={styles.menuDivider} />
-            <Text style={styles.menuSectionLabel}>游戏字号</Text>
+            <Text style={styles.menuSectionLabel}>
+              游戏字号{uiSettings.fixedLayout ? '（固定排版生效中）' : ''}
+            </Text>
             <View style={styles.menuFontRow}>
               {FONT_SCALE_OPTIONS.map(option => (
                 <Pressable key={option.id}
