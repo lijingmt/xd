@@ -82,14 +82,17 @@ int main(string|zero arg)
 	int batch_per_cost = 0;
 	int batch_per_money = 0;
 	string batch_summary = "";
-	if(flag>=6){
-		batch_count = flag==6 ? 3 : (flag==7 ? 5 : 10);
-		flag = 2;
-	}//vip标志位
+	//vip标志位
 	if(!arg || sscanf(arg,"%s %s %d %d %d",item_name,item_type,cost,flag,vip_flag)<4 ||
 	   flag<1 || flag>8 || (vip_flag!=0 && vip_flag!=1)){
 		write("炼化参数无效。\n[返回:convert_equip_list]\n[返回游戏:look]\n");
 		return 1;
+	}
+	/* 批量归一化必须在sscanf赋值之后：旧代码放在解析前执行，
+	 * flag恒为0导致×3/×5/×10全部退化为单次增加（玩家实测按钮失效）。*/
+	if(flag>=6){
+		batch_count = flag==6 ? 3 : (flag==7 ? 5 : 10);
+		flag = 2;
 	}
 	/*
 	//对于转化属性和增加属性，会员点击非会员操作时给出提示
@@ -298,6 +301,7 @@ int main(string|zero arg)
 					int ran_one = 0;
 					int start_attrs = attri_num;
 					string trace = "";
+					string attempt_log = "";
 					log_consume = "convert_add";
 					while(attri_num<11 && attempts<batch_count){
 						ran_one = ran;
@@ -311,10 +315,12 @@ int main(string|zero arg)
 							attri_num++;
 							successes++;
 							trace += "✓";
+							attempt_log += "· 第"+(attempts+1)+"次：成功，属性增至"+attri_num+"条\n";
 						}
 						else{
 							failures++;
 							trace += "✗";
+							attempt_log += "· 第"+(attempts+1)+"次：失败\n";
 						}
 						attempts++;
 					}
@@ -326,7 +332,8 @@ int main(string|zero arg)
 					batch_summary = "【批量增加】"+attempts+"次："+
 						trace+"（成功"+successes+"次，失败"+
 						failures+"次），属性"+start_attrs+"条→"+
-						attri_num+"条";
+						attri_num+"条\n"+
+						"【本次明细】\n"+attempt_log;
 					if(successes>0)
 						ret_flag = 2;//至少成功一次
 					else{
@@ -402,11 +409,21 @@ int main(string|zero arg)
 			//werror("=============217orginal_item "+orginal_item->query_item_canLevel()+"\n");
 			//werror("=============218item "+item->query_item_canLevel()+"\n");
 			object|zero new_item = 0;
+			/* 增加属性(flag==2)：保留现有词条并只补新词条，不再整件
+			 * 重掷——玩家实测“成功后属性被替换、条数不变”。
+			 * 转化(flag==1)仍是洗炼重掷（保值不变）。 */
+			array(string) keep_affixes = ({});
+			int fill_to_count = 0;
+			if(flag==2){
+				keep_affixes = ITEMSD->
+					query_item_current_affixes(item,item_rawname);
+				fill_to_count = 1;
+			}
 			if(ret_flag != 3){
 				if(orginal_item)//如果超过70级以上物品熔炼，则获得原物品等级，以及目前装备的等级，100级装备，熔炼出100级的装备
 					// 数值防爆由 itemsd 第二层防御兜底（低阶底版单条属性
 					// 上限=约束表上限×500），重掷必须保持装备当前等级。
-					new_item = ITEMSD->get_convert_item(item_rawname,attri_num,orginal_item->query_item_canLevel(),item->query_item_canLevel(),item);
+					new_item = ITEMSD->get_convert_item(item_rawname,attri_num,orginal_item->query_item_canLevel(),item->query_item_canLevel(),item,keep_affixes,fill_to_count);
 				else{
 					//有时候上面的clone装备出现问题，再尝试一次即可
 					s += "今天时运不加，装备和时辰相冲，所以转化失败！请模数10下，再尝试一次\n";

@@ -1459,7 +1459,7 @@ private void clamp_low_tier_instance(object item,string orgitem)
 private object get_attributes_item(string orgitem,int num,
 	int|void orginal_level,int|void target_item_level,void|object item_ob,
 	void|mapping newmoon_collection,void|int reroll_floor,
-	void|array(string) reroll_affix_set)
+	void|array(string) reroll_affix_set,void|int fill_to_count)
 {
 	// 洗炼保值：重掷结果不低于被洗装备的现有同属性值。
 	// 旧装备可能生成于含×level/25的时代（数值较高），撤掉该缩放后
@@ -1568,6 +1568,9 @@ private object get_attributes_item(string orgitem,int num,
 	}
 	if(sizeof(forced_picks))
 		count=sizeof(forced_picks);
+	// 增加属性：保留旧词条并补随机词条到num条（num>=forced数）。
+	if(fill_to_count && num>count)
+		count=num;
 	writetmp="    set_item_rareLevel("+count+");\n"; //设置新物品的稀有等级
 
 	if(attri_allow&&size) {
@@ -1613,7 +1616,9 @@ private object get_attributes_item(string orgitem,int num,
 				// 不保值——新月套装的同级洗炼要允许正常重掷。
 				// 旧装备在×level/25时代可能存有远超当前公式产出
 				// 的数值（如673万法力），超过合法最大值不保值。
-				if(reroll_floor && rate>1.05 &&
+				// 增加属性(fill_to_count)保留的旧词条必须保值：
+				// 玩家付碎玉是为了“加一条”，不能顺手掉值。
+				if(reroll_floor && (rate>1.05 || fill_to_count) &&
 				   reroll_minimums[attri_name] &&
 				   value<reroll_minimums[attri_name]){
 					int legal_max=(int)(limit*rate);
@@ -2241,13 +2246,32 @@ object get_ronglian_item(int itemlevel,int playerluck)
 //这个接口也是获得num属性指定装备的接口
 object get_convert_item(string item_rawname,int num,int|void orginal_level,
 	int|void item_level, void|object item_ob,
-	void|array(string) reroll_affix_set)
+	void|array(string) reroll_affix_set,void|int fill_to_count)
 {
 	mapping newmoon_collection=query_newmoon_collection_for_item(item_ob);
 	// 炼化/兑换都是玩家消耗资源的重掷，走保底区间。
 	object ret_item = get_attributes_item(item_rawname,num,orginal_level,
-		item_level,item_ob,newmoon_collection,1,reroll_affix_set);//生成目标itemlevel大于70级的装备
+		item_level,item_ob,newmoon_collection,1,reroll_affix_set,
+		fill_to_count);//生成目标itemlevel大于70级的装备
 	return ret_item;
+}
+
+/** 提取物品当前实际携带的词条名（底版允许表内query值>0者），
+ * 供“增加属性”保留旧词条、只补新词条使用。 */
+array(string) query_item_current_affixes(object item,string base)
+{
+	array(string) affixes=({});
+	array(string) allow=item_attributes[base];
+	if(!item || !arrayp(allow))
+		return affixes;
+	foreach(allow,string entry){
+		string name=(entry/":")[0];
+		mixed reader=item["query_"+name];
+		if(functionp(reader) && (int)call_function(reader)>0 &&
+		   search(affixes,name)==-1)
+			affixes+=({name});
+	}
+	return affixes;
 }
 
 // 返回炼化装备真正的白装底版路径。
