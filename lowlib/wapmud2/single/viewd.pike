@@ -277,6 +277,7 @@ $(ob->query_links(arg))
 			[新手补给商店:newbie_shop]
 			[一键学习书卷:learn_all]
 			[一键安全销毁非装备:cleanup_non_equipment]
+			[前缀装备清理:prefix_gear_cleanup]
 			$(player->view_inventory_batch_sell_entry())
 			$(player->view_inventory_zhuangbei())
 			");
@@ -289,6 +290,7 @@ $(ob->query_links(arg))
 			[新手补给商店:newbie_shop]
 			[一键学习书卷:learn_all]
 			[一键安全销毁非装备:cleanup_non_equipment]
+			[前缀装备清理:prefix_gear_cleanup]
 			$(player->view_inventory_batch_sell_entry())
 			$(player->view_inventory_zhuangbei())
 			");
@@ -297,6 +299,7 @@ $(ob->query_links(arg))
 			搜索物品：[inventory_search ...]
 			[一键学习书卷:learn_all]
 			[一键安全销毁非装备:cleanup_non_equipment]
+			[前缀装备清理:prefix_gear_cleanup]
 			$(player->view_inventory_daoju())
 			");
 	WAP_VIEWD["/inventory_sell"]=new(MUD_VIEW,
