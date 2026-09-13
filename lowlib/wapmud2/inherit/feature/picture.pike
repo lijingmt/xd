@@ -42,7 +42,9 @@ string query_mini_picture_url(void|string pic_name)
 }
 string query_user_picture_url(){
 	mapping flags = query_active_picture_flags();
-	if(flags["character"]){
+	// 与 /api/status 同口径：只有显式"close"才隐藏（旧档的真值
+	// 判断把"close"字符串当真，玩家关闭头像后仍显示）。
+	if((string)flags["character"]!="close"){
 		if(user_pic&&user_pic!="")
 			return "[imgurl picture:"+"/"+GAME_NAME+"/images/"+user_pic+".gif]";
 	}
@@ -50,7 +52,7 @@ string query_user_picture_url(){
 }
 string query_mini_user_picture_url(){
 	mapping flags = query_active_picture_flags();
-	if(flags["character"]){
+	if((string)flags["character"]!="close"){
 		if(user_pic&&user_pic!="")
 			return "[miniimg minipicture:"+"/"+GAME_NAME+"/images/"+user_pic+".gif]";
 	}

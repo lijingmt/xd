@@ -259,6 +259,7 @@ private void show_cleanup_settings(object me,string notice)
 	else
 		out += "不限制等级差（"+vip_label(3)+"解锁）\n";
 
+	out += "[智能寻路·地图绑定:training_route_bind]\n";
 	out += "\n套装回收（挂机中自动回收未绑定重复套装件，每组保留最好一件；绑定件请在套装管理中手动清理）：\n";
 	{
 		object set_cmd = (object)(

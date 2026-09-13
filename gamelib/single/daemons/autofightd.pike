@@ -3467,6 +3467,23 @@ mapping(string:mixed) query_training_route(object me)
 	// 也不能回退到永恒服练级表并反复触发跨世界拒绝。
 	if(SEASONALD->is_active_illusion_character(me))
 		return SEASONALD->query_autofight_route(me);
+	// 玩家自选绑定图（2026-09-13玩家反馈“智能寻路全集中在蓬莱幻境”）：
+	// 绑定后优先路由到绑定图，不再强制按等级表分配。
+	// 未设置的/plus键读到int 0，强转成"0"仍为真——必须stringp守卫。
+	mixed raw_preferred = me["/plus/autofight_preferred_route_path"];
+	path = stringp(raw_preferred) ? (string)raw_preferred : "";
+	if(path!="" && search(path,"..")==-1 && path[0]!='/' &&
+	   me->query_level()>=(int)(me["/plus/autofight_preferred_route_min_level"] || 0)){
+		// 经attach补齐paths/pool_key，与等级表路线同构。
+		return attach_training_route_pool(([
+			"max":MAX_LEVEL,
+			"level":me->query_level()>MAX_LEVEL ?
+				MAX_LEVEL : me->query_level(),
+			"name":(string)(me["/plus/autofight_preferred_route_name"] ||
+				"自选练级图"),
+			"path":path,
+		]));
+	}
 	level = me->query_level();
 	race = me->query_raceId();
 	if(level>=ENDGAME_MAP_MIN_LEVEL){

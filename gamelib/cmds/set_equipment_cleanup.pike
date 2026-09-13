@@ -118,14 +118,22 @@ array(object) query_set_cleanup_candidates(object player)
 		array(object) items=groups[key];
 		int keep_index=0;
 		int keep_score;
+		int keep_rare;
 		if(sizeof(items)<2)
 			continue;
+		// 稀有度绝对优先再比评分：高级精制的等级权重会压过低级
+		// 幻化（canLevel×100000），玩家实测“清了幻化留精制”——
+		// 幻化/空觉等高稀有前缀件是不可再生掉落，永远优先保留。
+		keep_rare=(int)items[0]->query_item_rareLevel();
 		keep_score=AUTO_EQUIP_CMD->query_item_score(items[0]);
 		for(int index=1;index<sizeof(items);index++){
 			int score=AUTO_EQUIP_CMD->query_item_score(items[index]);
-			if(score>keep_score){
+			int rare=(int)items[index]->query_item_rareLevel();
+			if(rare>keep_rare ||
+			   (rare==keep_rare && score>keep_score)){
 				keep_index=index;
 				keep_score=score;
+				keep_rare=rare;
 			}
 		}
 		for(int index=0;index<sizeof(items);index++)

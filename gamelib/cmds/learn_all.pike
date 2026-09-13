@@ -21,24 +21,31 @@ int main(string|zero arg)
 	foreach(all_inventory(me),object ob){
 		mixed result;
 		string name_cn;
+		int amount_before;
+		int rc;
 		if(!ob || !functionp(ob->query_item_type) ||
 		   (string)ob->query_item_type()!="book")
 			continue;
 		if(ob->read_flag!=1)
 			continue;
 		books++;
-		result=catch{ ob->read(); };
+		amount_before=(int)(ob->amount || 1);
+		result=catch{ rc=(int)ob->read(); };
 		if(result){
 			blocked++;
 			continue;
 		}
 		// read()的返回码与read命令一致：1=学成新技能；2/11=已会；
 		// 3-10=等级/职业/前置/熟练度不满足；0=失败。
+		// 学成判定不能只看read_flag：堆叠书(amount>1)在read()内部
+		// 置read_flag=0后立刻remove()消耗一本并复位read_flag=1
+		// （玩家实测整堆书全被判“未学”）。三口径并集：返回码1、
+		// read_flag仍为0、堆叠数量减少。
 		name_cn="";
 		if(functionp(ob->query_name_cn))
 			name_cn=(string)ob->query_name_cn();
-		// read()置read_flag=0表示消耗成功；据此区分学成与否。
-		if(ob->read_flag==0){
+		if(rc==1 || ob->read_flag==0 ||
+		   (int)(ob->amount || 1)<amount_before){
 			learned++;
 			if(sizeof(learned_names)<15 && name_cn!="")
 				learned_names+=({name_cn});
