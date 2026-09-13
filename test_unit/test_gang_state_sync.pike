@@ -72,6 +72,10 @@ int main()
 			sprintf("rc=%d gangid=%d",rc,gangid));
 
 		// 2) 模拟另一Worker用旧快照整盘覆盖共享文件（旧bug的加害方）。
+		// mtime只有秒级精度且建帮的锁内重读与本次覆盖极易同秒：
+		// 先隔1.1秒再写，确保覆盖后的mtime晚于缓存值（生产由
+		// 30秒tick兜底，变更路径直读文件内容不受此限制）。
+		sleep(1.1);
 		Stdio.write_file(DATA_ROOT+"bangpai/bang_list",
 			backup[DATA_ROOT+"bangpai/bang_list"] || "");
 		Stdio.write_file(DATA_ROOT+"bangpai/bang_members",

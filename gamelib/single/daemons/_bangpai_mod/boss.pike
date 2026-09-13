@@ -399,6 +399,7 @@ mapping attack_bang_boss(object player)
 	object npc;
 	if(!me || !(int)me->bangid)
 		return (["ok":0,"message":"你还没有加入帮派。"]);
+	catch{ bangpai_boss_ensure_spawned(me); };
 	npc = query_bang_boss_npc((int)me->bangid);
 	if(!npc || environment(me)!=environment(npc))
 		return (["ok":0,"message":"帮派BOSS不在场或你不在演武场。"]);
@@ -420,6 +421,40 @@ void bangpai_boss_tick_for_test(int bangid,int now)
 	bangpai_boss_check_timeout(bangid,now);
 }
 
+/** 演武场惰性补生成：召唤发生在召唤者当时的Worker，而跨Worker
+ * 进场的成员会被亲和路由汇聚到Owner Worker的演武场副本——那里
+ * 没有BOSS（玩家实测“召唤后没有boss”）。只有真正站在本进程演武
+ * 场里的玩家才触发补生成，保证BOSS必定生在大家看得到的那份房间。
+ */
+private void bangpai_boss_ensure_spawned(object me)
+{
+	object room;
+	object npc;
+	mapping boss;
+	int bangid;
+	if(!me || !(int)me->bangid ||
+	   environment(me)!=(object)(BANGPAI_BOSS_ROOM))
+		return;
+	bangid = (int)me->bangid;
+	if(query_bang_boss_npc(bangid))
+		return;
+	boss = bangpai_boss_state(bangid);
+	if(!boss || !(int)boss["alive"])
+		return;
+	room = bangpai_boss_room_ob();
+	npc = clone(BANGPAI_BOSS_NPC);
+	if(!npc)
+		return;
+	npc->configure_bangpai_boss(bangid,(int)boss["max_hp"],
+		query_gang_level(bangid));
+	npc->move(room);
+	bangpai_boss_live_damage[(string)bangid] =
+		mappingp(bangpai_boss_live_damage[(string)bangid]) ?
+		bangpai_boss_live_damage[(string)bangid] : ([]);
+	bangpai_boss_live_npc[(string)bangid] = npc;
+	tell_object(me,"§F镇帮神兽在法阵中央凝聚成形！§r\n");
+}
+
 /** 演武场房间链接：有BOSS时可攻击，否则指引回BOSS页。 */
 string query_bang_boss_arena_links(object player)
 {
@@ -427,11 +462,13 @@ string query_bang_boss_arena_links(object player)
 	object npc;
 	if(!me || !(int)me->bangid)
 		return "[返回游戏:look]\n";
+	catch{ bangpai_boss_ensure_spawned(me); };
 	npc = query_bang_boss_npc((int)me->bangid);
 	string s = "";
 	if(npc)
 		s += "[攻击帮派BOSS:bang_boss attack]\n";
-	s += "[帮派BOSS:bang_boss]|[我的帮派:my_bang]|[返回游戏:look]\n";
+	s += "[帮派BOSS:bang_boss]|[我的帮派:my_bang]|"+
+		"[离开演武场:go_warehouse]|[返回游戏:look]\n";
 	return s;
 }
 
@@ -439,4 +476,11 @@ string query_bang_boss_arena_links(object player)
 void set_bang_gate_for_test(int disable)
 {
 	bangpai_boss_gate_disabled = disable;
+}
+
+/** TestUnit：清空本地live NPC（模拟跨Worker副本无BOSS现场）。 */
+void bangpai_boss_live_npc_for_test_clear(int bangid)
+{
+	m_delete(bangpai_boss_live_npc,(string)bangid);
+	m_delete(bangpai_boss_live_damage,(string)bangid);
 }

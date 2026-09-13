@@ -29,6 +29,11 @@ int main(string|zero arg)
 		write("逻辑分区隔离中，该申请已经失效。\n[返回:bang_view_apply]\n");
 		return 1;
 	}
+	if(applyer->bangid != 0 &&
+	   !BANGD->is_real_member(apply_name,(int)applyer->bangid)){
+		// 幽灵成员（回档残留）：自动清零后照常通过入帮。
+		applyer->bangid = 0;
+	}
 	if(applyer->bangid != 0){
 		s += "对方已有帮派\n";
 		if(BANGD->if_in_apply(applyer,index-1,me->bangid))

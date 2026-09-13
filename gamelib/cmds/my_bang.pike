@@ -4,6 +4,17 @@ int main(string|zero arg)
 {
 	string s = "";
 	object me = this_player();
+	// 幽灵成员自愈：存档bangid指向名册里没有自己的帮派（回档残留），
+	// 自动清零并给出重新申请入口，而不是“请联系管理员”。
+	if(me->bangid && !BANGD->is_real_member(me->query_name(),
+		(int)me->bangid)){
+		me->bangid = 0;
+		s = "检测到残留的失效帮派记录，已自动修复。\n"+
+			"你当前不在任何帮派，可重新申请加入。\n"+
+			"[查找帮派:bang_search]\n[返回游戏:look]\n";
+		me->write_view(WAP_VIEWD["/emote"],0,0,s);
+		return 1;
+	}
 	if(!me->bangid){
 		s = "你还未加入任何帮派\n";
 	}

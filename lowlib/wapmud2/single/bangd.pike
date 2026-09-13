@@ -693,6 +693,15 @@ int query_nums(int bangid,string flag,void|string viewer_id)
 	return 0;
 }
 
+/** 名册成员校验：回档事故会让玩家存档bangid指向名册里没有他的
+ * 帮派（“已在帮派”挡申请、成员列表又看不到人）。调用方据此自愈。 */
+int is_real_member(string name,int bangid)
+{
+	mapping(string:int) members = bang_members[bangid];
+	return bangid>0 && mappingp(members) &&
+		(int)(members[name] || 0)>0;
+}
+
 //按成员id取中文名（帮派扩展模块的排行/公告展示用）。
 string query_member_name_cn(int bangid,string member_name)
 {

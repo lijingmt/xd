@@ -16,6 +16,14 @@ int main(string|zero arg)
 	if(flag == 1){
 		if(me->sid == "5dwap")
 			s += "你是现在游客试玩，无法加入帮派\n";
+		else if(me->bangid != 0 &&
+		   !BANGD->is_real_member(me->query_name(),(int)me->bangid)){
+			// 回档幽灵成员：名册没有自己=实际不在帮，自动修复后放行。
+			me->bangid = 0;
+			s += "已自动修复残留的失效帮派记录。\n";
+			BANGD->add_bang_apply(bangid,me);
+			s += "你的入帮申请已经发出，请等待回应\n";
+		}
 		else if(me->bangid != 0){
 			s += "你已经在另一个帮派里了，无法申请加入其他帮派\n";
 		}
