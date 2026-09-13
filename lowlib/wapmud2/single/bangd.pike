@@ -9,7 +9,9 @@
 #define BANG_APPLY DATA_ROOT+"bangpai/bang_apply"
 #define NAME_NAMECN	DATA_ROOT+"bangpai/name_namecn"
 #define CHAT_NUM 10 //聊天室最多显示的聊天数
-#define SAVE_TIME 1200 //10分钟存档一次
+#define BANG_STATE_LOCK DATA_ROOT+"bangpai/.state_lock"
+#define BANG_LOCK_STALE_SECONDS 15
+#define BANG_RELOAD_TICK 30
 #define LOGICALZONED ((object)(ROOT "/gamelib/single/daemons/logical_zoned.pike"))
 inherit LOW_DAEMON;
 
@@ -32,6 +34,13 @@ private protected mapping(int:array(string)) bang_apply = ([]);
 
 //记录已建立的帮派名称，以免重名
 private protected mapping(string:int) bang_exist = ([]);
+
+//多Worker帮派状态同步（2026-09-13回档修复）：各Worker的bangd持有独立
+//内存副本，旧逻辑每20分钟整盘覆盖共享文件，导致其他Worker刚写入的
+//帮派/成员被旧快照抹掉（玩家实测：9级帮派与17人成员表回档消失）。
+//新纪律：所有变更在mkdir互斥锁内“重读->变更->原子写回”；周期tick只
+//做mtime感知的内存刷新，绝不再无锁整盘覆盖。
+private mapping(string:int) bangd_file_mtimes = ([]);
 
 //系统启动时从/usr/local/games/usrdata5/bangpai/bang_size中读入数据，
 //格式为：monster_size
@@ -62,7 +71,8 @@ protected void create()
 		exit(1);
 	}
 	werror("\n----------------/gamelib/single/daemons/bangd.pike create call compeleted!!!----------------\n");
-	call_out(save_bang,SAVE_TIME);
+	bangd_remember_mtimes();
+	call_out(bangd_reload_tick,BANG_RELOAD_TICK);
 }
 
 //存档
@@ -80,7 +90,7 @@ void save_bang(void|int fg)
 	}
 	mixed err=catch
 	{
-		Stdio.write_file(BANG_LIST,writeBack);
+		bangd_write_atomic(BANG_LIST,writeBack);
 	};
 	if(err)
 	{
@@ -101,7 +111,7 @@ void save_bang(void|int fg)
 	}
 	err=catch
 	{
-		Stdio.write_file(BANG_APPLY,writeBack);
+		bangd_write_atomic(BANG_APPLY,writeBack);
 	};
 	if(err)
 	{
@@ -120,7 +130,7 @@ void save_bang(void|int fg)
 	}
 	err=catch
 	{
-		Stdio.write_file(NAME_NAMECN,writeBack);
+		bangd_write_atomic(NAME_NAMECN,writeBack);
 	};
 	if(err)
 	{
@@ -139,7 +149,7 @@ void save_bang(void|int fg)
 	}
 	err=catch
 	{
-		Stdio.write_file(BANG_MEMBERS,writeBack);
+		bangd_write_atomic(BANG_MEMBERS,writeBack);
 	};
 	if(err)
 	{
@@ -151,14 +161,148 @@ void save_bang(void|int fg)
 	writeBack += monster_size+"\n"+human_size;
 	err=catch
 	{
-		Stdio.write_file(BANG_SIZE,writeBack);
+		bangd_write_atomic(BANG_SIZE,writeBack);
 	};
 	if(err)
 	{
 		Stdio.append_file(ROOT+"/log/bang.log",now[0..sizeof(now)-2]+":rewrite bang_size failed\n");
 	}
-	if(!fg)
-		call_out(save_bang,SAVE_TIME);
+}
+//fg参数保留兼容；周期性无锁整盘覆盖已废除（多Worker回档根因）。
+
+
+//----------- 多Worker状态同步机制 -----------
+
+private int bangd_file_mtime(string path)
+{
+	mixed fs = file_stat(path);
+	return objectp(fs) ? (int)fs->mtime : 0;
+}
+
+private void bangd_remember_mtimes()
+{
+	foreach(({BANG_LIST,BANG_APPLY,BANG_MEMBERS,BANG_SIZE,NAME_NAMECN}),
+		string path)
+		bangd_file_mtimes[path] = bangd_file_mtime(path);
+}
+
+/** 任一状态文件mtime变化即整体重载；返回0表示重载失败（保留旧内存态）。 */
+private int bangd_reload_core()
+{
+	mapping(int:array(string)) old_list = bang_list;
+	mapping(int:array(string)) old_apply = bang_apply;
+	mapping(int:mapping(string:int)) old_members = bang_members;
+	mapping(int:mapping(string:string)) old_names = name_namecn;
+	mapping(string:int) old_exist = bang_exist;
+	mapping(int:array(string)) old_chat = bang_chat;
+	int old_monster = monster_size;
+	int old_human = human_size;
+	bang_list = ([]);
+	bang_apply = ([]);
+	bang_members = ([]);
+	name_namecn = ([]);
+	bang_exist = ([]);
+	bang_chat = ([]);
+	mixed err = catch{
+		if(!readFile_bangList())
+			error("bang_list\n");
+		if(!readFile_bangApply())
+			error("bang_apply\n");
+		if(!readFile_bangMembers())
+			error("bang_members\n");
+		if(!readFile_bangSize())
+			error("bang_size\n");
+		if(!readFile_name_namecn())
+			error("name_namecn\n");
+	};
+	if(err){
+		// 半加载不可用：整体回滚旧内存态，等下次tick再试。
+		bang_list = old_list;
+		bang_apply = old_apply;
+		bang_members = old_members;
+		name_namecn = old_names;
+		bang_exist = old_exist;
+		bang_chat = old_chat;
+		monster_size = old_monster;
+		human_size = old_human;
+		werror("[BANGD] 状态重载失败: %s\n",describe_error(err));
+		return 0;
+	}
+	bangd_remember_mtimes();
+	return 1;
+}
+
+/** mtime感知刷新：文件没变零开销；变了才整体重载。 */
+int bangd_maybe_reload()
+{
+	foreach(({BANG_LIST,BANG_APPLY,BANG_MEMBERS,BANG_SIZE,NAME_NAMECN}),
+		string path)
+		if(bangd_file_mtime(path)!=bangd_file_mtimes[path])
+			return bangd_reload_core();
+	return 1;
+}
+
+private void bangd_reload_tick()
+{
+	catch{ bangd_maybe_reload(); };
+	call_out(bangd_reload_tick,BANG_RELOAD_TICK);
+}
+
+private int bangd_write_atomic(string path,string data)
+{
+	string tmp = path+".tmp."+(string)getpid();
+	int ok = 0;
+	mixed err = catch{
+		rm(tmp);
+		if(Stdio.write_file(tmp,data)>0 &&
+		   Stdio.file_size(tmp)==sizeof(data) &&
+		   mv(tmp,path))
+			ok = Stdio.file_size(path)==sizeof(data);
+	};
+	rm(tmp);
+	if(err || !ok)
+		werror("[BANGD] 原子写失败 %s: %s\n",path,
+			err ? describe_error(err) : "size mismatch");
+	return ok;
+}
+
+private int bangd_lock_acquire()
+{
+	int waited = 0;
+	while(mkdir(BANG_STATE_LOCK)==0){
+		int age = time()-bangd_file_mtime(BANG_STATE_LOCK);
+		// 持锁超15秒视为持有者已崩溃，强制接管。
+		if(age>BANG_LOCK_STALE_SECONDS){
+			rm(BANG_STATE_LOCK);
+			continue;
+		}
+		if(++waited>50){
+			werror("[BANGD] 状态锁等待超时\n");
+			return 0;
+		}
+		sleep(0.01);
+	}
+	return 1;
+}
+
+/** 所有帮派变更的唯一通道：锁内重读->执行->原子写回。 */
+private mixed bangd_mutate(function mutation)
+{
+	if(!bangd_lock_acquire())
+		return 0;
+	mixed result;
+	mixed err = catch{
+		// 锁内重读拿最新盘面；失败沿用内存（与旧行为一致）。
+		bangd_reload_core();
+		result = mutation();
+		save_bang(1);
+	};
+	rm(BANG_STATE_LOCK);
+	if(err){
+		werror("[BANGD] 帮派操作异常: %s\n",describe_error(err));
+		return 0;
+	}
+	return result;
 }
 
 //从/usr/local/games/usrdata5/bangpai/bang_list中读入数据的接口
@@ -295,7 +439,7 @@ string query_bang_notice(int bangid)
 }
 
 //设置帮派通告的接口
-void set_bang_notice(int bangid,string content)
+private void set_bang_notice_locked(int bangid,string content)
 {
 	array(string) bang_info = bang_list[bangid];
 	if(bang_info && sizeof(bang_info)==9){
@@ -321,7 +465,7 @@ string query_bang_desc(int bangid)
 }
 
 //设置帮派简介的接口
-void set_bang_desc(int bangid,string content)
+private void set_bang_desc_locked(int bangid,string content)
 {
 	array(string) bang_info = bang_list[bangid];
 	if(bang_info && sizeof(bang_info)==9){
@@ -383,7 +527,7 @@ string query_bang_level(int bangid,int level)
 }
 
 //设置帮派指定的等级描述
-void set_bang_level(int bangid,int level,string content)
+private void set_bang_level_locked(int bangid,int level,string content)
 {
 	array(string) bang_info = bang_list[bangid];
 	if(bang_info && sizeof(bang_info)==9){
@@ -429,7 +573,7 @@ int query_level(string player,int bangid)
 }
 
 //设置帮派成员的等级
-int set_level(string player,int bangid,int level)
+private int set_level_locked(string player,int bangid,int level)
 {
 	mapping(string:int) mem_lev = bang_members[bangid];
 	if(mem_lev && sizeof(mem_lev)){
@@ -673,7 +817,7 @@ int if_in_apply(object applyer,int index,int bangid)
 	return 0;
 }
 //删除已处理的入帮信息
-void rmove_bang_apply(int bangid,int index)
+private void rmove_bang_apply_locked(int bangid,int index)
 {
 	array(string) applys = bang_apply[bangid];
 	if(applys && sizeof(applys)>=index+1){
@@ -683,7 +827,7 @@ void rmove_bang_apply(int bangid,int index)
 }
 
 //添加新的入帮信息
-void add_bang_apply(int bangid,object applyer)
+private void add_bang_apply_locked(int bangid,object applyer)
 {
 	array(string) applys = bang_apply[bangid];
 	string content = applyer->query_name_cn()+":"+applyer->query_name()+":"+applyer->query_level()+":"+applyer->query_profe_cn(applyer->query_profeId());
@@ -696,7 +840,7 @@ void add_bang_apply(int bangid,object applyer)
 }
 
 //提升某个玩家的帮会等级
-int update_level(object viewer,string target_name,int bangid)
+private int update_level_locked(object viewer,string target_name,int bangid)
 {
 	if(!viewer || !bang_allows_user(bangid,viewer->query_name()) ||
 	   !LOGICALZONED->can_user_action(
@@ -722,7 +866,7 @@ int update_level(object viewer,string target_name,int bangid)
 }
 
 //降低某个玩家的帮会等级
-int down_level(object viewer,string target_name,int bangid)
+private int down_level_locked(object viewer,string target_name,int bangid)
 {
 	if(!viewer || !bang_allows_user(bangid,viewer->query_name()) ||
 	   !LOGICALZONED->can_user_action(
@@ -750,7 +894,7 @@ int down_level(object viewer,string target_name,int bangid)
 }
 
 //开除成员，和权限有关系
-int fire_member(object viewer,string target_name,int bangid)
+private int fire_member_locked(object viewer,string target_name,int bangid)
 {
 	if(!viewer || !bang_allows_user(bangid,viewer->query_name()) ||
 	   !LOGICALZONED->can_user_action(
@@ -840,7 +984,7 @@ string query_for_root(object root)
 }
 
 //设置帮主
-int set_bang_root(object old,string new_name)
+private int set_bang_root_locked(object old,string new_name)
 {
 	if(!old || !LOGICALZONED->can_user_interact(old->query_name(),new_name))
 		return 2;
@@ -863,7 +1007,7 @@ int set_bang_root(object old,string new_name)
 }
 
 //退出帮派
-int quit_bang(string name,int bangid)
+private int quit_bang_locked(string name,int bangid)
 {
 	mapping(string:int) members = bang_members[bangid];
 	if(members && sizeof(members)){
@@ -904,7 +1048,7 @@ string query_bang_side(object player)
 	return "";
 }
 
-int create_bang(object creater,string bang_name)
+private int create_bang_locked(object creater,string bang_name)
 {
 	if(bang_exist[bang_name] == 1){
 		return 0;	
@@ -1027,7 +1171,7 @@ string query_root_name_cn(object player,int bangid)
 }
 
 //加入新成员
-int add_new_member(string name,int bangid)
+private int add_new_member_locked(string name,int bangid)
 {
 	mapping(string:int) members = bang_members[bangid];
 	if(members && sizeof(members)){
@@ -1039,7 +1183,7 @@ int add_new_member(string name,int bangid)
 }
 
 //解散帮派
-void dismiss_bang(object root)
+private void dismiss_bang_locked(object root)
 {
 	int bangid = root->bangid;
 	string bang_name = query_bang_name(bangid);
@@ -1081,4 +1225,110 @@ int if_is_bang(int bangid)
 		return 1;
 	else
 		return 0;
+}
+
+//----------- 变更入口：全部经锁内重读->执行->写回 -----------
+
+void set_bang_notice(int bangid,string content)
+{
+	bangd_mutate(lambda(){
+		set_bang_notice_locked(bangid,content);
+		return 1;
+	});
+}
+
+void set_bang_desc(int bangid,string content)
+{
+	bangd_mutate(lambda(){
+		set_bang_desc_locked(bangid,content);
+		return 1;
+	});
+}
+
+void set_bang_level(int bangid,int level,string content)
+{
+	bangd_mutate(lambda(){
+		set_bang_level_locked(bangid,level,content);
+		return 1;
+	});
+}
+
+int set_level(string player,int bangid,int level)
+{
+	return bangd_mutate(lambda(){
+		return set_level_locked(player,bangid,level);
+	});
+}
+
+void rmove_bang_apply(int bangid,int index)
+{
+	bangd_mutate(lambda(){
+		rmove_bang_apply_locked(bangid,index);
+		return 1;
+	});
+}
+
+void add_bang_apply(int bangid,object applyer)
+{
+	bangd_mutate(lambda(){
+		add_bang_apply_locked(bangid,applyer);
+		return 1;
+	});
+}
+
+int update_level(object viewer,string target_name,int bangid)
+{
+	return bangd_mutate(lambda(){
+		return update_level_locked(viewer,target_name,bangid);
+	});
+}
+
+int down_level(object viewer,string target_name,int bangid)
+{
+	return bangd_mutate(lambda(){
+		return down_level_locked(viewer,target_name,bangid);
+	});
+}
+
+int fire_member(object viewer,string target_name,int bangid)
+{
+	return bangd_mutate(lambda(){
+		return fire_member_locked(viewer,target_name,bangid);
+	});
+}
+
+int set_bang_root(object old,string new_name)
+{
+	return bangd_mutate(lambda(){
+		return set_bang_root_locked(old,new_name);
+	});
+}
+
+int quit_bang(string name,int bangid)
+{
+	return bangd_mutate(lambda(){
+		return quit_bang_locked(name,bangid);
+	});
+}
+
+int create_bang(object creater,string bang_name)
+{
+	return bangd_mutate(lambda(){
+		return create_bang_locked(creater,bang_name);
+	});
+}
+
+int add_new_member(string name,int bangid)
+{
+	return bangd_mutate(lambda(){
+		return add_new_member_locked(name,bangid);
+	});
+}
+
+void dismiss_bang(object root)
+{
+	bangd_mutate(lambda(){
+		dismiss_bang_locked(root);
+		return 1;
+	});
 }
