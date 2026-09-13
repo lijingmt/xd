@@ -18,19 +18,19 @@ int main(string|zero arg)
 	if(action=="here"){
 		object env=environment(me);
 		string env_path;
-		if(!env || !functionp(env->query_room_type) ||
-		   env->query_room_type()=="city" ||
-		   env->query_room_type()=="town" ||
-		   env->query_room_type()=="home" ||
-		   env->query_room_type()=="fb"){
-			write("城市/家园/副本不能作为挂机绑定图，请站到野外练级图再绑定。\n"+
-				"[返回:training_route_bind]\n[返回游戏:look]\n");
-			return 1;
-		}
 		env_path=file_name(env)-ROOT;
 		sscanf(env_path,"/gamelib/d/%s",env_path);
-		if(env_path=="" || search(env_path,"..")!=-1){
-			write("该地图无法绑定。\n[返回:training_route_bind]\n");
+		// file_name带.pike后缀；练级表与房间装载都以裸路径为准。
+		if(has_suffix(env_path,".pike"))
+			env_path=env_path[..sizeof(env_path)-6];
+		// 白名单校验：只有练级路线池内的房间可绑定（城市/家园/
+		// 副本/武阁等不可能混入），杜绝把挂机绑到无怪房。
+		if(env_path=="" || search(env_path,"..")!=-1 ||
+		   search(AUTOFIGHTD->query_bindable_training_rooms(),
+			env_path)==-1){
+			write("当前地图不是可绑定的练级图。请从地图列表选择，"+
+				"或站到野外练级图再绑定。\n"+
+				"[返回:training_route_bind]\n[返回游戏:look]\n");
 			return 1;
 		}
 		me["/plus/autofight_preferred_route_path"]=env_path;
@@ -41,6 +41,27 @@ int main(string|zero arg)
 		write("§y绑定成功§r：挂机将优先前往「"+
 			(string)env->query_name_cn()+"」。\n"+
 			"[返回:training_route_bind]|[返回游戏:look]\n");
+		return 1;
+	}
+	if(search(action,"room ")==0){
+		string pick=action[5..];
+		if(search(pick,"..")!=-1 || search(AUTOFIGHTD->
+			query_bindable_training_rooms(),pick)==-1){
+			write("无效的地图选择。\n[返回:training_route_bind]\n");
+			return 1;
+		}
+		object|zero room=0;
+		mixed load_err=catch{ room=(object)(
+			ROOT+"/gamelib/d/"+pick); };
+		me["/plus/autofight_preferred_route_path"]=pick;
+		me["/plus/autofight_preferred_route_name"]=
+			room && functionp(room->query_name_cn) ?
+			(string)room->query_name_cn() : pick;
+		me["/plus/autofight_preferred_route_min_level"]=1;
+		me->save_with_result();
+		write("§y绑定成功§r：挂机将优先前往「"+
+			(string)me["/plus/autofight_preferred_route_name"]+
+			"」。\n[返回:training_route_bind]|[返回游戏:look]\n");
 		return 1;
 	}
 	if(action=="clear"){
@@ -57,9 +78,22 @@ int main(string|zero arg)
 			"[解除绑定:training_route_bind clear]\n";
 	else
 		s+="未绑定——当前按等级自动分配（70级以上默认蓬莱幻境）。\n";
-	s+="\n绑定方式：走到想挂机的地图，点[绑定当前地图]；"+
-		"绑定后所有角色挂机优先前往该图。\n";
-	s+="[绑定当前地图:training_route_bind here]\n";
+	// 地图列表：按推荐等级展开白名单地图供直选（玩家要的
+	// “两镜湖/将军墓等弹出地图列表自主选择”）。
+	s+="\n选择绑定地图（绑定后挂机优先前往）：\n";
+	array(array(string)) labels=
+		AUTOFIGHTD->query_training_room_labels();
+	int my_level=(int)me->query_level();
+	int shown=0;
+	for(int i=0;i<sizeof(labels) && shown<26;i++){
+		int lvl=(int)labels[i][2];
+		if(lvl>my_level+30 || (my_level-lvl>40 && shown>=8))
+			continue;
+		s+="· ["+labels[i][1]+"("+lvl+"级):training_route_bind room "+
+			labels[i][0]+"]\n";
+		shown++;
+	}
+	s+="\n[绑定当前地图:training_route_bind here]\n";
 	s+="[挂机设置:autofight]|[返回游戏:look]\n";
 	me->write_view(WAP_VIEWD["/emote"],0,0,s);
 	return 1;

@@ -3517,6 +3517,35 @@ mapping(string:mixed) query_training_route(object me)
 	return ([]);
 }
 
+/** 可绑定练级房白名单：所有路线池的并集。绑定命令据此校验，
+ * 城市房（武阁/广场等未设room_type）不可能混入。 */
+array(string) query_bindable_training_rooms()
+{
+	array(string) rooms=({});
+	foreach(sort(indices(training_route_pools)),string pool_key)
+		rooms+=training_route_pools[pool_key];
+	return rooms;
+}
+
+/** 地图标签：({路径,名称,等级})，绑定页列表用。 */
+array(array(string)) query_training_room_labels()
+{
+	array(array(string)) labels=({});
+	foreach(smart_training_routes,mapping(string:mixed) one){
+		string cn=(string)one["name"];
+		int lvl=(int)one["level"];
+		array(string) paths=({});
+		foreach(labels,array(string) existing)
+			paths+=({existing[0]});
+		foreach(({(string)one["human"],(string)one["monst"],
+			(string)one["third"]}),string p){
+			if(p && p!="" && search(paths,p)==-1)
+				labels+=({({p,cn+(string)lvl,lvl})});
+		}
+	}
+	return labels;
+}
+
 array(string) query_training_route_paths(object me)
 {
 	mapping(string:mixed) route=query_training_route(me);
