@@ -73,7 +73,7 @@ int main(string|zero arg)
 			"　我的帮贡："+
 			format_game_number((int)summary["my_contrib"])+"\n";
 	}
-	s += "[捐献1万:bang_donate 10000]|[捐献10万:bang_donate 100000]|"+
+	s += "[捐献1万:bang_donate 10000]|[捐献50万:bang_donate 500000]|"+
 		"[捐献100万:bang_donate 1000000]\n";
 	s += "[submit 自定义金额:bang_donate ...]\n";
 	s += "[我的帮派:my_bang]|[返回游戏:look]\n";
