@@ -4008,8 +4008,15 @@ int should_route_to_training_area(object me,void|mapping target_snapshot)
 	object env;
 	string current;
 	string destination;
+	// 游戏入口是纯菜单房（无怪无出口）：非智能寻路玩家登录后
+	// 挂机会永久卡在这里（玩家实测“不开智能就只在入口挂机”）。
+	// 入口房不受智能寻路开关限制，直接路由到推荐练级区。
+	int at_menu_entrance;
+	env=environment(me);
+	at_menu_entrance=env && functionp(env->is_menu) &&
+		(int)env->is_menu();
 	if(!me || mappingp(me["/tmp/illusion_journey_autofight"]) ||
-	   !query_smart_route_enabled(me) ||
+	   (!query_smart_route_enabled(me) && !at_menu_entrance) ||
 	   !can_auto_leave_current_room(me) || !query_route_ready(me))
 		return 0;
 	route = query_training_route(me);
