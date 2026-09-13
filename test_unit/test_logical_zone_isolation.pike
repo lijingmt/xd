@@ -123,6 +123,17 @@ void test_runtime_fail_closed(object daemon)
 		daemon->can_user_action("unknown","xd98one","xd98two")==0 &&
 		daemon->can_user_action("chat","xd98one","xd99jinghaha")==1 &&
 		has_value(daemon->query_capabilities(),"combat");
+	// 帮派走永恒分组：赛季角色的illusion:*分组不得隔离本帮访问
+	// （玩家实测“必须回玉虚宫才能打开帮派”）。
+	int eternal_ok =
+		daemon->query_user_eternal_group("xd98one")==
+			daemon->query_user_group("xd98one") &&
+		search(daemon->query_user_eternal_group("xd98one"),"illusion:")==-1;
+	check("帮派使用永恒分组：幻境赛季角色不再被guild隔离",
+		eternal_ok,
+		sprintf("group=%O eternal=%O",
+			daemon->query_user_group("xd98one"),
+			daemon->query_user_eternal_group("xd98one")));
 	check("未知区号失败关闭且同区身份稳定",valid,
 		"伪造区号可能注册、登录或跨区交互");
 }

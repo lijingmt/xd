@@ -43,6 +43,17 @@ string query_user_group(string user_id)
 	return group_from_zone(query_zone_snapshot_entry(zone_id),zone_id);
 }
 
+/** 帮派等账号级永恒系统的分组：剥离幻境(S1)赛季分组，按玩家
+ * 底层逻辑区比较。否则赛季角色在幻境期间会被本帮隔离（玩家
+ * 实测“必须回玉虚宫才能打开帮派”）。 */
+string query_user_eternal_group(string user_id)
+{
+	string zone_id = query_user_zone_id(user_id);
+	if(zone_id=="")
+		return "legacy:main";
+	return group_from_zone(query_zone_snapshot_entry(zone_id),zone_id);
+}
+
 int registration_allowed(string zone_id)
 {
 	mapping(string:mixed)|zero zone;

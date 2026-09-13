@@ -37,8 +37,16 @@ int can_user_action(string capability,string actor_id,string target_id)
 	target_id = trim_zone_value(target_id);
 	if(actor_id=="" || target_id=="")
 		return 0;
-	actor_group = query_user_group(actor_id);
-	target_group = query_user_group(target_id);
+	// 帮派是账号级永恒系统：赛季(S1)角色分组被替换成illusion:*，
+	// 与永恒服帮主永不同组。guild按底层区组比较，赛季内照常帮派。
+	if(capability=="guild"){
+		actor_group = query_user_eternal_group(actor_id);
+		target_group = query_user_eternal_group(target_id);
+	}
+	else{
+		actor_group = query_user_group(actor_id);
+		target_group = query_user_group(target_id);
+	}
 	// 同组是绝大多数热点请求，先返回，避免每次可见性判断访问管理员 daemon。
 	if(actor_group==target_group)
 		return 1;
