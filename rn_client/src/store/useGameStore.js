@@ -66,6 +66,9 @@ export const useGameStore = create((set, get) => ({
   partitions: [],
   txd: '',
   userid: '',
+  /* 右上角菜单“我的账号”展示+一键拷贝用（明文只在本地内存）。 */
+  loginPassword: '',
+  loginPartition: '',
   lines: [],
   busy: false,
   error: '',
@@ -178,10 +181,13 @@ export const useGameStore = create((set, get) => ({
     set({ busy: true, error: '' });
     const fullUserid = `${partition}${userid}`;
     /* 登录成功后记住账号，登录页一键登录。 */
-    const remember = () => addSavedAccount({
-      userid: fullUserid, password,
-      partition, apiBase: api.getApiBase(),
-    });
+    const remember = () => {
+      addSavedAccount({
+        userid: fullUserid, password,
+        partition, apiBase: api.getApiBase(),
+      });
+      set({ loginPassword: password, loginPartition: partition });
+    };
     try {
       /* 多角色账号中心：账号密码换取令牌+角色清单；失败则回退
          单人物直登（老账号/账号服务异常都不阻断进游）。 */

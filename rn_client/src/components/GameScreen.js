@@ -16,7 +16,7 @@ import {
 import { parseSkillType, skillMeta } from '../utils/skillTypes.js';
 import { groupDigits, suiyuTime, clearSuiyuLog } from '../utils/suiyuLog.js';
 import { useTheme } from '../utils/ThemeContext.js';
-import { Vibration } from 'react-native';
+import { Vibration, Clipboard } from 'react-native';
 import { toast } from './Toast.js';
 import { APP_THEMES } from '../utils/appThemes.js';
 import WorldMapScreen from './WorldMapScreen.js';
@@ -1825,6 +1825,25 @@ export default function GameScreen() {
                   send('profession_assistant');
                 }} />
             )}
+            <MenuRow icon="🔑" label="我的账号（点击拷贝）"
+              onPress={async () => {
+                const uid = store.userid ||
+                  (store.sessions && Object.keys(store.sessions)[0])
+                  || '';
+                const pwd = store.loginPassword || '';
+                if (!uid) {
+                  toast('当前没有登录账号信息', 'warn');
+                  return;
+                }
+                const text = `账号：${uid}\n密码：${pwd || '（本机未记录，见登录页已存账号）'}`;
+                try {
+                  await Clipboard.setString(text);
+                  toast('账号密码已复制到剪贴板', 'success');
+                } catch (e) {
+                  toast(text.replace(/\n/g, ' '), 'warn');
+                }
+                setMenuOpen(false);
+              }} />
             <MenuRow icon="🤝" label="邀请好友 / 查看奖励"
               onPress={() => {
                 setMenuOpen(false);

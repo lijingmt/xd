@@ -89,6 +89,13 @@ export default function LoginScreen() {
   const [quickBusy, setQuickBusy] = useState(false);
   const quickRegister = async () => {
     if (busy || quickBusy || !partition) return;
+    /* 与手动登录/注册同一条款门禁：一键注册同样受协议约束。 */
+    if (!agreedToTerms) {
+      useGameStore.setState({
+        error: '请先勾选同意《用户服务协议》再一键注册',
+      });
+      return;
+    }
     setQuickBusy(true);
     useGameStore.setState({ error: '' });
     const newUserid = generateAccount();
