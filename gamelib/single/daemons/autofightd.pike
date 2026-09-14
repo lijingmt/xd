@@ -4056,14 +4056,27 @@ int should_route_to_training_area(object me,void|mapping target_snapshot)
 	string destination;
 	// 游戏入口是纯菜单房（无怪无出口）：非智能寻路玩家登录后
 	// 挂机会永久卡在这里（玩家实测“不开智能就只在入口挂机”）。
-	// 入口房不受智能寻路开关限制，直接路由到推荐练级区。
+	// 2026-09-14玩家反馈修正：入口绕过改为保守口径——
+	// a) 采集模式（采矿/采药）永不从入口路由：采矿号被拉去练级
+	//    图升到70级是严重误伤，采集号的位置只能由玩家自己安排；
+	// b) 非智能玩家在入口不再立即路由，需无目标tick积累3拍
+	//    （约15秒缓冲），给多开登录的位置恢复留出时间，避免
+	//    “进入游戏自动被拉到蓬莱”打散玩家刻意分散的站位。
 	int at_menu_entrance;
 	env=environment(me);
 	at_menu_entrance=env && functionp(env->is_menu) &&
 		(int)env->is_menu();
 	if(!me || mappingp(me["/tmp/illusion_journey_autofight"]) ||
-	   (!query_smart_route_enabled(me) && !at_menu_entrance) ||
 	   !can_auto_leave_current_room(me) || !query_route_ready(me))
+		return 0;
+	if(at_menu_entrance && !query_smart_route_enabled(me)){
+		if(query_gather_mode(me)!="off")
+			return 0;
+		if((int)me["/tmp/autofight_no_target_ticks"]<
+		   AUTOFIGHT_ROAM_NO_TARGET_TICKS)
+			return 0;
+	}
+	if(!query_smart_route_enabled(me) && !at_menu_entrance)
 		return 0;
 	route = query_training_route(me);
 	destination = (string)route["path"];

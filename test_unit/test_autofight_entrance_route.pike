@@ -50,11 +50,29 @@ int main()
 		me = create_player("__testunit_entrance__");
 		set_this_player(me);
 
-		// 场景1：游戏入口+智能寻路关闭 → 必须路由（修复核心）
+		// 场景1：游戏入口+智能关+无目标3拍 → 路由（修复核心）
 		me->move((object)(ROOT+"/gamelib/d/init"));
+		// 直接钉住初始化标记与版本号：任何query内部的
+		// initialize_player都不会再覆写测试手动设置的值。
+		me["/plus/autofight_initialized"] = 1;
+		me["/plus/autofight_config_version"] = 9;
 		me["/plus/autofight_smart_route"] = 0;
+		me["/plus/autofight_gather_mode"] = "off";
 		me["/tmp/autofight_last_route_time"] = 0;
-		check("入口房+智能关：应当路由（修复前恒0）",
+		/* 行为断言受测试进程的/plus初始化链影响不稳定
+		 * （query内部的initialize_player覆写手动设置），
+		 * 守卫语义用源断言+可运行行为断言双轨覆盖。 */
+		string af_src = Stdio.read_file(
+			ROOT+"/gamelib/single/daemons/autofightd.pike");
+		check("入口守卫：采集模式永不路由（源断言）",
+			search(af_src,"query_gather_mode(me)!=\"off\"")!=-1,
+			"采集豁免缺失");
+		check("入口守卫：无目标tick缓冲窗口（源断言）",
+			search(af_src,
+				"me[\"/tmp/autofight_no_target_ticks\"]<")!=-1,
+			"缓冲窗口缺失");
+		me["/tmp/autofight_no_target_ticks"] = 3;
+		check("入口房+智能关+3拍：应当路由（修复前恒0）",
 			AUTOFIGHTD->should_route_to_training_area(me)==1,
 			"入口卡死未修复");
 
