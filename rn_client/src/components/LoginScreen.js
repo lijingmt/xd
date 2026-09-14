@@ -8,6 +8,9 @@ import { useGameStore } from '../store/useGameStore.js';
 import * as api from '../api/mudApi.js';
 import { WAN_API_BASE, LAN_API_BASE } from '../api/mudApi.js';
 import { validateRegisterForm } from '../utils/registerForm.js';
+import { generateAccount, generatePassword, credentialsText }
+  from '../utils/quickRegister.js';
+import { Clipboard } from 'react-native';
 import {
   loadSavedAccounts, removeSavedAccount,
 } from '../utils/savedAccounts.js';
@@ -78,6 +81,46 @@ export default function LoginScreen() {
       useGameStore.setState({ error: `注册失败: ${e.message}` });
     } finally {
       setRegBusy(false);
+    }
+  };
+
+  /* 一键注册+登录：生成账号密码→注册→复制剪贴板→自动登录。
+   * 免输入零门槛进游（2026-09-13用户需求：新客户端用户注册麻烦）。 */
+  const [quickBusy, setQuickBusy] = useState(false);
+  const quickRegister = async () => {
+    if (busy || quickBusy || !partition) return;
+    setQuickBusy(true);
+    useGameStore.setState({ error: '' });
+    const newUserid = generateAccount();
+    const newPassword = generatePassword();
+    try {
+      const challenge = await api.fetchChallenge();
+      const result = await api.registerAccount(
+        `${partition}${newUserid}`, newPassword, 'rnreg', challenge);
+      if (!result.ok) {
+        useGameStore.setState({
+          error: '一键注册失败，请稍后再试或手动注册',
+        });
+        return;
+      }
+      /* 凭据立即复制剪贴板：用户不用记，随时可粘贴找回。 */
+      const clip = credentialsText(
+        partition, newUserid, newPassword);
+      try { await Clipboard.setString(clip); } catch (e) { /* 静默 */ }
+      setUserid(newUserid);
+      setPassword(newPassword);
+      setConfirm(newPassword);
+      useGameStore.setState({
+        error: `注册成功！账号密码已复制到剪贴板：${clip}`,
+      });
+      /* 1.5秒后直接登录进游。 */
+      setTimeout(() => {
+        login(partition, newUserid, newPassword);
+      }, 1500);
+    } catch (e) {
+      useGameStore.setState({ error: `一键注册失败: ${e.message}` });
+    } finally {
+      setQuickBusy(false);
     }
   };
 
@@ -213,6 +256,18 @@ export default function LoginScreen() {
           </View>
         )}
 
+        {mode === 'login' && (
+          <TouchableOpacity
+            style={[styles.loginButton, { backgroundColor: '#2d6a4f',
+              marginBottom: 10 }]}
+            activeOpacity={0.7}
+            disabled={busy || quickBusy || !partition}
+            onPress={quickRegister}>
+            {quickBusy
+              ? <ActivityIndicator color="#ffe3e8" size="small" />
+              : <Text style={styles.loginText}>⚡ 一键注册并进入</Text>}
+          </TouchableOpacity>
+        )}
         {mode === 'login' ? (
           <TouchableOpacity
             style={[styles.loginButton,
