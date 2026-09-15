@@ -848,6 +848,30 @@ private int local_worker_has_team_player(string tid)
 	return MAPWORKERD->local_team_player_exists(tid);
 }
 
+/** team_snapshot_missing修复（2026-09-15）：本地Worker上有队员但
+ * termMain缺快照时，从本地在线玩家对象按query_term()重建交付列表。
+ * 玩家对象的term字段是权威的——组队/退队在人物侧实时更新，
+ * 比等待跨Worker快照重发（60秒冷却+事件管线排队）快几个量级。
+ * 用livings()而非users()：players可能挂在HTTP虚拟连接上而不在
+ * CONND用户表（测试环境同样如此），living_names才是与find_player
+ * 一致的权威注册表（先例：_logical_zone_mod/reconciliation.pike）。
+ * 返回重建后的队员id列表；找不到任何队员返回空数组。 */
+private array(string) local_team_member_ids_from_players(string tid)
+{
+	array(string) members = ({});
+	if(!tid || tid=="")
+		return members;
+	foreach(livings(),object ob){
+		if(!ob || !ob->is || !ob->is("player") ||
+		   !functionp(ob->query_term) || !functionp(ob->query_name))
+			continue;
+		if((string)ob->query_term()==tid &&
+		   search(members,(string)ob->query_name())==-1)
+			members += ({(string)ob->query_name()});
+	}
+	return members;
+}
+
 mapping apply_distributed_team_chat(string tid,string msg,string sender_id)
 {
 	int added;
@@ -856,10 +880,35 @@ mapping apply_distributed_team_chat(string tid,string msg,string sender_id)
 	   sizeof(msg)>2048)
 		return (["ok":0,"code":"invalid_team_chat"]);
 	if(!termMain[tid] || !termMain[tid][sender_id]){
-		if(local_worker_has_team_player(tid))
-			return (["ok":0,"code":"team_snapshot_missing"]);
-		return (["ok":1,"ignored":1,"code":"no_local_team_member",
-			"team_id":tid]);
+		if(local_worker_has_team_player(tid)){
+			/* 快照缺失时从本地玩家重建：add_termChat的can_read_term
+			 * 要求termMain里同时有队员与发送者。能到达本Worker的
+			 * team_chat事件都经过发送者所在Worker的授权广播，
+			 * 发送者成员身份可信，本地查不到对象也一并补占位。 */
+			array(string) local_members =
+				local_team_member_ids_from_players(tid);
+			if(sizeof(local_members)){
+				if(!termMain[tid])
+					termMain[tid] = ([]);
+				foreach(local_members,string uid){
+					object ob = find_player(uid);
+					if(ob && !termMain[tid][uid])
+						termMain[tid][uid] =
+							({(string)ob->query_name_cn(),
+							"member",
+							(string)ob->query_profeId(),
+							(int)ob->query_level()});
+				}
+				if(!termMain[tid][sender_id])
+					termMain[tid][sender_id] =
+						({sender_id,"member","",1});
+			}
+			if(!termMain[tid] || !termMain[tid][sender_id])
+				return (["ok":0,"code":"team_snapshot_missing"]);
+		}
+		else
+			return (["ok":1,"ignored":1,"code":"no_local_team_member",
+				"team_id":tid]);
 	}
 	distributedTermApply = 1;
 	added = add_termChat(tid,msg,sender_id);
@@ -1359,10 +1408,12 @@ mapping apply_distributed_team_exp(string tid,int fact_exp,int npc_level,
 	   !arrayp(targets) || !sizeof(targets) || sizeof(targets)>TERM_NUM)
 		return (["ok":0,"code":"invalid_team_exp"]);
 	if(!termMain[tid] || !termMain[tid][source_user]){
-		if(local_worker_has_team_player(tid))
-			return (["ok":0,"code":"team_snapshot_missing"]);
-		return (["ok":1,"ignored":1,"code":"no_local_team_member",
-			"team_id":tid]);
+		if(!local_worker_has_team_player(tid))
+			return (["ok":1,"ignored":1,"code":"no_local_team_member",
+				"team_id":tid]);
+		/* team_exp的下方逐人循环已用query_term()+LOGICALZONED双重
+		 * 验证，termMain门禁只是缓存优化。快照缺失时跳过门禁
+		 * 直接进循环——每人只有term匹配才发经验，不会多发。 */
 	}
 	foreach(targets,string uid){
 		object termer;
@@ -1422,8 +1473,21 @@ mapping apply_distributed_team_notice(string tid,string msg,string source_user)
 	   sizeof(msg)>2048)
 		return (["ok":0,"code":"invalid_team_notice"]);
 	if(!termMain[tid] || !termMain[tid][source_user]){
-		if(local_worker_has_team_player(tid))
+		if(local_worker_has_team_player(tid)){
+			array(string) local_members =
+				local_team_member_ids_from_players(tid);
+			if(sizeof(local_members)){
+				distributedTermApply = 1;
+				foreach(local_members,string uid){
+					object ob = find_player(uid);
+					if(ob)
+						tell_object(ob,msg);
+				}
+				distributedTermApply = 0;
+				return (["ok":1,"team_id":tid,"rebuilt":1]);
+			}
 			return (["ok":0,"code":"team_snapshot_missing"]);
+		}
 		return (["ok":1,"ignored":1,"code":"no_local_team_member",
 			"team_id":tid]);
 	}

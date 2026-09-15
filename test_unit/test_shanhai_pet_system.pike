@@ -1129,6 +1129,23 @@ void test_pet_equipment_and_skill_imprint()
 			PETD->test_pet_gear_value_for(3,291),
 			PETD->test_pet_gear_value_for(4,291)));
 
+	// 批量凝炼的品质随机（凡品70%/良品22%），残留闲置件会让下方
+	// "只分解注入件"的精确断言与结尾装备栏基线随品质掷点漂移：
+	// 注入前按id清空全部未穿戴件（含1%神品），恢复确定性基线。
+	{
+		mapping purge_state = PETD->query_pet_state(player);
+		array(string) equipped_ids = ({});
+		mapping worn_pet = find_pet_species(purge_state,"wenyaoyu");
+		if(worn_pet && mappingp(worn_pet["equipment"]))
+			foreach(values((mapping)worn_pet["equipment"]),mixed gid)
+				if(stringp(gid) && gid!="")
+					equipped_ids += ({(string)gid});
+		foreach((array)copy_value(
+			(array)purge_state["gear_inventory"]),mapping gear)
+			if(!has_value(equipped_ids,(string)gear["id"]))
+				PETD->dismantle_pet_gear(player,(string)gear["id"]);
+	}
+
 	// 一键分解：注入已知品质的闲置件，验证只清低品质并按件返还。
 	mapping low_a = PETD->test_forge_pet_gear_quality(player,
 		"beast_armor",1);
