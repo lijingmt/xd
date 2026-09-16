@@ -736,6 +736,11 @@ int main()
 			userid,source_worker,(int)lease["epoch"]-1,target_worker,
 			(int)lease["epoch"]+1);
 		mapping replayed = daemon->commit_handoff(request_id,target_worker);
+		// 2026-09-16副本后飞行卡死回归：网关reconcile重放已提交交接时
+		// 依赖begin_handoff返回committed状态与完整落点（target_epoch/
+		// target_room_path），否则被误判为contract_mismatch永久拒绝。
+		mapping replayed_begin = daemon->begin_handoff(userid,source_worker,
+			(int)lease["epoch"],target_affinity,target_room_path,request_id);
 		mapping wrong_arrival_ack = daemon->acknowledge_player_arrival(userid,
 			target_worker,(int)lease["epoch"]+1,source_affinity);
 		mapping arrival_ack = daemon->acknowledge_player_arrival(userid,
@@ -763,7 +768,12 @@ check("迁移commit原子切换worker和epoch且重试幂等",
 			wrong_arrival_ack["code"]=="arrival_fence_failed" &&
 			arrival_ack["ok"] && !route_arrived["arrival_room_path"] &&
 			replayed["ok"] &&
-			replayed["replayed"],
+			replayed["replayed"] &&
+			replayed_begin["ok"] && (int)replayed_begin["replayed"]==1 &&
+			(string)replayed_begin["state"]=="committed" &&
+			(string)replayed_begin["target_worker"]==target_worker &&
+			(int)replayed_begin["target_epoch"]==(int)lease["epoch"]+1 &&
+			(string)replayed_begin["target_room_path"]==target_room_path,
 			"迁移可能出现双活、旧epoch复用或重试失败");
 
 		int handoffs_before = (int)daemon->query_status()["handoffs"];

@@ -469,6 +469,19 @@ int main()
 				"save_with_result(0,worker_fenced_save)"),
 			"状态轮询可能无法装载目标人物，或丢回复后留下永久到达凭证");
 
+		check("已提交交接的重放被幂等接受而非contract_mismatch",
+			source_has(gateway,
+				"(int)prepared[\"replayed\"] &&") &&
+			source_has(gateway,
+				"(string)prepared[\"state\"]==\"committed\"") &&
+			source_has(gateway,
+				"(int)prepared[\"target_epoch\"]") &&
+			source_has(gateway,
+				"(string)settled[\"arrival_room_path\"]!=\"\"") &&
+			source_has(gateway,
+				"(string)migration[\"arrival_room\"]!=\"\""),
+			"请求与后台交接并发、响应丢失后重试时，已提交的迁移被当致命错误，玩家每个请求都失败并永久卡死");
+
 		check("慢请求只允许其精确人物完成一次存档，其他写入仍被隔离",
 			source_has(user,
 				"MAP_WORKERD->local_user_request_save_fence_valid(query_name())") &&

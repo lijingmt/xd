@@ -2680,6 +2680,42 @@ private mixed pike_gateway_reconcile(string userid,string source_worker,
 	mapping prepared = MAP_WORKERD->begin_handoff(userid,source_worker,
 		source_epoch,affinity,target_room_path,request_id);
 	string prepared_target = (string)prepared["target_worker"];
+	/* 幂等接受已提交的交接：请求路径与后台交接路径可能并发 reconcile
+	 * 同一玩家，先完成者提交后，后来者按同一request_id重放会拿到
+	 * state=committed（无code字段）的记录。以当前权威租约为准：
+	 * 到达未投递则按其到达房间走正常投递；已落定则走deferred
+	 * 逃生口只刷新路由落点，避免arrival capability mismatch；
+	 * 若当作contract_mismatch致命错误，玩家此后每个/api/status
+	 * 与登录请求都会失败，永久卡在"未知地图"（2026-09-16 副本
+	 * 打完后飞行跨Worker卡死根因）。 */
+	if((int)prepared["ok"] && (int)prepared["replayed"] &&
+	   (string)prepared["state"]=="committed" &&
+	   pike_gateway_worker_ports[prepared_target]){
+		mapping settled = MAP_WORKERD->query_player_route(userid);
+		if((int)settled["ok"] && (string)settled["state"]=="active"){
+			if((string)settled["arrival_room_path"]!="")
+				return ([
+					"worker_id":(string)settled["worker_id"],
+					"epoch":(int)settled["epoch"],
+					"redirect":replay_request,
+					"arrival_room":(string)settled["arrival_room_path"],
+				]);
+			return ([
+				"worker_id":(string)settled["worker_id"],
+				"epoch":(int)settled["epoch"],
+				"redirect":replay_request,
+				"arrival_room":"",
+				"deferred":1,
+			]);
+		}
+		return ([
+			"worker_id":prepared_target,
+			"epoch":(int)prepared["target_epoch"],
+			"redirect":replay_request,
+			"arrival_room":(string)(prepared["target_room_path"] ||
+				target_room_path),
+		]);
+	}
 	if(!(int)prepared["ok"] || (int)prepared["local"] ||
 	   (string)prepared["state"]!="prepared" ||
 	   prepared_target!=target_worker ||
@@ -3959,8 +3995,11 @@ private void pike_gateway_settle_background_move(string source_worker,
 		   (int)route["epoch"]==source_epoch){
 			mapping migration = pike_gateway_reconcile(userid,source_worker,
 				source_epoch,(string)route["affinity"],1);
+			/* 已落定的committed重放返回空到达房（deferred逃生口）：
+			 * 这里只投递真实到达，防止空房投递进入重试循环。 */
 			if(mappingp(migration) &&
-			   (string)migration["worker_id"]!=source_worker){
+			   (string)migration["worker_id"]!=source_worker &&
+			   (string)migration["arrival_room"]!=""){
 				string target_worker = (string)migration["worker_id"];
 				int target_epoch = (int)migration["epoch"];
 				string room_path = (string)migration["arrival_room"];
