@@ -123,6 +123,13 @@ string get_org_converted_level(string orgitem,int boss_level){
 			}
 			rate=((float)(org_level+difference))/(float)org_level;//增加武器属性的增长率
 		}
+		// 等级缩放对齐itemsd平衡改造（×min(等级/25,20)，>73级启用）：
+		// Boss掉落若沿用旧口径，高等级新掉装备远弱于玩家转化装——
+		// 104级Boss掉饰品力量只有22，同级转化戒指334（2026-09-16
+		// 玩家反馈"饰品挂件属性还是只有几十"的根因）。封顶20倍
+		// 防高等级爆炸；百分比属性仍由各自绝对上限钳制。
+		if(boss_level>73)
+			rate*=min((float)boss_level/25.0,20.0);
 		werror("=========102 rate:"+rate+"\n");
 		//生成新的物品文件数据
 		string writeback="";
