@@ -65,7 +65,7 @@ int main(string|zero arg)
 					"（已领奖）" :
 					(dc>=10 ? " [领取任务奖励:refine task]" : ""))+"\n";
 		}
-		s+="[提炼排行:refine rank]|[月度榜单:pvp_rank]\n";
+		s+="[提炼排行:refine rank]|[月度榜单:pvp_rank]|[概率公示:gailv]\n";
 		s+="请选择要提炼的装备：\n";
 		int listed=0;
 		/* 已装备置顶（玩家反馈：常提炼身上穿的件）；其余保持原顺序。 */

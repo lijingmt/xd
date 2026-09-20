@@ -1763,6 +1763,13 @@ createApp({
             this.sendJsonCommand(cmd);
         },
 
+        // 合规入口：充值弹窗内打开随机玩法概率公示页。
+        openOddsDisclosure() {
+            this.showSuiyuRecharge = false;
+            if (!this.txd) return;
+            this.sendJsonCommand('gailv');
+        },
+
         // 注册功能
         async doRegister() {
             // 前端即时校验只改善体验；后端仍会按相同规则再次校验。

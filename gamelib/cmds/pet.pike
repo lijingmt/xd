@@ -182,7 +182,8 @@ private string render_pet_gear(mapping gear_state,string pet_id)
 					"[分解:pet geardismantle "+pet_id+" "+
 					(string)gear["id"]+"]\n";
 	}
-	s += "\n凝炼消耗5灵印，品质概率：凡品70% / 良品22% / 珍品7% / 神品1%。\n";
+	s += "\n凝炼消耗5灵印，品质概率：凡品70% / 良品22% / 珍品7% / 神品1%。"+
+		"[概率公示:gailv]\n";
 	s += "[凝炼兽铠:pet gearforge "+pet_id+" beast_armor] "+
 		"[凝炼灵饰:pet gearforge "+pet_id+" spirit_charm] "+
 		"[凝炼灵核:pet gearforge "+pet_id+" spirit_core]\n";

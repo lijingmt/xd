@@ -22,9 +22,9 @@
     </script>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="vendor/driver.css?v=v1789057256697">
-    <link rel="stylesheet" href="css/app.css?v=v1789057256697">
-    <link rel="stylesheet" href="css/realm.css?v=v1789057256697">
+    <link rel="stylesheet" href="vendor/driver.css?v=v1789940714992">
+    <link rel="stylesheet" href="css/app.css?v=v1789940714992">
+    <link rel="stylesheet" href="css/realm.css?v=v1789940714992">
 </head>
 <body>
     <div id="app">
@@ -974,6 +974,13 @@
                                     <option value="xlarge">字号：特大</option>
                                 </select>
                             </div>
+                            <button type="button" class="menu-item"
+                                    @click="toggleFixedLayout">
+                                <span class="menu-icon">{{ fontFixedLayout ? '📐' : '↔️' }}</span>
+                                <span>排版模式：{{ fontFixedLayout
+                                    ? '固定（按屏幕自动适配）'
+                                    : '自适应（手动字号）' }}</span>
+                            </button>
                             <div class="menu-divider"></div>
                             <button type="button" class="menu-item" @click="toggleCombatEffects">
                                 <span class="menu-icon">{{ combatEffectsEnabled ? '✨' : '○' }}</span>
@@ -2684,8 +2691,12 @@
                 · <b style="color:#f0e6d2">安卓/网页用户</b>：请通过官方 APK 客户端或联系客服充值；<br>
                 · 充值遇到问题可在游戏内发送 <b style="color:#f0e6d2">客服</b> 或联系官方渠道。
             </div>
+            <button type="button" @click="openOddsDisclosure()"
+                    style="margin-top:10px;width:100%;min-height:32px;border-radius:999px;border:1px solid #3a2f46;background:#1a141c;color:#8a7a8a;font-size:12px;cursor:pointer">
+                随机玩法概率公示 ›
+            </button>
             <button type="button" @click="showSuiyuRecharge = false"
-                    style="margin-top:14px;width:100%;min-height:38px;border-radius:999px;border:1px solid #d4af37;background:#2d2410;color:#ffd700;font-size:14px;font-weight:700;cursor:pointer">
+                    style="margin-top:8px;width:100%;min-height:38px;border-radius:999px;border:1px solid #d4af37;background:#2d2410;color:#ffd700;font-size:14px;font-weight:700;cursor:pointer">
                 知道了
             </button>
         </div>
@@ -2694,19 +2705,19 @@
                         </aside>
 </div>
 
-    <script src="vendor/vue.global.prod.js?v=v1789057256697"></script>
-    <script src="vendor/canvas-confetti.js?v=v1789057256697"></script>
-    <script src="vendor/howler.core.min.js?v=v1789057256697"></script>
-    <script src="vendor/driver.iife.js?v=v1789057256697"></script>
-    <script src="../includes/game-number-format.js?v=v1789057256697" data-auto-format="false"></script>
+    <script src="vendor/vue.global.prod.js?v=v1789940714992"></script>
+    <script src="vendor/canvas-confetti.js?v=v1789940714992"></script>
+    <script src="vendor/howler.core.min.js?v=v1789940714992"></script>
+    <script src="vendor/driver.iife.js?v=v1789940714992"></script>
+    <script src="../includes/game-number-format.js?v=v1789940714992" data-auto-format="false"></script>
     <script type="module">
-    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1789057256697';
+    import { autoAnimate } from './vendor/auto-animate.min.js?v=v1789940714992';
     window.XiandAutoAnimate = autoAnimate;
     window.dispatchEvent(new CustomEvent('xiand:auto-animate-ready'));
     </script>
-    <script src="js/app.js?v=v1789057256697"></script>
+    <script src="js/app.js?v=v1789940714992"></script>
     <!-- 翻译插件 - 立即执行初始化 -->
-    <script src="../includes/translate.js?v=v1789057256697"></script>
+    <script src="../includes/translate.js?v=v1789940714992"></script>
     <script>
     // 翻译初始化
     translate.service.use('client.edge');

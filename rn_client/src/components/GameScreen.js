@@ -1654,6 +1654,11 @@ export default function GameScreen() {
       <RechargeModal
         visible={rechargeOpen}
         onClose={() => setRechargeOpen(false)}
+        onOpenOdds={() => {
+          setRechargeOpen(false);
+          lastUserNavRef.current = Date.now();
+          store.command('gailv');
+        }}
       />
 
       {/* ===== 版本更新提示 ===== */}

@@ -32,7 +32,7 @@ function getIapModule() {
   return iapModuleCache;
 }
 
-export default function RechargeModal({ visible, onClose }) {
+export default function RechargeModal({ visible, onClose, onOpenOdds }) {
   const apiBase = useGameStore(state => state.apiBase);
   const txd = useGameStore(state => state.txd);
   const [products, setProducts] = useState([]);
@@ -204,6 +204,13 @@ export default function RechargeModal({ visible, onClose }) {
             <Text style={styles.errorText}>{message}</Text>
           )}
 
+          {/* 合规入口：购买前可查看随机玩法概率公示。 */}
+          {!!onOpenOdds && (
+            <TouchableOpacity style={styles.oddsLink}
+              onPress={onOpenOdds}>
+              <Text style={styles.oddsLinkText}>随机玩法概率公示 ›</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.closeButton} onPress={close}>
             <Text style={styles.closeText}>
               {phase === 'done' ? '完成' : '关闭'}
@@ -258,6 +265,11 @@ const styles = StyleSheet.create({
   doneText: { color: '#9ad0a0', fontSize: 14, textAlign: 'center' },
   balanceText: { color: '#ffd700', fontSize: 13, textAlign: 'center' },
   errorText: { color: '#ff9aa8', fontSize: 12, textAlign: 'center' },
+  oddsLink: {
+    alignItems: 'center', paddingVertical: 8,
+  },
+  oddsLinkText: { color: '#8a7a8a', fontSize: 12,
+    textDecorationLine: 'underline' },
   closeButton: {
     marginTop: 4, borderRadius: 10, borderWidth: 1, borderColor: '#6a5a7a',
     paddingVertical: 11, alignItems: 'center', backgroundColor: '#12101a',

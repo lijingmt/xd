@@ -164,7 +164,7 @@ int main(string|zero arg)
 	}
 	else 
 		s += "你要炼化的装备并不存在，请返回\n";
-	s += "[返回:convert_equip_list]\n";
+	s += "[概率公示:gailv]|[返回:convert_equip_list]\n";
 	s += "[返回游戏:look]\n";
 	write(s);
 	//me->write_view(WAP_VIEWD["/emote"],0,0,s);
