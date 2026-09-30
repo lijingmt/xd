@@ -73,11 +73,12 @@ int main(string|zero arg)
 			(failed ? "，未取出"+failed+"件" : "")+
 			(bag_full ? "（背包已满自动停止）" : "")+
 			(!bag_full && remain>0 ? "（单次上限"+
-				PERSONAL_STORAGE_TAKEALL_LIMIT+"件）" : "")+
+				PERSONAL_STORAGE_TAKEALL_LIMIT+"件，"+
+				"可在取物页再次点击全部取出）" : "")+
 			"。\n");
-		if(!bag_full && remain>0)
-			write("[继续取出剩余:personal_storage_batch takeall 0 "+
-				expected_token+"]\n");
+		// 不发携带旧token的续取链接：本次取出已改变仓库行，
+		// 旧token在陈旧检查中必失败。取物页重渲染自带新鲜token
+		// 的[全部取出]按钮，直接再点即可。
 		me->command("personal_storage take 0");
 		return 1;
 	}
