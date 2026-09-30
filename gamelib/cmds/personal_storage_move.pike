@@ -44,7 +44,10 @@ mapping(string:mixed) move_one(object me,string mode,string item_token)
 		if(shared["ok"])
 			return (["ok":1,"message":item_name+"已存入账号共享仓库。"]);
 		return (["ok":0,"pending":1,"message":item_name+
-			"已停留在当前角色仓库："+(string)shared["message"]]);
+			"已停留在当前角色仓库："+(string)shared["message"]+
+			"。共享仓库满时可在账号仓库页扩容"+
+			"（account_storage_expand），或先用"+
+			"set_equipment_cleanup cangku清理仓库重复套装。"]);
 	}
 	if(me->if_over_easy_load())
 		return (["ok":0,"message":"背包已满。"]);

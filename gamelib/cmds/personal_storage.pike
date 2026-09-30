@@ -191,6 +191,8 @@ int main(string|zero arg)
 		s += "[批量存角色仓库:personal_storage put 0]\n";
 		s += "[批量直存账号共享仓库:personal_storage share 0]\n";
 		s += "[批量从角色仓库取到背包:personal_storage take 0]\n";
+		s += "[清理仓库重复套装:set_equipment_cleanup cangku]|"+
+			"[仓库批量卖装:personal_storage_sell]\n";
 	}
 	else if(mode=="put" || mode=="share"){
 		rows = query_backpack_rows(me,category,keyword);
@@ -242,6 +244,11 @@ int main(string|zero arg)
 				"件）:personal_storage_batch "+mode+" "+page+" "+
 				personal_storage_batch_token(mode,category,keyword,
 				page_tokens)+"]\n";
+			if(mode=="take")
+				s += "[全部取出（背包满自动停）:"+
+					"personal_storage_batch takeall "+page+" "+
+					personal_storage_batch_token("take",
+					category,keyword,page_tokens)+"]\n";
 		}
 		if(page>0)
 			s += "[上一页:personal_storage "+mode+" "+(page-1)+"] ";

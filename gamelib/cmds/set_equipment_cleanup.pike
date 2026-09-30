@@ -25,6 +25,225 @@ string query_set_group_key(object item)
 		(string)item->query_item_kind();
 }
 
+/* ===== 角色仓库套装清理（2026-09-30 玩家反馈"仓库爆了"）=====
+ * 逐行恢复→校验→评估→立即回仓，仓库净零容量变化；重复件销毁
+ * 换银两，比较口径与背包清理一致：稀有度绝对优先，评分次之。
+ * 共享仓库行在ACCOUNT_STORAGED锁控下，另开一轮，不在本入口。
+ */
+private array(array) cangku_snapshot_rows(object player)
+{
+	array(array) rows=({});
+	if(!arrayp(player->packaged_items))
+		return rows;
+	foreach(player->packaged_items,array row)
+		if(arrayp(row) && sizeof(row)>=8 && stringp(row[7]) &&
+		   sizeof((string)row[7])==64)
+			rows+=({row});
+	return rows;
+}
+
+private object cangku_restore_row(object player,string sid)
+{
+	object ob=player->repackaged_by_storage_id(sid);
+	if(!ob)
+		return 0;
+	if(ob->is("combine_item"))
+		ob->move_player(player->query_name());
+	else
+		ob->move(player);
+	return ob;
+}
+
+/** 评估快照：恢复全部套装行并立即回仓，返回分组与重复件候选。
+ * 回仓失败（理论不可达：本行刚腾出）的件留在背包并计入leftover。 */
+mapping query_cangku_set_state(object player)
+{
+	mapping(string:array(mapping)) groups=([]);
+	array(mapping) duplicates=({});
+	array(string) leftover=({});
+	int set_rows=0;
+	foreach(cangku_snapshot_rows(player),array row){
+		object ob=cangku_restore_row(player,(string)row[7]);
+		if(!ob)
+			continue;
+		string key="";
+		if(environment(ob)==player &&
+		   query_set_cleanup_reject_reason(player,ob)=="" &&
+		   is_set_equipment(ob))
+			key=query_set_group_key(ob);
+		if(key!=""){
+			if(!groups[key])
+				groups[key]=({});
+			groups[key]+=({([
+				"base_name":(string)ob->query_name(),
+				"name":(string)ob->query_name_cn(),
+				"rare":(int)ob->query_item_rareLevel(),
+				"score":AUTO_EQUIP_CMD->query_item_score(ob),
+				"value":query_set_cleanup_value(ob),
+			])});
+			set_rows++;
+		}
+		// packaged()只写快照行不销毁原对象；回仓成功必须destruct，
+		// 否则背包残留实体在后续存仓时被反复快照（仓库行数滚雪球）。
+		if(player->packaged(ob,player->query_cangku_size()))
+			leftover+=({(string)ob->query_name_cn()});
+		else
+			destruct(ob);
+	}
+	// 回仓会重建行并丢失第8列永久ID；重新读取共享仓把ID就地
+	// 补齐，否则后续执行扫描（cangku_snapshot_rows按ID找行）
+	// 看不到任何行。与登录路径的补齐调用同源。
+	ACCOUNT_STORAGED->query_storage(player);
+	foreach(sort(indices(groups)),string key){
+		array(mapping) items=groups[key];
+		if(sizeof(items)<2)
+			continue;
+		int keep_index=0;
+		for(int index=1;index<sizeof(items);index++)
+			if((int)items[index]["rare"]>(int)items[keep_index]["rare"] ||
+			   ((int)items[index]["rare"]==
+					(int)items[keep_index]["rare"] &&
+				(int)items[index]["score"]>
+					(int)items[keep_index]["score"]))
+				keep_index=index;
+		for(int index=0;index<sizeof(items);index++)
+			if(index!=keep_index)
+				duplicates+=({items[index]});
+	}
+	return (["groups":groups,"duplicates":duplicates,
+		"leftover":leftover,"set_rows":set_rows]);
+}
+
+/** 执行清理：按预览分组逐组恢复全部成员，保留最优一件回仓，
+ * 其余销毁换银两。每件执行前重新过全部硬保护（与背包口径一致）。 */
+mapping perform_cangku_set_cleanup(object player)
+{
+	mapping(string:mixed) result=(["count":0,"money":0,"names":({})]);
+	mapping state=query_cangku_set_state(player);
+	mapping(string:array(mapping)) groups=
+		(mapping)state["groups"];
+	if(!player || player->query_in_combat() || !sizeof(groups))
+		return result;
+	foreach(sort(indices(groups)),string key){
+		array(mapping) snaps=groups[key];
+		if(sizeof(snaps)<2)
+			continue;
+		multiset(string) base_names=(<>);
+		foreach(snaps,mapping snap)
+			base_names[(string)snap["base_name"]]=1;
+		// 组成员按底版名匹配当前仓库行；玩家在预览后动过仓库时
+		// 逐件重校验失败关闭。
+		array(array) rows=cangku_snapshot_rows(player);
+		array(object) members=({});
+		object|zero best=0;
+		foreach(rows,array row){
+			if(!base_names[(string)row[0]])
+				continue;
+			object ob=cangku_restore_row(player,(string)row[7]);
+			if(!ob || environment(ob)!=player ||
+			   query_set_cleanup_reject_reason(player,ob)!="" ||
+			   !is_set_equipment(ob) ||
+			   query_set_group_key(ob)!=key){
+				if(ob){
+					if(player->packaged(ob,
+						player->query_cangku_size()))
+						continue;
+					destruct(ob);
+				}
+				continue;
+			}
+			members+=({ob});
+			if(!best ||
+			   (int)ob->query_item_rareLevel()>
+					(int)best->query_item_rareLevel() ||
+			   ((int)ob->query_item_rareLevel()==
+					(int)best->query_item_rareLevel() &&
+				AUTO_EQUIP_CMD->query_item_score(ob)>
+					AUTO_EQUIP_CMD->query_item_score(best)))
+				best=ob;
+		}
+		// 组内有效成员不足2件（预览后变动）时全部原样回仓。
+		if(sizeof(members)<2 || !best){
+			foreach(members,object ob){
+				if(player->packaged(ob,player->query_cangku_size()))
+					continue;
+				destruct(ob);
+			}
+			continue;
+		}
+		foreach(members,object ob){
+			if(ob==best){
+				if(player->packaged(ob,player->query_cangku_size()))
+					continue;
+				destruct(ob);
+				continue;
+			}
+			string name=(string)ob->query_name_cn();
+			string path=(file_name(ob)/"#")[0];
+			string collection=(string)ob->
+				query_newmoon_collection_id();
+			int value=query_set_cleanup_value(ob);
+			mixed remove_err=catch{ ob->remove(); };
+			if(remove_err || ob)
+				continue;
+			player->add_money(value);
+			result["count"]=(int)result["count"]+1;
+			result["money"]=(int)result["money"]+value;
+			result["names"]+=({name});
+			ASYNC_IOD->append_log(SET_CLEANUP_LOG,
+				MUD_TIMESD->get_mysql_timedesc()+" user="+
+				(string)player->query_name()+" collection="+
+				collection+" item="+
+				replace(name,(["\n":" ","\r":" "]))+
+				" path="+path+" money="+(string)value+
+				" scope=cangku\n");
+		}
+	}
+	return result;
+}
+
+string render_cangku_cleanup_view(object player)
+{
+	mapping state=query_cangku_set_state(player);
+	array(mapping) duplicates=(array)state["duplicates"];
+	array(string) leftover=(array)state["leftover"];
+	int total_value=0;
+	string out="§g【角色仓库·重复套装清理】§r\n"+
+		"扫描角色仓库中的新月套装件，每组保留稀有度最高的一件"+
+		"（同稀有比评分），其余销毁换银两。\n"+
+		"保护规则与背包清理一致：任务/唯一/玩家标记/锻造/融合/"+
+		"镶嵌/特殊来源件不会进入候选。\n\n";
+	mapping(string:int) group_counts=([]);
+	foreach(sort(indices((mapping)state["groups"])),string key){
+		array(mapping) items=((mapping)state["groups"])[key];
+		if(sizeof(items)<2)
+			continue;
+		string label=(string)items[0]["name"];
+		group_counts[label]=(int)group_counts[label]+
+			sizeof(items)-1;
+	}
+	if(!sizeof(group_counts))
+		out+="角色仓库里没有可清理的重复套装件。\n";
+	else{
+		foreach(sort(indices(group_counts)),string label)
+			out+="· "+label+"：清理"+group_counts[label]+"件\n";
+		foreach(duplicates,mapping dup)
+			total_value+=(int)dup["value"];
+		out+="\n预计销毁"+sizeof(duplicates)+"件，获得约"+
+			MUD_MONEYD->query_store_money_cn(total_value)+"。\n";
+	}
+	if(sizeof(leftover))
+		out+="⚠ 有"+sizeof(leftover)+"件评估后未能回仓，"+
+			"已留在背包，请手动处理。\n";
+	out+="\n";
+	if(sizeof(duplicates))
+		out+="[确认清理角色仓库重复套装:"+
+			"set_equipment_cleanup cangku sell]\n";
+	out+="[背包套装清理:set_equipment_cleanup]|"+
+		"[仓库助手:personal_storage]|[返回游戏:look]\n";
+	return out;
+}
+
 private int has_socketed_gem(object item)
 {
 	if(!item || !functionp(item->query_baoshi))
@@ -373,6 +592,7 @@ string render_set_manager(object player)
 			"[预览后清理:set_equipment_cleanup preview]\n";
 	if(sizeof(bound_items))
 		out+="[清理绑定套装:set_equipment_cleanup bound]\n";
+	out+="[清理角色仓库重复套装:set_equipment_cleanup cangku]\n";
 	out+="[返回分类背包:inventory_filter]|[返回游戏:look]\n";
 	return out;
 }
@@ -386,6 +606,38 @@ int main(string|zero arg)
 	if(player->query_in_combat()){
 		write("交战中不能整理套装，请脱离战斗后再试。\n"+
 			"[返回战斗:flushview]\n");
+		return 1;
+	}
+	if(arg=="cangku" || arg=="cangku sell"){
+		if(player->if_over_easy_load &&
+			player->if_over_easy_load()){
+			write("背包已满。仓库清理需要临时取出评估，"+
+				"请先清出背包空间再试。\n"+
+				"[返回游戏:look]\n");
+			return 1;
+		}
+		if(arg=="cangku"){
+			write(render_cangku_cleanup_view(player));
+			return 1;
+		}
+		mapping done=perform_cangku_set_cleanup(player);
+		if((int)done["count"]<=0){
+			write("仓库套装状态变化，本次没有清理任何物品。\n"+
+				"[返回:set_equipment_cleanup cangku]\n");
+			return 1;
+		}
+		if(functionp(player->save_with_result) &&
+			!player->save_with_result()){
+			write("⚠ 存档失败，请重新登录确认银两与仓库。\n"+
+				"[返回游戏:look]\n");
+			return 1;
+		}
+		write("【仓库套装清理】共销毁"+(int)done["count"]+
+			"件重复套装，获得"+
+			MUD_MONEYD->query_store_money_cn((int)done["money"])+
+			"，每组最优件已放回角色仓库。\n"+
+			"[再次清理:set_equipment_cleanup cangku]|"+
+			"[仓库助手:personal_storage]|[返回游戏:look]\n");
 		return 1;
 	}
 	if(arg=="sell"){
