@@ -178,7 +178,9 @@ void test_search_and_legacy_rendering(object player)
 		search(player->view_inventory_browser("all",1,""),
 			"[返回装备背包:inventory]")!=-1 &&
 		search(player->view_inventory_browser("all",1,""),
-			"[套装管理:set_equipment_cleanup]")!=-1,
+			"[套装管理:set_equipment_cleanup]")!=-1 &&
+		search(player->view_inventory_browser("all",1,""),
+			"[一键清理重复套装:set_equipment_cleanup sell]")!=-1,
 		rendered+"\n---\n"+dropdown);
 	int cleanup_entries=0;
 	for(int pos=0;(pos=search(view_source,
