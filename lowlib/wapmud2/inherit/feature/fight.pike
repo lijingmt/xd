@@ -3129,7 +3129,12 @@ void perform(string name,void|int flag){
 							//敌人死亡，则把敌人从仇恨列表中清除
 							this_object()->clean_targets(enemy);
 							//在这里加入死亡处理,killing判断是杀戮还是决斗
-							if(enemy->query_raceId() == this_object()->query_raceId() && enemy->kill_flag == 0 && this_object()->kill_flag == 0){
+							//决斗只属于玩家对玩家：S1幻境NPC多为third族
+							//（与幻境玩家同族），同族NPC若走决斗分支会被
+							//set_life(1)永不死亡、无经验无掉落，挂机无限
+							//循环在1血怪上（2026-10-01玩家反馈复发）。
+							if(enemy->is("player") &&
+							   enemy->query_raceId() == this_object()->query_raceId() && enemy->kill_flag == 0 && this_object()->kill_flag == 0){
 								enemy->set_life(1);
 								tell_object(this_object(),"你在决斗中战胜了 "+enemy->query_name_cn()+" ！\n");
 								tell_object(enemy,this_object()->query_name_cn()+"在决斗中战胜了你！\n");
@@ -3906,7 +3911,9 @@ void boss_perform(string name){
 					//敌人死亡，则把敌人从仇恨列表中清除
 					this_object()->clean_targets(enemy);
 					//在这里加入死亡处理,killing判断是杀戮还是决斗
-					if(enemy->query_raceId() == this_object()->query_raceId() && enemy->kill_flag == 0 && this_object()->kill_flag == 0){
+					//同上：决斗仅玩家对玩家，同族NPC（S1 third族）必须走真实死亡。
+					if(enemy->is("player") &&
+					   enemy->query_raceId() == this_object()->query_raceId() && enemy->kill_flag == 0 && this_object()->kill_flag == 0){
 						enemy->set_life(1);
 						tell_object(this_object(),"你在决斗中战胜了 "+enemy->query_name_cn()+" ！\n");
 						tell_object(enemy,this_object()->query_name_cn()+"在决斗中战胜了你！\n");
@@ -4471,7 +4478,9 @@ private void attack(int skill_add,int skill_add_per,string type,
 				//敌人死亡，则把敌人从仇恨列表中清除
 				this_object()->clean_targets(enemy);
 				//在这里加入死亡处理,killing判断是杀戮还是决斗
-				if(enemy->query_raceId() == this_object()->query_raceId() && enemy->kill_flag == 0 && this_object()->kill_flag == 0){
+				//同上：决斗仅玩家对玩家，同族NPC（S1 third族）必须走真实死亡。
+				if(enemy->is("player") &&
+				   enemy->query_raceId() == this_object()->query_raceId() && enemy->kill_flag == 0 && this_object()->kill_flag == 0){
 					enemy->set_life(1);
 					tell_object(this_object(),"你在决斗中战胜了 "+enemy->query_name_cn()+" ！\n");
 					tell_object(enemy,this_object()->query_name_cn()+"在决斗中战胜了你！\n");
@@ -4532,7 +4541,10 @@ private void heart_beat_action(){
 	//理死亡，这样后台会报错。因此只有在敌人每次心跳时检查自己的血量，然后敌人调用
 	//enemy->fight_die()来完成自己的死亡处理
 	if(enemy&&enemy->get_cur_life()<=0&&enemy->in_combat){
-		if(enemy->query_raceId() == this_object()->query_raceId() && enemy->kill_flag == 0 && this_object()->kill_flag == 0){
+		//同上：决斗仅玩家对玩家——DOT把同族NPC（S1 third族）磨到0血
+		//时这里也必须走真实死亡，否则0血怪被set_life(1)复活成1血循环。
+		if(enemy->is("player") &&
+		   enemy->query_raceId() == this_object()->query_raceId() && enemy->kill_flag == 0 && this_object()->kill_flag == 0){
 			enemy->set_life(1);
 			tell_object(this_object(),"你在决斗中战胜了 "+enemy->query_name_cn()+" ！\n");
 			tell_object(enemy,this_object()->query_name_cn()+"在决斗中战胜了你！\n");
