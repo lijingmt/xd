@@ -62,6 +62,9 @@ mapping query_cangku_set_state(object player)
 	array(mapping) duplicates=({});
 	array(string) leftover=({});
 	int set_rows=0;
+	// 老档行第8列永久ID为空（共享仓首读前存入的行），先补齐再扫，
+	// 否则首轮评估看不见任何行（2026-10-01 nuaawang真实账号复盘）。
+	ACCOUNT_STORAGED->query_storage(player);
 	foreach(cangku_snapshot_rows(player),array row){
 		object ob=cangku_restore_row(player,(string)row[7]);
 		if(!ob)
@@ -301,9 +304,10 @@ string query_set_cleanup_reject_reason(object player,object item)
 	   search(source,"Xa")!=-1 || search(source,"Xl")!=-1 ||
 	   search(source,"Xh")!=-1 || search(source,"Xf")!=-1)
 		return "forged_or_fused";
-	// 空觉及以上仍是永久珍品保护线。
-	if((int)item->query_item_rareLevel()>=8)
-		return "rare";
+	// 空觉及以上不再整体拒清（2026-10-01玩家反馈：满级号挂机掉的
+	// 高稀有重复套装无处可去，背包天天爆，只能停挂）。候选按组只取
+	// 落选件、单件组永不进候选、每组必留稀有度最高一件，高级重复件
+	// 销毁换银两不影响留件；想保留特定词条件可用玩家标记保护。
 	return "";
 }
 
@@ -576,10 +580,10 @@ string render_set_manager(object player)
 	if(!total)
 		out+="背包里暂时没有套装。\n";
 	out+="\n重复件候选："+sizeof(candidates)+"件。系统按同系列、同职业、"+
-		"同主题、同部位分组，每组永久保留评分最高的一件；账号绑定的"+
-		"重复件同样参与清理。\n";
-	out+="已穿、任务、玩家标记、锻造、融合、镶嵌、"+
-		"特殊来源、空觉及以上套装不会进入候选。\n";
+		"同主题、同部位分组，每组永久保留稀有度最高的一件（含空觉、"+
+		"破空等高稀有件）；账号绑定的重复件同样参与清理，单件不清理。\n";
+	out+="已穿、任务、唯一、玩家标记、锻造、融合、镶嵌、"+
+		"特殊来源套装不会进入候选；想保留特定词条件可先做玩家标记。\n";
 	if(sizeof(bound_items))
 		out+="绑定未穿件："+sizeof(bound_items)+"件。绑定件不能交易/"+
 			"丢弃/存仓（幻境角色也不能用共享仓库），可在下方显式"+

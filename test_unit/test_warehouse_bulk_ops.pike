@@ -111,6 +111,38 @@ int main()
 		check("角色仓永久ID分配生效（共享仓读取成功）",
 			(int)storage_probe["ok"]==1,
 			sprintf("probe=%O",(string)storage_probe["message"]));
+		// 动态装备文件名含逗号（大数值编码进后缀）：路径校验拒逗号
+		// 会把整座角色仓库锁死在"异常物品标识"（2026-10-01
+		// nuaawang真实账号存取全卡死）。注入逗号行必须照常补ID。
+		string comma_path="weapon/69xinyuetianfengjian/"+
+			"69xinyuetianfengjian_6142,5749,0_4_5947_nm5";
+		mapping empty_gems=(["version":1,
+			"red":(["free":0,"max":0,"gems":({})]),
+			"blue":(["free":0,"max":0,"gems":({})]),
+			"yellow":(["free":0,"max":0,"gems":({})])]);
+		me->packaged_items+=({({
+			"69xinyuetianfengjian_6142,5749,0_4_5947_nm5",
+			"【太初·太古·剑仙】测试剑","测试剑",comma_path,
+			100,100,0,"",empty_gems,([]),([])})});
+		mapping comma_probe=ACCOUNT_STORAGED->query_storage(me);
+		int comma_row_ided=0;
+		foreach(me->packaged_items,array row)
+			if(arrayp(row) && sizeof(row)>7 &&
+			   (string)row[3]==comma_path &&
+			   sizeof((string)row[7])==64)
+				comma_row_ided=1;
+		check("逗号文件名行不再锁死仓库且照常分配永久ID",
+			(int)comma_probe["ok"]==1 && comma_row_ided,
+			sprintf("probe=%O ided=%d",
+				(string)comma_probe["message"],comma_row_ided));
+		// 清掉探针行，避免影响后续计数断言。
+		array kept_rows=({});
+		foreach(me->packaged_items,array row)
+			if(!(arrayp(row) && sizeof(row)>3 &&
+			   (string)row[3]==comma_path))
+				kept_rows+=({row});
+		me->packaged_items=kept_rows;
+		me->save_with_result();
 
 		// ===== 1) 角色仓库套装清理 =====
 		for(int i=0;i<3;i++){

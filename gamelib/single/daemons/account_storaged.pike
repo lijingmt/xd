@@ -66,11 +66,15 @@ private int valid_relative_item_path(string path)
 	if(!path || sizeof(path)<1 || sizeof(path)>240 ||
 	   path[0]=='/' || search(path,"..")!=-1)
 		return 0;
+	// 逗号是动态装备文件名的合法成分（大数值≥62直接编进后缀）：
+	// 拒绝逗号会把整座角色仓库锁死在"异常物品标识"（2026-10-01
+	// nuaawang真实账号存取全被卡死的根因）。
+	// 逗号无法构成目录穿越，白名单其余字符不变。
 	for(int i=0;i<sizeof(path);i++){
 		int one = path[i];
 		if((one>='a' && one<='z') || (one>='A' && one<='Z') ||
 		   (one>='0' && one<='9') || one=='/' || one=='_' ||
-		   one=='-')
+		   one=='-' || one==',')
 			continue;
 		return 0;
 	}

@@ -38,6 +38,8 @@ mapping query_storage_sell_state(object player)
 {
 	array(mapping) candidates=({});
 	array(string) leftover=({});
+	// 老档行第8列永久ID为空时先补齐，否则首轮评估看不到行。
+	ACCOUNT_STORAGED->query_storage(player);
 	foreach(sell_snapshot_rows(player),array row){
 		object ob=sell_restore_row(player,(string)row[7]);
 		if(!ob)

@@ -151,6 +151,32 @@ int main()
 		environment(other_collection)==player &&
 		player->query_account()>bound_money_before,
 		sprintf("result=%O",bound_cleaned));
+	// 空觉及以上重复件不再被一刀切拒清（2026-10-01玩家反馈：满级号
+	// 挂机掉的高稀有重复套装无处可去，背包天天爆只能停挂）。
+	// 与既有主组同系列同部位：rarity-first比较器必留破空一件，
+	// 空觉两把与低稀有件一起进候选；单件高稀有组永不进候选。
+	object kongjue_a=new_weapon(player,100);
+	object kongjue_b=new_weapon(player,250);
+	object kongjue_single=new_weapon(player,120);
+	object pokong=new_weapon(player,110);
+	kongjue_a->set_item_rareLevel(8);
+	kongjue_b->set_item_rareLevel(8);
+	pokong->set_item_rareLevel(9);
+	kongjue_single->set_item_rareLevel(8);
+	kongjue_single->set_newmoon_collection("firmament");
+	array(object) high_candidates=({});
+	mixed high_err=catch{
+		high_candidates=command->query_set_cleanup_candidates(player);
+	};
+	check("空觉/破空重复件进候选且每组必留最高稀有度一件",
+		!high_err &&
+		command->query_set_cleanup_reject_reason(player,kongjue_a)=="" &&
+		search(high_candidates,kongjue_a)!=-1 &&
+		search(high_candidates,kongjue_b)!=-1 &&
+		search(high_candidates,pokong)==-1 &&
+		search(high_candidates,kongjue_single)==-1,
+		sprintf("err=%O candidates=%d",
+			high_err,sizeof(high_candidates)));
 	mixed compile_error=catch{
 		compile_file(ROOT+"/gamelib/cmds/set_equipment_cleanup.pike");
 	};
