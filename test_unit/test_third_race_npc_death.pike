@@ -78,23 +78,29 @@ int main()
 			die_err ? describe_error(die_err) : "ok");
 
 		// ===== 3) 源断言：全部决斗分支都有玩家守卫 =====
+		// 两种拼写都要扫：enemy/this_object()（四处单体分支）与
+		// target/caster（灵医房间AOE分支）。守卫统一为is("player")。
 		string fight_src=Stdio.read_file(
 			ROOT+"/lowlib/wapmud2/inherit/feature/fight.pike") || "";
 		int branches=0;
 		int guarded=0;
-		int pos=0;
-		while((pos=search(fight_src,
-			"query_raceId() == this_object()->query_raceId()",pos))!=-1){
-			branches++;
-			// 守卫在同分支的前两行内出现enemy->is("player")即可。
-			int window_start=max(0,pos-260);
-			string window=fight_src[window_start..pos+10];
-			if(search(window,"enemy->is(\"player\")")!=-1)
-				guarded++;
-			pos+=10;
+		foreach(({
+			"query_raceId() == this_object()->query_raceId()",
+			"query_raceId()==caster->query_raceId()",
+		}),string pattern){
+			int pos=0;
+			while((pos=search(fight_src,pattern,pos))!=-1){
+				branches++;
+				// 守卫在同分支的条件头部（前260字符窗口）出现即可。
+				int window_start=max(0,pos-260);
+				string window=fight_src[window_start..pos+10];
+				if(search(window,"is(\"player\")")!=-1)
+					guarded++;
+				pos+=10;
+			}
 		}
 		check(sprintf("全部%d处同族决斗分支都有玩家守卫",branches),
-			branches==4 && guarded==4,
+			branches==5 && guarded==5,
 			sprintf("branches=%d guarded=%d",branches,guarded));
 	};
 	if(err)

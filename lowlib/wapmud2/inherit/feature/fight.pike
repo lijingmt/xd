@@ -2417,7 +2417,11 @@ int perform_lingyi_room_aoe(object skill,int skill_level){
 			"点伤害"+aoe_difficulty_desc+absorb_desc+"。\n");
 		if(defeated){
 			caster->clean_targets(target);
-			if(target->query_raceId()==caster->query_raceId() &&
+			//决斗只属于玩家对玩家：AOE击败同族NPC（S1幻境third族）
+			//也必须走真实死亡，否则灵医房间AOE把怪打到0血又被
+			//set_life(1)复活成1血不死怪（同四处单体分支的口径）。
+			if(target->is("player") &&
+			   target->query_raceId()==caster->query_raceId() &&
 			   target->kill_flag==0 && caster->kill_flag==0){
 				target->set_life(1);
 				target->_clean_fight();

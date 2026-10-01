@@ -720,6 +720,12 @@ void test_room_aoe_and_battle_report()
 		healer->timeCold = 0;
 		healer->f_skills["yaowutianluo"] = 0;
 		healer->set_mofa(healer->query_mofa_max());
+		// 同族NPC现在被群攻击败后真实死亡（与其他种族一致），
+		// 主目标npc_one已死会被perform()入口拒绝施法；enemy仅在
+		// 脱战后的开战才重设。复刻真实玩家的击杀后恢复路径：
+		// 脱战→重新开战锁定存活的npc_two→再放第二次。
+		healer->_clean_fight();
+		healer->_fight(npc_two);
 		healer->perform("yaowutianluo",1);
 		mapping(string:mixed) custom_report =
 			healer->query_recent_aoe_battle_report();
