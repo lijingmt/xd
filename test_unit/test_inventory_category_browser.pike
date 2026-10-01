@@ -180,6 +180,15 @@ void test_search_and_legacy_rendering(object player)
 		search(player->view_inventory_browser("all",1,""),
 			"[套装管理:set_equipment_cleanup]")!=-1,
 		rendered+"\n---\n"+dropdown);
+	int cleanup_entries=0;
+	for(int pos=0;(pos=search(view_source,
+		"[一键清理重复套装:set_equipment_cleanup sell]",pos))!=-1;
+		pos+=10)
+		cleanup_entries++;
+	check("新旧装备背包视图都带一键清理重复套装入口",
+		cleanup_entries==2 &&
+		search(view_source,"[一键安全销毁非装备:cleanup_non_equipment]")!=-1,
+		sprintf("entries=%d",cleanup_entries));
 	mixed err=catch {
 		compile_file(ROOT+"/lowlib/wapmud2/cmds/inventory_filter.pike");
 		compile_file(ROOT+"/lowlib/wapmud2/cmds/inventory_legacy.pike");

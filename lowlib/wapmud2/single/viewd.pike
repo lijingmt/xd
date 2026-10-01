@@ -276,6 +276,7 @@ $(ob->query_links(arg))
 			[战斗系统一键切换:battle_system]
 			[新手补给商店:newbie_shop]
 			[一键学习书卷:learn_all]
+			[一键清理重复套装:set_equipment_cleanup sell]
 			[一键安全销毁非装备:cleanup_non_equipment]
 			[前缀装备清理:prefix_gear_cleanup]
 			$(player->view_inventory_batch_sell_entry())
@@ -289,6 +290,7 @@ $(ob->query_links(arg))
 			[战斗系统一键切换:battle_system]
 			[新手补给商店:newbie_shop]
 			[一键学习书卷:learn_all]
+			[一键清理重复套装:set_equipment_cleanup sell]
 			[一键安全销毁非装备:cleanup_non_equipment]
 			[前缀装备清理:prefix_gear_cleanup]
 			$(player->view_inventory_batch_sell_entry())
